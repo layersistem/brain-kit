@@ -4,7 +4,7 @@ description: >
   Nightly consolidation for the brain vault (the waking equivalent of sleep consolidation).
   Use when asked to "consolidate", "distil today's decisions", "scan for superseded notes",
   at the end of a session or before a compaction. Collects a window of decision records,
-  finds their older neighbours, and produces a four-part PROPOSAL report. The agent never
+  finds their older neighbours, and produces a five-part PROPOSAL report. The agent never
   applies anything - the human approves.
 ---
 
@@ -56,5 +56,9 @@ skill turns that cleanup into a reviewable proposal.
   that CLI is not on PATH, use an in-session subagent instead - the prompt file is the same.
 - Two runs on the same day overwrite `consolidation_<until>.md`; archive the earlier report with a
   time/status suffix first. The latest run is the one that counts.
+  Archived reports for the same window are fed back into the next prompt as "EARLIER RUNS", so a
+  re-run does not re-propose items already applied.
+- A compact-hub whose body already says it was handed over ("superseded by / read that one first")
+  is not a supersede candidate; only propose `status: superseded` on a real content conflict.
 - The prompt carries the observation stream (`observe-mutations.sh`). `[NO-DR]` lines are candidates
   for a missing decision record; hook self-test lines are noise - report them, do not create notes.

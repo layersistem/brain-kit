@@ -2,7 +2,7 @@
 """consolidate_prompt - builds the prompt for the consolidation pass.
 
 Input: a window of decision records plus, for each one, the older BM25 neighbours that may
-now be obsolete. Output: one markdown prompt asking for a four-part PROPOSAL report.
+now be obsolete. Output: one markdown prompt asking for a five-part PROPOSAL report.
 The agent proposes; a human applies. Nothing here writes to the vault."""
 
 CONTRACT = """You are the consolidation agent for a second brain - the waking equivalent of
@@ -24,6 +24,7 @@ One line each: `- <old-note> -> <new-DR> - <same topic, and what it invalidated>
 Only pairs where a newer decision genuinely invalidates an older one. "Related" is NOT superseded.
 Write 'medium' when unsure; if doubtful, leave it out. Applying means adding `status: superseded`
 plus `superseded_by:` to the old note.
+A compact-hub whose body already says it was HANDED OVER ("superseded by / read that one first") is done -> do NOT propose it (noise).
 
 ## 3. CONFLICT / DUPLICATE
 Note pairs that state the same fact differently or repeat each other, with a suggestion for which
@@ -65,6 +66,12 @@ def _skill_names():
     return out
 
 
+def previous_reports(drafts, until):
+    """Earlier report(s) for the same window (_drafts/consolidation_<until>*.md, minus _prompt; archived copies included)."""
+    return "\n".join(f"### {p.name}\n" + p.read_text(encoding="utf-8", errors="ignore")[:5000]
+                     for p in sorted(drafts.glob(f"consolidation_{until}*.md")) if not p.stem.endswith("_prompt"))
+
+
 def observations(drafts, since, until):
     """Observation stream written by hooks/observe-mutations.sh (one file per instance per day, kept out
     of retrieval). Fed to the agent so that mutations no decision record explains surface as [NO-DR]."""
@@ -73,8 +80,9 @@ def observations(drafts, since, until):
                      if since <= p.stem.rsplit("_", 1)[-1] <= until)
 
 
-def build(window, items, valid_notes, observations=""):
-    """items: [{note, meta, headings, body, neighbors:[(note, score, heading)]}]; observations: raw stream"""
+def build(window, items, valid_notes, observations="", previous=""):
+    """items: [{note, meta, headings, body, neighbors:[(note, score, heading)]}]; observations: raw stream;
+    previous: earlier report(s) for the same window, so a re-run does not re-propose what was already applied"""
     parts = [CONTRACT, f"\nWINDOW: {window}\n", "VALID-NOTES (only these names may be used):",
              ", ".join(sorted(valid_notes)),
              "SKILLS (section 5 UPDATE/SIMPLIFY may name only these):", ", ".join(_skill_names()) or "(none)", "\n=== DECISION RECORDS ==="]
@@ -90,4 +98,7 @@ def build(window, items, valid_notes, observations=""):
         parts.append("\n=== OBSERVATION STREAM (hook-written mutation trail; list anything no DR explains "
                      "in section 1 as `- [NO-DR] <observation> - which DR/knowledge note it belongs in`) ===\n"
                      + observations)
+    if previous:
+        parts.append("\n=== EARLIER RUNS (same window; these were already proposed - do NOT repeat anything that "
+                     "now appears applied in the notes; list only new or still-open items) ===\n" + previous)
     return "\n".join(parts)

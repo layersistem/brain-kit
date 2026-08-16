@@ -67,9 +67,9 @@ half-restored context is how sessions break things.
 ## 6. Nightly consolidation: propose, then approve
 
 Run `brain_consolidate.py` on a schedule or at the end of a session. It gathers the window's
-decision records plus their older neighbours and produces a four-part proposal: what to distil
+decision records plus their older neighbours and produces a five-part proposal: what to distil
 into durable knowledge, which old notes are now superseded, which notes contradict each other,
-which records deserve a weight tag.
+which records deserve a weight tag, and which lessons should become (part of) a skill.
 
 The agent proposes. A human approves. Nothing is applied automatically - a memory system that
 edits its own memory unattended stops being trustworthy the first time it is wrong.
@@ -80,7 +80,9 @@ record explains comes back as `[NO-DR]`: work that happened but was never writte
 lines will show up there too; treat them as noise, not as a note to create.
 
 Two runs on the same day overwrite `consolidation_<until>.md`. Archive the earlier report with a
-time or status suffix before re-running; the latest run is the one that counts.
+time or status suffix before re-running; the latest run is the one that counts. Archived reports for the same window are fed back into the next
+prompt ("EARLIER RUNS") so a re-run only lists what is new or still open. Hand-over hubs
+("read the newer one first") are not supersede candidates.
 
 ## 7. Multiple instances, one vault
 
