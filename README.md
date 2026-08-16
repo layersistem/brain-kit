@@ -117,7 +117,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Semantic memory | neocortex | `knowledge/` + `memory/` | durable know-how and timeless canon, distilled out of episodes |
 | Procedural memory | basal ganglia | skills + hooks | reflexes that run without recall: retrieve, embed, snapshot, check |
 | Attention / cue-driven recall | association cortex | `_auto_retrieve.sh` -> `brain_recall.py` (BM25, optionally fused with a warm BGE-M3 daemon) | the note you would have thought of, injected before you ask |
-| Prospective memory | frontal lobe | `focus/` file, injected verbatim | "what was I in the middle of" |
+| Prospective memory | frontal lobe | `focus/` file, injected verbatim + `@due` lines surfaced by `due-inject.sh` when their day comes | "what was I in the middle of" and "what did I promise to do on Monday at 11:30" |
 | Salience / emotional tagging | amygdala | `weight:` (canon > lesson > approval > routine) | canon outranks routine at equal relevance |
 | Forgetting | synaptic decay | age decay + `superseded` penalty | an old, undated-importance note fades instead of crowding out this week's |
 | Sleep consolidation | hippocampus -> cortex replay | `brain_consolidate.py` proposal | distil episodes into knowledge, mark superseded, surface contradictions - a human approves |
@@ -134,6 +134,7 @@ anything; it gives a frozen model a memory it can read.
 | every prompt | `_focus_inject.sh` | your focus file for this instance, verbatim |
 | every prompt | `_auto_retrieve.sh` | top-k matching notes: score, path, "what" line, 200-char excerpt |
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
+| every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; silent otherwise |
 | after a note write | `brain-embed-after-write.sh` | one line confirming the re-embed (or that it failed) |
 | after a note write | `postwrite-check.sh` | only when a wikilink points at a missing note, or a note is empty |
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |

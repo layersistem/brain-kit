@@ -62,7 +62,7 @@ say "(4/6) hook wiring in $SETTINGS"
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 cp -f "$SETTINGS" "$SETTINGS.bak.$(date +%s)"
 W=("UserPromptSubmit::::_focus_inject.sh" "UserPromptSubmit::::_auto_retrieve.sh"
-   "UserPromptSubmit::::time-inject.sh"
+   "UserPromptSubmit::::time-inject.sh" "UserPromptSubmit::::due-inject.sh"
    "PostToolUse::Write|Edit::brain-embed-after-write.sh" "PreCompact::::precompact-snapshot.sh"
    "SessionStart::compact::sessionstart-compact-pointer.sh")
 [ "$PROFILE" = "full" ] && W+=("PostToolUse::Write|Edit::postwrite-check.sh"
