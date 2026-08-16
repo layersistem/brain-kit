@@ -72,6 +72,29 @@ focus/      _FOCUS_<instance>.txt current focus, injected verbatim every prompt
 _drafts/                          snapshots and consolidation output - excluded from retrieval
 ```
 
+## Prostheses: what each part stands in for
+
+The model's weights are frozen and its context is a working memory that compaction empties.
+Everything in this kit is a prosthesis for a faculty the vendor does not ship. The mapping is not
+a metaphor we decorated afterwards; it is how the pieces were chosen, over about three months of
+daily use, adding one part each time a specific kind of forgetting hurt.
+
+| Human faculty | Brain region (rough) | brain-kit part | What it replaces |
+|---|---|---|---|
+| Working memory | prefrontal cortex | the context window (vendor) | nothing - but compaction is a lossy blackout, so `precompact-snapshot.sh` keeps the raw last messages |
+| Episodic memory | hippocampus | `decision/` records | "what did we decide on Tuesday, and what did we reject" |
+| Semantic memory | neocortex | `knowledge/` + `memory/` | durable know-how and timeless canon, distilled out of episodes |
+| Procedural memory | basal ganglia | skills + hooks | reflexes that run without recall: retrieve, embed, snapshot, check |
+| Attention / cue-driven recall | association cortex | `_auto_retrieve.sh` (BM25) + optional BGE-M3 | the note you would have thought of, injected before you ask |
+| Prospective memory | frontal lobe | `focus/` file, injected verbatim | "what was I in the middle of" |
+| Salience / emotional tagging | amygdala | `weight:` (canon > lesson > approval > routine) | canon outranks routine at equal relevance |
+| Forgetting | synaptic decay | age decay + `superseded` penalty | an old, undated-importance note fades instead of crowding out this week's |
+| Sleep consolidation | hippocampus -> cortex replay | `brain_consolidate.py` proposal | distil episodes into knowledge, mark superseded, surface contradictions - a human approves |
+| Metacognition | anterior cingulate | discipline docs, `docs/DISCIPLINE.md` | knowing when the tool is wrong, when to stop, when to ask |
+
+Not covered, on purpose: continual learning of the weights themselves. This kit does not train
+anything; it gives a frozen model a memory it can read.
+
 ## What gets injected, and when
 
 | Moment | Hook | What lands in context |
