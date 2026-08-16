@@ -65,6 +65,10 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
                                                      '-- brain_searchd daemon (warm BGE-M3, ~80 ms,
                                                          RRF-fused; recommended, run as a service;
                                                          absent -> plain BM25; docs/DENSE_RECALL.md)
+      +--> [UserPromptSubmit] time-inject.sh -------> a clock: now (with weekday), session age,
+                                                     minutes since your last prompt
+      +--> [UserPromptSubmit] due-inject.sh --------> @due lines whose day has come (overdue, today,
+                                                     tomorrow) + once a day the coming week
   you write a note
       +--> [PostToolUse] brain-embed-after-write.sh --> brain_embed.py --> .index/embeddings.jsonl
       |                                                 (BGE-M3, local CPU, hash-incremental)
@@ -117,7 +121,10 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Semantic memory | neocortex | `knowledge/` + `memory/` | durable know-how and timeless canon, distilled out of episodes |
 | Procedural memory | basal ganglia | skills + hooks | reflexes that run without recall: retrieve, embed, snapshot, check |
 | Attention / cue-driven recall | association cortex | `_auto_retrieve.sh` -> `brain_recall.py` (BM25, optionally fused with a warm BGE-M3 daemon) | the note you would have thought of, injected before you ask |
-| Prospective memory | frontal lobe | `focus/` file, injected verbatim + `@due` lines surfaced by `due-inject.sh` when their day comes | "what was I in the middle of" and "what did I promise to do on Monday at 11:30" |
+| Sense of time | suprachiasmatic nucleus + hippocampal time cells | `time-inject.sh` | the model has no clock: without it "yesterday", "an hour ago" and "how long was I away over that compaction" are guesses. Injected, not instructed - a "work out the time" instruction produces a guess |
+| Prospective memory (time-based) | rostral prefrontal cortex | `@due YYYY-MM-DD[ HH:MM] text` lines in your focus or your own decision records, surfaced by `due-inject.sh` | "what did I promise to do on Monday at 11:30" - overdue, today and tomorrow on every prompt; the coming week once a day, on the first prompt, the way a person scans the week over the first coffee and then lets the far horizon go blurry |
+| Ongoing-task memory | frontal lobe | `focus/` file, injected verbatim | "what was I in the middle of" |
+| Re-orientation after a blackout | waking up: reticular activating system | `sessionstart-compact-pointer.sh` + the handoff note it points at | "where am I, what was I doing" after a compaction, without a search |
 | Salience / emotional tagging | amygdala | `weight:` (canon > lesson > approval > routine) | canon outranks routine at equal relevance |
 | Forgetting | synaptic decay | age decay + `superseded` penalty | an old, undated-importance note fades instead of crowding out this week's |
 | Sleep consolidation | hippocampus -> cortex replay | `brain_consolidate.py` proposal | distil episodes into knowledge, mark superseded, surface contradictions - a human approves |
@@ -134,7 +141,7 @@ anything; it gives a frozen model a memory it can read.
 | every prompt | `_focus_inject.sh` | your focus file for this instance, verbatim |
 | every prompt | `_auto_retrieve.sh` | top-k matching notes: score, path, "what" line, 200-char excerpt |
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
-| every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; silent otherwise |
+| every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |
 | after a note write | `brain-embed-after-write.sh` | one line confirming the re-embed (or that it failed) |
 | after a note write | `postwrite-check.sh` | only when a wikilink points at a missing note, or a note is empty |
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |
