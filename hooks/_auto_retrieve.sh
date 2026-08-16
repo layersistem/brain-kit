@@ -27,16 +27,29 @@ PROMPT=$(printf '%s' "$IN" | python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("prompt",""))
 except Exception: print("")' 2>/dev/null)
 [ -z "$PROMPT" ] && exit 0
+# Metacognition (17 Aug 2026): a confidence tag per note (STRONG = both engines agreed, or dense cosine >= BRAIN_DENSE_MIN;
+# FAIR = one engine only) and a count in the header - so the model knows how much to trust what it was handed. And when
+# nothing matched a real question (>= 6 words), say so out loud: "no note on this - say you don't know, label guesses
+# as hypotheses" - silence used to be ambiguous between "no record" and "short chatty message".
+export RECALL_PROMPT_WORDS=$(printf '%s' "$PROMPT" | wc -w | tr -d ' ')
 python3 "$BM" "$PROMPT" "${BRAIN_RECALL_K:-5}" 2>/dev/null | python3 -c '
-import sys, json
+import sys, json, os
 try: r = json.load(sys.stdin)
 except Exception: r = []
-if not r: sys.exit(0)
+if not r:
+    if int(os.environ.get("RECALL_PROMPT_WORDS","0") or 0) >= 6:
+        print("AUTO-RECALL: no matching note - treat this as NOT KNOWN: say so, label any guess as a hypothesis, do not invent; ask if it matters.")
+    sys.exit(0)
+DM = float(os.environ.get("BRAIN_DENSE_MIN","0.62") or 0.62)
+def tier(x):
+    s = str(x.get("score",""))
+    return "STRONG" if s.endswith("bd") or (x.get("cos") is not None and float(x["cos"]) >= DM) else "FAIR"
+tiers = [tier(x) for x in r]
 print("AUTO-RECALL (your own notes, closest to this message - if one is relevant, use it "
-      "before re-deriving or reverse-engineering anything):")
-for x in r:
+      "before re-deriving or reverse-engineering anything) - confidence: %d strong, %d fair:" % (tiers.count("STRONG"), tiers.count("FAIR")))
+for x, t in zip(r, tiers):
     h = (x.get("heading") or "").strip()
-    line = "  [%s] %s:%s" % (x["score"], x["root"], x["note"])
+    line = "  %s [%s] %s:%s" % (t, x["score"], x["root"], x["note"])
     if h: line += " > " + h
     print(line + "  (" + x["path"] + ")")
     hint = (x.get("hint") or "").strip()

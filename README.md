@@ -132,7 +132,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Forgetting | synaptic decay | age decay + `superseded` penalty | an old, undated-importance note fades instead of crowding out this week's |
 | Sleep consolidation | hippocampus -> cortex replay | `brain_consolidate.py` proposal | distil episodes into knowledge, mark superseded, surface contradictions - a human approves |
 | Implicit episodic trace | hippocampal indexing of what you did, not what you decided | `observe-mutations.sh` stream | every mutation leaves a one-line trace; consolidation matches traces to decisions and flags the unexplained ones |
-| Metacognition | anterior cingulate | discipline docs, `docs/DISCIPLINE.md` | knowing when the tool is wrong, when to stop, when to ask |
+| Metacognition | anterior cingulate | confidence tags on every recalled note (STRONG = both engines agreed or dense cosine over the floor, FAIR = one engine) + an explicit "no matching note - treat as not known" line when a real question finds nothing; discipline docs, `docs/DISCIPLINE.md` | knowing how much to trust what memory just handed you, knowing that you don't know (say so, label the guess a hypothesis) - and when the tool is wrong, when to stop, when to ask |
 
 Not covered, on purpose: continual learning of the weights themselves. This kit does not train
 anything; it gives a frozen model a memory it can read.
@@ -142,7 +142,7 @@ anything; it gives a frozen model a memory it can read.
 | Moment | Hook | What lands in context |
 |---|---|---|
 | every prompt | `_focus_inject.sh` | your focus file for this instance, verbatim |
-| every prompt | `_auto_retrieve.sh` | top-k matching notes: score, path, "what" line, 200-char excerpt |
+| every prompt | `_auto_retrieve.sh` | top-k matching notes with a confidence tag each (STRONG/FAIR) and a count in the header; on a real question (>= 6 words) with no match, one line saying so - not silence |
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
 | every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |
 | every prompt | `context-inject.sh` | context ~Nk (P% of window), delta since last prompt, warning past 80% (`BRAIN_CTX_WARN`, `BRAIN_CTX_WINDOW`). **Claude Code only** - needs the hook's `transcript_path`; silent elsewhere |
