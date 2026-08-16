@@ -40,11 +40,12 @@ while IFS= read -r f; do
 done < <(grep -l '@due [0-9]' "$VAULT"/decision/*.md 2>/dev/null)
 
 OUT=$(grep -Hn '@due [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}' "${FILES[@]}" 2>/dev/null | while IFS= read -r line; do
-  loc=${line%%:*}; rest=${line#*:}; ln=${rest%%:*}; body=${rest#*:}
-  d=$(printf '%s' "$body" | sed -n 's/.*@due \([0-9-]\{10\}\).*/\1/p')
-  hm=$(printf '%s' "$body" | sed -n 's/.*@due [0-9-]\{10\} \([0-9][0-9]:[0-9][0-9]\).*/\1/p')
-  txt=$(printf '%s' "$body" | sed 's/.*@due [0-9-]\{10\}\( [0-9][0-9]:[0-9][0-9]\)\{0,1\} *//' | cut -c1-140)
-  loc=${loc#$VAULT/}
+  loc=${line%%:*}; rest=${line#*:}; ln=${rest%%:*}; body=${rest#*:}; loc=${loc#$VAULT/}
+  # several @due on one line -> one entry each (a line-based parse only saw the last one)
+  printf '%s\n' "$body" | awk '{gsub(/@due [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/,"\n&"); print}' | grep '^@due ' | while IFS= read -r item; do
+  d=${item:5:10}; tail=${item:15}
+  hm=$(printf '%s' "$tail" | sed -n 's/^ \([0-9][0-9]:[0-9][0-9]\).*/\1/p')
+  txt=$(printf '%s' "$tail" | sed 's/^ \([0-9][0-9]:[0-9][0-9]\)\{0,1\} *//' | cut -c1-140)
   if [[ "$d" < "$TODAY" ]]; then
     printf '  OVERDUE %sd (%s%s) %s  (%s:%s)\n' "$(( ( $(epoch "$TODAY") - $(epoch "$d") ) / 86400 ))" "$d" "${hm:+ $hm}" "$txt" "$loc" "$ln"
   elif [ "$d" = "$TODAY" ]; then
@@ -56,6 +57,7 @@ OUT=$(grep -Hn '@due [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}' "${FILES[@]}" 2>/dev/null
     dow=${DAYS[$(date -j -f %F "$d" +%w 2>/dev/null || date -d "$d" +%w)]}
     printf '  this week %s %s%s - %s  (%s:%s)\n' "$dow" "${d:5}" "${hm:+ $hm}" "$txt" "$loc" "$ln"
   fi
+  done
 done)
 [ "$FIRST" = 1 ] && echo "$TODAY" > "$DAYF"
 [ -n "$OUT" ] || exit 0
