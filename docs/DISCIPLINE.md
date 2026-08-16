@@ -80,6 +80,13 @@ Each session declares an owner via the `instance:` frontmatter field, and each h
 focus file. One folder, one owner: two sessions writing the same note is how you get a merge
 conflict inside your memory. See [MULTI_INSTANCE.md](MULTI_INSTANCE.md).
 
+Keep the focus file small. It is re-injected on every prompt, so it is the most expensive text
+in the vault per byte: current state, the pointer to today's hub record, open items - and
+nothing that a decision record already holds. We measured a focus file that had grown into a
+59 KB diary line costing 96 KB of injected context on every prompt, for every instance that
+reads it. The hook caps injection at 12 KB and warns; the fix is to move the history into a
+decision record, not to raise the cap.
+
 ## 8. Things we use but do not ship
 
 These live in our private setup as hooks. They are opinionated, easy to get wrong, and none of

@@ -42,7 +42,19 @@ if [ ! -f "$FOCUS" ]; then
   exit 0
 fi
 echo "CURRENT FOCUS ($I) - from ${FOCUS#$VAULT/}; update it whenever the focus changes:"
-sed 's/^/  /' "$FOCUS" 2>/dev/null
+# Injection cap. The focus file is the CURRENT state plus pointers; history belongs in decision
+# records. A focus that grows into a diary is re-sent on every prompt (measured: a 59 KB summary
+# line cost 96 KB per prompt across every instance). Over the cap it is truncated with a warning;
+# the full file is still on disk. Override with BRAIN_FOCUS_MAX (bytes).
+_FMAX=${BRAIN_FOCUS_MAX:-12000}
+_fsz=$(wc -c < "$FOCUS")
+if [ "$_fsz" -gt "$_FMAX" ]; then
+  head -c "$_FMAX" "$FOCUS" | sed 's/^/  /'
+  echo ""
+  echo "  WARNING: focus truncated ($_fsz > $_FMAX bytes). Move history into a decision record and shorten the summary line."
+else
+  sed 's/^/  /' "$FOCUS" 2>/dev/null
+fi
 
 if [ -n "${BRAIN_TODO:-}" ] && [ -f "$BRAIN_TODO" ]; then
   echo ""
