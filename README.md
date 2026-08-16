@@ -44,8 +44,11 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
   your prompt
       |
       +--> [UserPromptSubmit] _focus_inject.sh ----> current focus file, verbatim
-      +--> [UserPromptSubmit] _auto_retrieve.sh ---> brain_bm25.py --> top-k notes injected
-                                                     (zero model, ~100 ms, stdlib only)
+      +--> [UserPromptSubmit] _auto_retrieve.sh ---> brain_recall.py --> top-k notes injected
+                                                     |-- brain_bm25 (zero model, ~100 ms, stdlib only)
+                                                     '-- optional: brain_searchd daemon (warm BGE-M3,
+                                                         ~80 ms, RRF-fused; absent -> plain BM25;
+                                                         see docs/DENSE_RECALL.md)
   you write a note
       +--> [PostToolUse] brain-embed-after-write.sh --> brain_embed.py --> .index/embeddings.jsonl
       |                                                 (BGE-M3, local CPU, hash-incremental)
@@ -78,6 +81,7 @@ _drafts/                          snapshots and consolidation output - excluded 
 ```
 
 The vault is plain markdown with `[[wikilinks]]`, so it opens as-is in Obsidian (graph view, backlinks,
+`_drafts/` is pre-excluded from the graph via `.obsidian/app.json` - it holds working files, not notes;
 search) - useful for reading and pruning by hand, but optional: nothing in brain-kit depends on it, and
 `grep` or any editor works the same. If you already keep an Obsidian vault, point `BRAIN_DIR` at it
 (see [`INTRO_PROMPT.md`](INTRO_PROMPT.md), track B).
@@ -95,7 +99,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Episodic memory | hippocampus | `decision/` records | "what did we decide on Tuesday, and what did we reject" |
 | Semantic memory | neocortex | `knowledge/` + `memory/` | durable know-how and timeless canon, distilled out of episodes |
 | Procedural memory | basal ganglia | skills + hooks | reflexes that run without recall: retrieve, embed, snapshot, check |
-| Attention / cue-driven recall | association cortex | `_auto_retrieve.sh` (BM25) + optional BGE-M3 | the note you would have thought of, injected before you ask |
+| Attention / cue-driven recall | association cortex | `_auto_retrieve.sh` -> `brain_recall.py` (BM25, optionally fused with a warm BGE-M3 daemon) | the note you would have thought of, injected before you ask |
 | Prospective memory | frontal lobe | `focus/` file, injected verbatim | "what was I in the middle of" |
 | Salience / emotional tagging | amygdala | `weight:` (canon > lesson > approval > routine) | canon outranks routine at equal relevance |
 | Forgetting | synaptic decay | age decay + `superseded` penalty | an old, undated-importance note fades instead of crowding out this week's |
@@ -136,6 +140,8 @@ Everything is environment variables; `setup.sh` writes the two that matter into
 | `BRAIN_STOPWORDS` | empty | extra stopwords (also `<root>/.brain-stopwords`) |
 | `BRAIN_EMBED` | `1` | `0` keeps the embedding hook idle (set by `--no-embed`) |
 | `BRAIN_EMBED_MODEL` / `BRAIN_RERANK_MODEL` | BGE-M3 / bge-reranker-v2-m3 | local model overrides |
+| `BRAIN_SEARCHD_URL` / `_TIMEOUT` / `_PORT` | `127.0.0.1:8799`, `0.3`, `8799` | optional dense daemon (`docs/DENSE_RECALL.md`); absent = BM25 only |
+| `BRAIN_DENSE_MIN` / `BRAIN_DENSE_JOIN` | `0.62` / `0.55` | dense cosine gates: answer-alone / enter-fusion |
 | `BRAIN_PROJECT_NAME` / `_VOCAB` / `BRAIN_CWD_MARKERS` | empty | project scope filter (off by default) |
 | `BRAIN_FOCUS_DIRS` / `BRAIN_ISOLATE_DIRS` | empty | directory globs where hooks speak, or stay silent |
 | `BRAIN_CONSOLIDATE_CMD` | `claude -p` | CLI used by the optional `--llm` consolidation path |

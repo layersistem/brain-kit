@@ -16,7 +16,8 @@ BRAIN_ROOT = pathlib.Path(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/bra
 VAULT = pathlib.Path(os.environ.get("BRAIN_DIR", str(BRAIN_ROOT / "vault")))
 MEMORY = pathlib.Path(os.environ.get("BRAIN_MEMORY", str(BRAIN_ROOT / "memory")))
 MEMORY2 = pathlib.Path(os.environ.get("BRAIN_MEMORY2", "/nonexistent"))
-ROOTS = [(VAULT, "vault"), (MEMORY, "memory"), (MEMORY2, "memory")]
+IMEM_TAG = f"imem/{MEMORY2.parent.name}"   # per-project memory: tagged by project slug, filtered per instance at search
+ROOTS = [(VAULT, "vault"), (MEMORY, "memory"), (MEMORY2, IMEM_TAG)]
 MODEL_NAME = os.environ.get("BRAIN_EMBED_MODEL", "BAAI/bge-m3")
 INDEX_DIR = VAULT / ".index"
 EMB_FILE = INDEX_DIR / "embeddings.jsonl"
@@ -86,6 +87,9 @@ def main():
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
     by_path, manifest = load_existing()
     out, to_embed, new_manifest = [], [], {}
+    for rel, h in manifest.items():           # other projects' per-project memory: keep untouched
+        if rel.startswith("imem/") and not rel.startswith(IMEM_TAG + "/"):
+            new_manifest[rel] = h; out.extend(by_path.get(rel, []))
     for root, tag, f in md_files():
         rel = f"{tag}/{f.relative_to(root)}"
         text = f.read_text(encoding="utf-8", errors="ignore")

@@ -1,7 +1,8 @@
 #!/bin/sh
-# UserPromptSubmit - AUTO RECALL: run the incoming prompt through brain_bm25.py and inject
-# the top-k vault/memory hits into context. Zero model, ~100ms, no network. Any failure is
-# silent: recall must never break the session.
+# UserPromptSubmit - AUTO RECALL: run the incoming prompt through brain_recall.py (hybrid: BM25 in-process
+# + BGE-M3 dense from the optional brain_searchd daemon, fused by RRF) and inject the top-k vault/memory
+# hits into context. Without the daemon this is plain BM25 - zero model, ~100 ms, no network. Any failure
+# is silent: recall must never break the session. Score "3.3bd" = RRF x100 + which engines found it (b/d).
 #
 # Config: BRAIN_ROOT, BRAIN_DIR (via <claude-dir>/brain-kit.env or the environment).
 #         BRAIN_RECALL_K   - how many notes to inject (default 5)
@@ -13,7 +14,8 @@ export BRAIN_ROOT BRAIN_DIR
 for d in ${BRAIN_ISOLATE_DIRS:-}; do
   case "${PWD:-}" in $d|$d/*) exit 0 ;; esac
 done
-BM="$BRAIN_ROOT/scripts/brain_bm25.py"
+BM="$BRAIN_ROOT/scripts/brain_recall.py"
+[ -f "$BM" ] || BM="$BRAIN_ROOT/scripts/brain_bm25.py"   # older installs without the hybrid layer
 [ -f "$BM" ] || exit 0
 # Third root: the per-project memory directory some agent CLIs manage themselves.
 export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${PWD:-}" | tr '/ _' '---')/memory}"
