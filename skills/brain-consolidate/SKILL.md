@@ -27,7 +27,7 @@ skill turns that cleanup into a reviewable proposal.
 
 2. **Write the report.** Hand the prompt file to a subagent - use the strongest model you have
    available, since this is a judgement task, not a formatting task. The subagent reads the
-   prompt file and writes the four sections (DISTILL, SUPERSEDE, CONFLICT/DUPLICATE, WEIGHT
+   prompt file and writes the five sections (DISTILL, SUPERSEDE, CONFLICT/DUPLICATE, WEIGHT, SKILL DISTILLATION
    CANDIDATES) to `<vault>/_drafts/consolidation_<until>.md`. It touches no other file.
 
    Gate the result before showing it:
@@ -36,7 +36,7 @@ skill turns that cleanup into a reviewable proposal.
    python3 "$BRAIN_ROOT/scripts/brain_consolidate.py" --verify <report.md>
    ```
 
-   That checks all four sections exist and that no `[[wikilink]]` points at a missing note.
+   That checks all five sections exist and that no `[[wikilink]]` points at a missing note.
 
 3. **Show the human the report.** Only approved items get applied:
    - distil -> write or edit the target note in `knowledge/` or `memory/`

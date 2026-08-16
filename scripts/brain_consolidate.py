@@ -21,7 +21,7 @@ BRAIN_ROOT = pathlib.Path(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/bra
 VAULT = pathlib.Path(os.environ.get("BRAIN_DIR", str(BRAIN_ROOT / "vault")))
 DEC, DRAFTS = VAULT / "decision", VAULT / "_drafts"
 BODY_CAP, TOTAL_CAP, NEIGH_K = 3200, 60000, 6
-SECTIONS = ("## 1. DISTILL", "## 2. SUPERSEDE", "## 3. CONFLICT", "## 4. WEIGHT")
+SECTIONS = ("## 1. DISTILL", "## 2. SUPERSEDE", "## 3. CONFLICT", "## 4. WEIGHT", "## 5. SKILL")
 
 
 def _fm(text):
