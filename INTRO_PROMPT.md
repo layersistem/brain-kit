@@ -6,10 +6,14 @@ commands yourself, verify the results, and finish with a five-line report.
 
 Two engines, neither of which calls an API:
 
-- **Recall** - `brain_bm25.py`, pure stdlib, ~100 ms, runs on every prompt through a hook.
+- **Recall** - `brain_recall.py`: BM25 (pure stdlib, ~100 ms) fused with dense BGE-M3 hits from
+  the `brain_searchd` daemon (recommended, run as a service - docs/DENSE_RECALL.md); runs on every
+  prompt through a hook. Without the daemon it is plain BM25.
 - **Embed** - `brain_embed.py`, BGE-M3 on local CPU, runs whenever a note is written.
 
-Nothing leaves this machine.
+Nothing leaves this machine. **BGE-M3 is a requirement of the full kit** (~2 GB model, downloaded
+once by the first embed run); `--no-embed` is a degraded BM25-only mode for machines that cannot
+carry it - see README "Requirements".
 
 Pick your track:
 

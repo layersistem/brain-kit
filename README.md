@@ -16,8 +16,23 @@ model-written summary loses something, the raw text is still there. And a consol
 collects a window of decision records, finds the older notes each one might have superseded, and
 produces a **proposal**: distil this into knowledge, mark that one superseded, these two
 contradict each other. A human approves; nothing is applied on its own. All of it runs locally.
-No API key, no cloud, nothing leaves the machine - retrieval is pure Python with no model at
-all, and the optional semantic layer runs BGE-M3 on your CPU.
+No API key, no cloud, nothing leaves the machine - BM25 retrieval is pure Python with no model at
+all, and the semantic layer runs BGE-M3 on your CPU.
+
+## Requirements
+
+- Python >= 3.10, `jq`, a POSIX shell. macOS and Linux tested.
+- **BGE-M3 (`BAAI/bge-m3`) is required for the full kit.** `setup.sh` installs
+  `sentence-transformers` + `torch` into `<BRAIN_ROOT>/.venv` and the first embed run downloads
+  the model (~2 GB, once, from Hugging Face; offline afterwards). It powers the embed hook, the
+  duplicate check on write, `brain_search.py`, and the hybrid recall daemon
+  (`docs/DENSE_RECALL.md`) - the configuration we measured best (BM25 hit@1 0.80 -> hybrid 0.87).
+  Budget ~2 GB disk for the model and ~3 GB RAM if you run the daemon resident.
+- `./setup.sh --no-embed` is the fallback for machines that cannot carry the model: BM25 recall,
+  focus injection, compact snapshots and consolidation still work; embedding, dedup-on-write and
+  dense recall stay off. It is a degraded mode, not the recommended one.
+- Optional: Obsidian. The vault is plain markdown with `[[wikilinks]]`; graph view and backlinks
+  make orphan notes and missing links visible at a glance.
 
 ## Quick start
 
@@ -28,8 +43,9 @@ BRAIN_ROOT=~/brain python3 ~/brain/scripts/brain_bm25.py "example decision" 3
 ```
 
 Restart your agent session afterwards so the hooks load. `--minimal` installs only recall,
-embedding and the compact hooks; the default profile adds the vault hygiene check and the
-consolidation skill.
+embedding and the compact hooks; the default profile adds the vault hygiene check, the
+observation stream and the consolidation skill. Then run the dense-recall daemon as a service
+(recommended, `docs/DENSE_RECALL.md`) - recall is hybrid the moment it is up, BM25-only until then.
 
 ## Model-first install
 
@@ -46,9 +62,9 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
       +--> [UserPromptSubmit] _focus_inject.sh ----> current focus file, verbatim
       +--> [UserPromptSubmit] _auto_retrieve.sh ---> brain_recall.py --> top-k notes injected
                                                      |-- brain_bm25 (zero model, ~100 ms, stdlib only)
-                                                     '-- optional: brain_searchd daemon (warm BGE-M3,
-                                                         ~80 ms, RRF-fused; absent -> plain BM25;
-                                                         see docs/DENSE_RECALL.md)
+                                                     '-- brain_searchd daemon (warm BGE-M3, ~80 ms,
+                                                         RRF-fused; recommended, run as a service;
+                                                         absent -> plain BM25; docs/DENSE_RECALL.md)
   you write a note
       +--> [PostToolUse] brain-embed-after-write.sh --> brain_embed.py --> .index/embeddings.jsonl
       |                                                 (BGE-M3, local CPU, hash-incremental)
@@ -65,7 +81,8 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
       +--> [SessionStart:compact] pointer ------------> "read the handoff note, then this snapshot"
 
   by hand / nightly
-      brain_search.py       BGE-M3 retrieve + reranker rerank   (semantic, still local)
+      brain_search.py       BGE-M3 retrieve (+ optional reranker; measured worse
+                            than plain cosine here) - one-off deep search, still local
       brain_consolidate.py  window of decisions -> proposal report -> human approves
 ```
 
@@ -81,10 +98,10 @@ _drafts/                          snapshots and consolidation output - excluded 
 ```
 
 The vault is plain markdown with `[[wikilinks]]`, so it opens as-is in Obsidian (graph view, backlinks,
-`_drafts/` is pre-excluded from the graph via `.obsidian/app.json` - it holds working files, not notes;
 search) - useful for reading and pruning by hand, but optional: nothing in brain-kit depends on it, and
-`grep` or any editor works the same. If you already keep an Obsidian vault, point `BRAIN_DIR` at it
-(see [`INTRO_PROMPT.md`](INTRO_PROMPT.md), track B).
+`grep` or any editor works the same. `_drafts/` is pre-excluded from the Obsidian graph via the seeded
+`.obsidian/app.json` - it holds working files, not notes, so it should not show up as orphans. If you
+already keep an Obsidian vault, point `BRAIN_DIR` at it (see [`INTRO_PROMPT.md`](INTRO_PROMPT.md), track B).
 
 ## Prostheses: what each part stands in for
 
@@ -140,7 +157,7 @@ Everything is environment variables; `setup.sh` writes the two that matter into
 | `BRAIN_STOPWORDS` | empty | extra stopwords (also `<root>/.brain-stopwords`) |
 | `BRAIN_EMBED` | `1` | `0` keeps the embedding hook idle (set by `--no-embed`) |
 | `BRAIN_EMBED_MODEL` / `BRAIN_RERANK_MODEL` | BGE-M3 / bge-reranker-v2-m3 | local model overrides |
-| `BRAIN_SEARCHD_URL` / `_TIMEOUT` / `_PORT` | `127.0.0.1:8799`, `0.3`, `8799` | optional dense daemon (`docs/DENSE_RECALL.md`); absent = BM25 only |
+| `BRAIN_SEARCHD_URL` / `_TIMEOUT` / `_PORT` | `127.0.0.1:8799`, `0.3`, `8799` | dense-recall daemon (recommended, `docs/DENSE_RECALL.md`); absent = BM25 only |
 | `BRAIN_DENSE_MIN` / `BRAIN_DENSE_JOIN` | `0.62` / `0.55` | dense cosine gates: answer-alone / enter-fusion |
 | `BRAIN_PROJECT_NAME` / `_VOCAB` / `BRAIN_CWD_MARKERS` | empty | project scope filter (off by default) |
 | `BRAIN_FOCUS_DIRS` / `BRAIN_ISOLATE_DIRS` | empty | directory globs where hooks speak, or stay silent |
@@ -155,7 +172,7 @@ Everything is environment variables; `setup.sh` writes the two that matter into
 - **Not a rulebook.** The habits that make this work - decision records, the "when to look"
   line, sparing weight tags, propose-then-approve consolidation - live in
   [`docs/DISCIPLINE.md`](docs/DISCIPLINE.md) as advice. Take what fits.
-- **Not a hosted service.** No account, no telemetry, no network call after the optional model
+- **Not a hosted service.** No account, no telemetry, no network call after the one-time model
   download.
 
 ## Turkish-aware stemming
