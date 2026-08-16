@@ -72,6 +72,11 @@ focus/      _FOCUS_<instance>.txt current focus, injected verbatim every prompt
 _drafts/                          snapshots and consolidation output - excluded from retrieval
 ```
 
+The vault is plain markdown with `[[wikilinks]]`, so it opens as-is in Obsidian (graph view, backlinks,
+search) - useful for reading and pruning by hand, but optional: nothing in brain-kit depends on it, and
+`grep` or any editor works the same. If you already keep an Obsidian vault, point `BRAIN_DIR` at it
+(see [`INTRO_PROMPT.md`](INTRO_PROMPT.md), track B).
+
 ## Prostheses: what each part stands in for
 
 The model's weights are frozen and its context is a working memory that compaction empties.
