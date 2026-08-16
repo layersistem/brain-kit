@@ -133,6 +133,7 @@ anything; it gives a frozen model a memory it can read.
 |---|---|---|
 | every prompt | `_focus_inject.sh` | your focus file for this instance, verbatim |
 | every prompt | `_auto_retrieve.sh` | top-k matching notes: score, path, "what" line, 200-char excerpt |
+| every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
 | after a note write | `brain-embed-after-write.sh` | one line confirming the re-embed (or that it failed) |
 | after a note write | `postwrite-check.sh` | only when a wikilink points at a missing note, or a note is empty |
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |
