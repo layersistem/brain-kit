@@ -7,10 +7,12 @@
 # Zero model calls, append-only, secrets masked, <=160 chars per line.
 INPUT=$(cat)
 ENVF="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$ENVF" ] && . "$ENVF"
+# Identity derives from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd.
+SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 VAULT="${BRAIN_DIR:-${BRAIN_ROOT:-$HOME/brain}/vault}"
 I="${BRAIN_INSTANCE:-}"
 if [ -z "$I" ]; then                       # walk up from cwd for a .brain-instance marker
-  _d="$PWD"
+  _d="$SESSION_ROOT"
   while [ "$_d" != "/" ] && [ -n "$_d" ]; do
     if [ -f "$_d/.brain-instance" ]; then I=$(head -1 "$_d/.brain-instance" | tr -cd 'a-zA-Z0-9_-'); break; fi
     _d=$(dirname "$_d")

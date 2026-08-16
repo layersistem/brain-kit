@@ -14,8 +14,12 @@ The format is one line holding the name and nothing else - `vault-seed/instance-
 is exactly that file.
 
 Resolution order used by the hooks: `BRAIN_INSTANCE` in the environment, then the nearest
-`.brain-instance` walking up from the current directory, then the vault's own file, then
-`main`.
+`.brain-instance` walking up from the **session's project directory** (`CLAUDE_PROJECT_DIR`,
+which Claude Code hands to every hook; the shell cwd is only a fallback), then the vault's own
+file, then `main`. This matters: a `cd` into another project inside a running session must not
+change who the session is or whose per-project memory it reads - the identity is fixed at
+session start. (Learned the hard way: an instance that `cd`'d into the vault folder was briefly
+treated as the vault owner.)
 
 ## 2. Per-instance focus
 

@@ -8,17 +8,20 @@
 #         BRAIN_RECALL_K   - how many notes to inject (default 5)
 #         BRAIN_ISOLATE_DIRS - space separated dir globs where this hook stays quiet.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
+# Identity and scope derive from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd:
+# a `cd` into another project inside a session must not change who you are or whose memory you read.
+SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 export BRAIN_ROOT BRAIN_DIR
 for d in ${BRAIN_ISOLATE_DIRS:-}; do
-  case "${PWD:-}" in $d|$d/*) exit 0 ;; esac
+  case "${SESSION_ROOT:-}" in $d|$d/*) exit 0 ;; esac
 done
 BM="$BRAIN_ROOT/scripts/brain_recall.py"
 [ -f "$BM" ] || BM="$BRAIN_ROOT/scripts/brain_bm25.py"   # older installs without the hybrid layer
 [ -f "$BM" ] || exit 0
 # Third root: the per-project memory directory some agent CLIs manage themselves.
-export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${PWD:-}" | tr '/ _' '---')/memory}"
+export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${SESSION_ROOT:-}" | tr '/ _' '---')/memory}"
 IN=$(cat)
 PROMPT=$(printf '%s' "$IN" | python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("prompt",""))

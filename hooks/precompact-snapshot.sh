@@ -7,13 +7,16 @@
 # The file is not auto-injected either; the post-compact hook only points at it.
 # Privacy: message text is truncated to 300 chars and stays on this machine.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
+# Identity and scope derive from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd:
+# a `cd` into another project inside a session must not change who you are or whose memory you read.
+SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 INPUT=$(cat)
 I="${BRAIN_INSTANCE:-}"
 if [ -z "$I" ]; then
-  _d="$PWD"
+  _d="$SESSION_ROOT"
   while [ "$_d" != "/" ] && [ -n "$_d" ]; do
     if [ -f "$_d/.brain-instance" ]; then I=$(head -1 "$_d/.brain-instance" | tr -d '[:space:]'); break; fi
     _d=$(dirname "$_d")
