@@ -65,8 +65,16 @@ def _skill_names():
     return out
 
 
-def build(window, items, valid_notes):
-    """items: [{note, meta, headings, body, neighbors:[(note, score, heading)]}]"""
+def observations(drafts, since, until):
+    """Observation stream written by hooks/observe-mutations.sh (one file per instance per day, kept out
+    of retrieval). Fed to the agent so that mutations no decision record explains surface as [NO-DR]."""
+    return "\n".join(f"### {p.name}\n" + p.read_text(encoding="utf-8", errors="ignore")[:6000]
+                     for p in sorted(drafts.glob("observations_*_*.md"))
+                     if since <= p.stem.rsplit("_", 1)[-1] <= until)
+
+
+def build(window, items, valid_notes, observations=""):
+    """items: [{note, meta, headings, body, neighbors:[(note, score, heading)]}]; observations: raw stream"""
     parts = [CONTRACT, f"\nWINDOW: {window}\n", "VALID-NOTES (only these names may be used):",
              ", ".join(sorted(valid_notes)),
              "SKILLS (section 5 UPDATE/SIMPLIFY may name only these):", ", ".join(_skill_names()) or "(none)", "\n=== DECISION RECORDS ==="]
@@ -78,4 +86,8 @@ def build(window, items, valid_notes):
         if it["neighbors"]:
             parts.append("OLDER NEIGHBOURS (BM25): " + " . ".join(
                 f"{n} [{s:.0f}] <<{h[:50]}>>" for n, s, h in it["neighbors"]))
+    if observations:
+        parts.append("\n=== OBSERVATION STREAM (hook-written mutation trail; list anything no DR explains "
+                     "in section 1 as `- [NO-DR] <observation> - which DR/knowledge note it belongs in`) ===\n"
+                     + observations)
     return "\n".join(parts)

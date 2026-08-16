@@ -50,6 +50,11 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
       +--> [PostToolUse] brain-embed-after-write.sh --> brain_embed.py --> .index/embeddings.jsonl
       |                                                 (BGE-M3, local CPU, hash-incremental)
       +--> [PostToolUse] postwrite-check.sh ----------> ghost-link + empty-note check
+  you mutate anything (write, edit, state-changing shell)
+      +--> [PostToolUse] observe-mutations.sh --------> _drafts/observations_<instance>_<day>.md
+                                                       (append-only trail, secrets masked, kept out
+                                                        of retrieval; consolidation reads it and flags
+                                                        work no decision record explains as [NO-DR])
 
   before compaction
       +--> [PreCompact] precompact-snapshot.sh ------> _drafts/compact_snapshot_<instance>.md
@@ -95,6 +100,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Salience / emotional tagging | amygdala | `weight:` (canon > lesson > approval > routine) | canon outranks routine at equal relevance |
 | Forgetting | synaptic decay | age decay + `superseded` penalty | an old, undated-importance note fades instead of crowding out this week's |
 | Sleep consolidation | hippocampus -> cortex replay | `brain_consolidate.py` proposal | distil episodes into knowledge, mark superseded, surface contradictions - a human approves |
+| Implicit episodic trace | hippocampal indexing of what you did, not what you decided | `observe-mutations.sh` stream | every mutation leaves a one-line trace; consolidation matches traces to decisions and flags the unexplained ones |
 | Metacognition | anterior cingulate | discipline docs, `docs/DISCIPLINE.md` | knowing when the tool is wrong, when to stop, when to ask |
 
 Not covered, on purpose: continual learning of the weights themselves. This kit does not train

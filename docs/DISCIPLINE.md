@@ -74,6 +74,14 @@ which records deserve a weight tag.
 The agent proposes. A human approves. Nothing is applied automatically - a memory system that
 edits its own memory unattended stops being trustworthy the first time it is wrong.
 
+The pass also reads the observation stream (`_drafts/observations_<instance>_<day>.md`, written by
+`observe-mutations.sh` on every write, edit and state-changing shell command). A mutation no decision
+record explains comes back as `[NO-DR]`: work that happened but was never written down. Hook self-test
+lines will show up there too; treat them as noise, not as a note to create.
+
+Two runs on the same day overwrite `consolidation_<until>.md`. Archive the earlier report with a
+time or status suffix before re-running; the latest run is the one that counts.
+
 ## 7. Multiple instances, one vault
 
 Each session declares an owner via the `instance:` frontmatter field, and each has its own

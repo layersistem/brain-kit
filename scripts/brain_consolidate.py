@@ -90,7 +90,7 @@ def build_prompt(since, until):
         total += len(it["body"])
         if total > TOTAL_CAP:
             it["body"] = it["body"][:800] + " ...[truncated]"
-    return P.build(f"{since}..{until}", items, set(notes)), items
+    return P.build(f"{since}..{until}", items, set(notes), P.observations(DRAFTS, since, until)), items
 
 
 def verify(report):

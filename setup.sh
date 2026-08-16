@@ -64,7 +64,8 @@ cp -f "$SETTINGS" "$SETTINGS.bak.$(date +%s)"
 W=("UserPromptSubmit::::_focus_inject.sh" "UserPromptSubmit::::_auto_retrieve.sh"
    "PostToolUse::Write|Edit::brain-embed-after-write.sh" "PreCompact::::precompact-snapshot.sh"
    "SessionStart::compact::sessionstart-compact-pointer.sh")
-[ "$PROFILE" = "full" ] && W+=("PostToolUse::Write|Edit::postwrite-check.sh")
+[ "$PROFILE" = "full" ] && W+=("PostToolUse::Write|Edit::postwrite-check.sh"
+                               "PostToolUse::Bash|Write|Edit|MultiEdit::observe-mutations.sh")
 "$PYBIN" - "$SETTINGS" "$HOOKS" "${W[@]}" <<'PY' || die "settings merge failed (restore the .bak)"
 import json, sys, pathlib
 p = pathlib.Path(sys.argv[1]); hd = sys.argv[2]

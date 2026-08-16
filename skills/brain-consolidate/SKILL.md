@@ -54,3 +54,7 @@ skill turns that cleanup into a reviewable proposal.
   both apply to scheduled runs.
 - The headless path (`--llm`) shells out to `BRAIN_CONSOLIDATE_CMD` (default `claude -p`). If
   that CLI is not on PATH, use an in-session subagent instead - the prompt file is the same.
+- Two runs on the same day overwrite `consolidation_<until>.md`; archive the earlier report with a
+  time/status suffix first. The latest run is the one that counts.
+- The prompt carries the observation stream (`observe-mutations.sh`). `[NO-DR]` lines are candidates
+  for a missing decision record; hook self-test lines are noise - report them, do not create notes.
