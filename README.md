@@ -142,7 +142,7 @@ anything; it gives a frozen model a memory it can read.
 | Moment | Hook | What lands in context |
 |---|---|---|
 | every prompt | `_focus_inject.sh` | your focus file for this instance, verbatim |
-| every prompt | `_auto_retrieve.sh` | top-k matching notes with a confidence tag each (STRONG/FAIR) and a count in the header; on a real question (>= 6 words) with no match, one line saying so - not silence |
+| every prompt | `_auto_retrieve.sh` | top-k matching notes with a confidence tag each (STRONG/FAIR) and a count in the header; STRONG notes carry the "what" line + excerpt, FAIR notes only title + address (low confidence gets less room); on a real question (>= 6 words) with no match, one line saying so - not silence |
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
 | every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |
 | every prompt | `context-inject.sh` | context ~Nk (P% of window), delta since last prompt, warning past 80% (`BRAIN_CTX_WARN`, `BRAIN_CTX_WINDOW`). **Claude Code only** - needs the hook's `transcript_path`; silent elsewhere |

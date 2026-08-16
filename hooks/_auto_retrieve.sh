@@ -52,6 +52,9 @@ for x, t in zip(r, tiers):
     line = "  %s [%s] %s:%s" % (t, x["score"], x["root"], x["note"])
     if h: line += " > " + h
     print(line + "  (" + x["path"] + ")")
+    # Diet (17 Aug 2026): low confidence gets less room - FAIR notes are title + address only (Read them if needed),
+    # STRONG notes carry the "what" line and the excerpt. Measured: recall block 2.8k -> 1.5k chars per prompt.
+    if t != "STRONG": continue
     hint = (x.get("hint") or "").strip()
     if hint: print("      what: " + hint[:130])
     t = " ".join(x.get("text","").split())[:200]
