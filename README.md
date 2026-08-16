@@ -69,6 +69,8 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
                                                      minutes since your last prompt
       +--> [UserPromptSubmit] due-inject.sh --------> @due lines whose day has come (overdue, today,
                                                      tomorrow) + once a day the coming week
+      +--> [UserPromptSubmit] context-inject.sh ----> how full the context is, delta since last prompt,
+                                                     warning before auto-compaction (Claude Code only)
   you write a note
       +--> [PostToolUse] brain-embed-after-write.sh --> brain_embed.py --> .index/embeddings.jsonl
       |                                                 (BGE-M3, local CPU, hash-incremental)
@@ -124,6 +126,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Sense of time | suprachiasmatic nucleus + hippocampal time cells | `time-inject.sh` | the model has no clock: without it "yesterday", "an hour ago" and "how long was I away over that compaction" are guesses. Injected, not instructed - a "work out the time" instruction produces a guess |
 | Prospective memory (time-based) | rostral prefrontal cortex | `@due YYYY-MM-DD[ HH:MM] text` lines in your focus or your own decision records, surfaced by `due-inject.sh` | "what did I promise to do on Monday at 11:30" - overdue, today and tomorrow on every prompt; the coming week once a day, on the first prompt, the way a person scans the week over the first coffee and then lets the far horizon go blurry |
 | Ongoing-task memory | frontal lobe | `focus/` file, injected verbatim | "what was I in the middle of" |
+| Interoception | insula (the body's own state: fatigue, fullness) | `context-inject.sh` - context tokens, % of window, delta per prompt, warning at 80% | "how full am I, how fast am I filling, is the blackout near" - so the handoff note is written before compaction, not reconstructed after. Claude Code only: it reads the transcript's `usage` block; the number matches the app's Context window panel to the token |
 | Re-orientation after a blackout | waking up: reticular activating system | `sessionstart-compact-pointer.sh` + the handoff note it points at | "where am I, what was I doing" after a compaction, without a search |
 | Salience / emotional tagging | amygdala | `weight:` (canon > lesson > approval > routine) | canon outranks routine at equal relevance |
 | Forgetting | synaptic decay | age decay + `superseded` penalty | an old, undated-importance note fades instead of crowding out this week's |
@@ -142,6 +145,7 @@ anything; it gives a frozen model a memory it can read.
 | every prompt | `_auto_retrieve.sh` | top-k matching notes: score, path, "what" line, 200-char excerpt |
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
 | every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |
+| every prompt | `context-inject.sh` | context ~Nk (P% of window), delta since last prompt, warning past 80% (`BRAIN_CTX_WARN`, `BRAIN_CTX_WINDOW`). **Claude Code only** - needs the hook's `transcript_path`; silent elsewhere |
 | after a note write | `brain-embed-after-write.sh` | one line confirming the re-embed (or that it failed) |
 | after a note write | `postwrite-check.sh` | only when a wikilink points at a missing note, or a note is empty |
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |
