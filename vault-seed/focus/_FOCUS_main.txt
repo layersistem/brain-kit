@@ -1,0 +1,15 @@
+SUMMARY: fresh install - no focus set yet; replace this file with what you are actually working on.
+
+NOW: <one line: what is being worked on right now>
+   - <status / evidence / what is left>
+
+NEXT: <the next step>
+
+WAITING: <approvals or blocked items>
+
+DONE (kept for reference): <one line + the decision record it produced>
+
+--
+Injected verbatim every prompt; the FIRST LINE is what the compact snapshot records. Keep it
+current - a stale focus misdirects every session. Plans go in your task list, decisions in
+decision/. Replace this whole file, including these notes.
