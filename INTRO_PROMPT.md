@@ -15,6 +15,22 @@ Nothing leaves this machine. **BGE-M3 is a requirement of the full kit** (~2 GB 
 once by the first embed run); `--no-embed` is a degraded BM25-only mode for machines that cannot
 carry it - see README "Requirements".
 
+Once installed, a few short lines land at the top of every prompt. Nothing to set up - just know
+what they mean (full table: README "What gets injected, and when"):
+
+- **clock** (`time-inject.sh`) - date, weekday, time, session age. Write absolute dates from it;
+  "yesterday" and "an hour ago" are guesses without it.
+- **DUE** (`due-inject.sh`) - `@due YYYY-MM-DD[ HH:MM] text` lines from your focus file or your own
+  decision records: overdue, today, tomorrow; the coming week once a day. Put promises there; when
+  done, change the line to `@due✓`.
+- **context** (`context-inject.sh`, Claude Code only) - how full the window is. Past the warning
+  threshold, write the handoff record before compaction, not after.
+- **AUTO-RECALL** - notes closest to your prompt, tagged STRONG (both engines agree) or FAIR
+  (title only). "no matching note" means the vault has nothing on it: say you don't know, don't
+  invent.
+- **SALIENCE** (`salience-inject.sh`) - fires only when the user corrects you; tag this turn's
+  decision record `weight: lesson`.
+
 Pick your track:
 
 - **A** - fresh project, no notes yet.
