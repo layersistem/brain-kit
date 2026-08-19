@@ -64,6 +64,11 @@ After a compaction: re-read the skills that were loaded (compaction drops their 
 summarise the state in one message, and confirm before diving back in. Auto-resuming from a
 half-restored context is how sessions break things.
 
+A related mid-turn rule: when something interposes after an answer is already written - a
+blocking stop hook, a tool result, an error, a user interrupt - do not rebuild the answer from
+scratch. The text is already on the user's screen; a full rewrite prints it twice. Do the
+missing action, then reply with the delta only.
+
 ## 6. Nightly consolidation: propose, then approve
 
 Run `brain_consolidate.py` on a schedule or at the end of a session. It gathers the window's
