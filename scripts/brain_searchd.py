@@ -22,24 +22,51 @@ EMB_FILE = VAULT / ".index" / "embeddings.jsonl"
 EMB_MODEL = os.environ.get("BRAIN_EMBED_MODEL", "BAAI/bge-m3")
 PORT = int(os.environ.get("BRAIN_SEARCHD_PORT", "8799"))
 _LOCK = threading.Lock()
-_S = {"mtime": 0.0, "entries": [], "mat": None}
+_S = {"mtime": 0.0, "entries": [], "mat": None, "loaded_at": 0.0}
+_RELOADING = {"on": False}
 
 
-def _load():
-    """embeddings.jsonl -> memory, only when its mtime changed (a few thousand chunks: <1 s)."""
-    try:
-        mt = EMB_FILE.stat().st_mtime
-    except OSError:
-        return
-    if mt == _S["mtime"]:
-        return
-    ent = [json.loads(l) for l in EMB_FILE.read_text().splitlines() if l.strip()]
+def _load_blocking(mt):
+    ent = []
+    for l in EMB_FILE.read_text().splitlines():
+        if not l.strip():
+            continue
+        try:
+            ent.append(json.loads(l))
+        except json.JSONDecodeError:
+            pass  # a concurrent embed-hook write can leave a half-written last line; skip it, index survives
     ent = [e for e in ent if "vector" in e]
     with _LOCK:
         _S["entries"] = ent
         _S["mat"] = np.array([e["vector"] for e in ent], dtype="float32") if ent else None
-        _S["mtime"] = mt
+        _S["mtime"], _S["loaded_at"] = mt, time.time()
     print(f"brain_searchd: index loaded, {len(ent)} chunks", flush=True)
+
+
+def _load():
+    """embeddings.jsonl -> memory, only when its mtime changed. Hot-swap: once an index is already
+    resident, a reload runs on a background thread and queries keep answering from the old index
+    until it finishes - a synchronous reload (~1-2 s on a few thousand chunks) could outlast the
+    client's short HTTP timeout and surface as a BrokenPipe with an empty dense-recall result for
+    that turn. Only the very first load (no index yet) is synchronous, since there is nothing to
+    fall back to."""
+    try:
+        mt = EMB_FILE.stat().st_mtime
+    except OSError:
+        return
+    if mt == _S["mtime"] or _RELOADING["on"]:
+        return
+    if _S["mat"] is None:
+        return _load_blocking(mt)  # first load: no prior index to serve from, must block
+    _RELOADING["on"] = True
+
+    def _bg():
+        try:
+            _load_blocking(mt)
+        finally:
+            _RELOADING["on"] = False
+
+    threading.Thread(target=_bg, daemon=True).start()
 
 
 def _visible(path, scope):
@@ -76,8 +103,11 @@ class H(BaseHTTPRequestHandler):
 
     def _send(self, obj):
         b = json.dumps(obj, ensure_ascii=False).encode()
-        self.send_response(200); self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        try:
+            self.send_response(200); self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        except BrokenPipeError:
+            print("client-gone (timed out before response?)", flush=True)  # one line, not a traceback
 
     def do_GET(self):
         u = urllib.parse.urlparse(self.path); p = urllib.parse.parse_qs(u.query)
