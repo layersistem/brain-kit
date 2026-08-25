@@ -19,4 +19,13 @@ HIT=$(printf '%s' "$P" | grep -oE "$RX" | head -1)
 ST="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit-state"; mkdir -p "$ST"; F="$ST/salience_${SID:-x}"
 echo "$(date +%s)|$HIT" >> "$F"
 N=$(wc -l < "$F" | tr -d ' ')
-echo "SALIENCE: correction signal \"$HIT\" - #$N this session. Give this turn's record \`weight: lesson\` + a \"## Lesson\" (what was wrong, what is right, which gate failed). Understand the cause before fixing."
+# Day counter + inflation-breaker threshold: a session that keeps correcting the same class of
+# mistake needs more than another one-off lesson tag - past a daily count it means a gate is being
+# missed repeatedly, and the right response is a pattern analysis, not another single-case fix.
+DG="$ST/salience_day_$(date +%Y%m%d)"; echo "$(date +%s)|$HIT" >> "$DG"; NG=$(wc -l < "$DG" | tr -d ' ')
+THRESH="${BRAIN_SALIENCE_DAILY_THRESHOLD:-10}"
+if [ "$NG" -gt "$THRESH" ]; then
+  echo "SALIENCE-HARD (signal #$NG today, over $THRESH): a single-case lesson is not enough - STOP, run a PATTERN ANALYSIS: what gate keeps failing across today's signals (read $DG, group them), write a pattern section into the root-cause record, then fix. Confirm before continuing."
+else
+  echo "SALIENCE: correction signal \"$HIT\" - #$N this session, #$NG today. Give this turn's record \`weight: lesson\` + a \"## Lesson\" (what was wrong, what is right, which gate failed). Understand the cause before fixing."
+fi
