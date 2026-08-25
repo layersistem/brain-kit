@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # brain-kit installer - persistent memory + consolidation for Claude Code and other agent CLIs.
 # Usage: ./setup.sh [--minimal] [--no-embed]
-#   --minimal   recall + embed + compact hooks only (no postwrite check, no consolidation skill)
+#   --minimal   recall + embed + compact hooks only (no postwrite check, no perseveration guard, no consolidation skill)
 #   --no-embed  BM25 recall only: no torch, no model download, embedding hook stays idle
 # Env: BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . CLAUDE_CONFIG_DIR (~/.claude) .
 #      BRAIN_INSTANCE (main).  Idempotent: never overwrites notes, settings or existing skills.
@@ -68,7 +68,8 @@ W=("UserPromptSubmit::::_focus_inject.sh" "UserPromptSubmit::::_auto_retrieve.sh
    "PostToolUse::Write|Edit::brain-embed-after-write.sh" "PreCompact::::precompact-snapshot.sh"
    "SessionStart::compact::sessionstart-compact-pointer.sh")
 [ "$PROFILE" = "full" ] && W+=("PostToolUse::Write|Edit::postwrite-check.sh"
-                               "PostToolUse::Bash|Write|Edit|MultiEdit::observe-mutations.sh")
+                               "PostToolUse::Bash|Write|Edit|MultiEdit::observe-mutations.sh"
+                               "Stop::::identical-answer-stop.sh")
 "$PYBIN" - "$SETTINGS" "$HOOKS" "${W[@]}" <<'PY' || die "settings merge failed (restore the .bak)"
 import json, sys, pathlib
 p = pathlib.Path(sys.argv[1]); hd = sys.argv[2]

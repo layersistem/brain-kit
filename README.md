@@ -133,6 +133,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Sleep consolidation | hippocampus -> cortex replay | `brain_consolidate.py` proposal | distil episodes into knowledge, mark superseded, surface contradictions - a human approves |
 | Implicit episodic trace | hippocampal indexing of what you did, not what you decided | `observe-mutations.sh` stream | every mutation leaves a one-line trace; consolidation matches traces to decisions and flags the unexplained ones |
 | Metacognition | anterior cingulate | confidence tags on every recalled note (STRONG = both engines agreed or dense cosine over the floor, FAIR = one engine) + an explicit "no matching note - treat as not known" line when a real question finds nothing; discipline docs, `docs/DISCIPLINE.md` | knowing how much to trust what memory just handed you, knowing that you don't know (say so, label the guess a hypothesis) - and when the tool is wrong, when to stop, when to ask |
+| Perseveration guard | basal ganglia loop that normally lets a stuck motor pattern break | `identical-answer-stop.sh` | a person snaps out of repeating themselves when the response clearly isn't landing; a model can keep emitting the same templated answer turn after turn, even under a one-character correction buried inside it. This hook blocks a byte-for-byte repeat of the previous turn's answer and forces a re-read, making that failure mode mechanically impossible instead of relying on the model to notice it |
 
 Not covered, on purpose: continual learning of the weights themselves. This kit does not train
 anything; it gives a frozen model a memory it can read.
@@ -152,6 +153,7 @@ anything; it gives a frozen model a memory it can read.
 | after a note write | `postwrite-check.sh` | only when a wikilink points at a missing note, or a note is empty |
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |
 | after compaction | `sessionstart-compact-pointer.sh` | addresses: the handoff note and the snapshot |
+| end of turn | `identical-answer-stop.sh` | only when this answer is byte-for-byte identical to the previous turn's: blocks and forces a re-read of the incoming message (`full` profile only, `BRAIN_PERSEVERATION_GUARD=0` disables) |
 
 Recall stays quiet when it has nothing good: below a relevance floor it returns no block at all,
 because five irrelevant notes cost more than none.
@@ -177,12 +179,14 @@ Everything is environment variables; `setup.sh` writes the two that matter into
 | `BRAIN_PROJECT_NAME` / `_VOCAB` / `BRAIN_CWD_MARKERS` | empty | project scope filter (off by default) |
 | `BRAIN_FOCUS_DIRS` / `BRAIN_ISOLATE_DIRS` | empty | directory globs where hooks speak, or stay silent |
 | `BRAIN_CONSOLIDATE_CMD` | `claude -p` | CLI used by the optional `--llm` consolidation path |
+| `BRAIN_PERSEVERATION_GUARD` | `1` | `0` disables `identical-answer-stop.sh` (`full` profile only) |
 
 ## What this is not
 
-- **Not an enforcement layer.** Nothing here blocks a tool call, gates a commit, or refuses an
-  action. The only hook that pushes back is the vault hygiene check, and only about broken links
-  and empty notes.
+- **Not an enforcement layer.** Nothing here gates a commit or refuses an action. Two hooks push
+  back, both narrowly: the vault hygiene check (broken links, empty notes) and the perseveration
+  guard (`identical-answer-stop.sh`), which blocks only a byte-for-byte repeat of the previous
+  turn's answer.
 - **Not model gating.** brain-kit never inspects or restricts which model you are running.
 - **Not a rulebook.** The habits that make this work - decision records, the "when to look"
   line, sparing weight tags, propose-then-approve consolidation - live in
