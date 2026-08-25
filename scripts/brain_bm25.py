@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """brain_bm25 - lightweight recall over a markdown vault. No model, no network, ~100ms.
 Score = BM25 over (filename + heading + frontmatter hint + section body), times entity boost,
-recency boost, superseded penalty, frontmatter weight and age decay; then a relevance gate that
-returns nothing rather than noise. Semantic counterpart: brain_search.py.
+recency boost, superseded penalty, frontmatter weight, usage-reinforcement and age decay; then a
+relevance gate that returns nothing rather than noise. Semantic counterpart: brain_search.py.
 Usage: brain_bm25.py "query" [k]
 Env: BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_MEMORY . BRAIN_MEMORY2 .
      BRAIN_WIKI_DIR . BRAIN_STOPWORDS (extra stopwords, comma/space separated)"""
@@ -22,6 +22,16 @@ ENT_W, REC_W, SUP_W = 0.5, 0.3, 0.5         # entity boost, recency boost, super
 W_MAP = {"canon": 1.5, "lesson": 1.3, "approval": 1.15, "routine": 0.85}  # frontmatter weight:
 AGE_W, AGE_FLOOR = 0.4, 0.6                 # dated + unweighted notes fade to 0.6 over a year
 MARK = re.compile(r"CANON|LESSON|NEVER|\U0001F534")  # heading markers implying weight: lesson
+USE_W, USE_CAP = 0.15, 5   # usage-reinforcement: notes actually surfaced-and-read earn a small,
+# capped recency-independent boost. hooks/_auto_retrieve.sh appends a basename to
+# .index/recall_counts.json ({basename: {c, ts}}) each time a note is injected into a prompt;
+# read it here as a log-scaled multiplier so a note's own recall history nudges its future rank.
+try:
+    import json as _json
+    _USE = {k: (v.get("c", 0) if isinstance(v, dict) else v)
+            for k, v in _json.loads((VAULT / ".index" / "recall_counts.json").read_text()).items()}
+except Exception:
+    _USE = {}
 STOP = {"the", "a", "an", "and", "or", "of", "to", "in", "is", "are", "was", "were", "for", "on",
         "with", "that", "this", "it", "as", "at", "by", "from", "be", "how", "what", "why", "when",
         "which", "do", "does", "did", "i", "you", "we", "my", "our", "not", "no", "can", "should",
@@ -126,6 +136,9 @@ def search(query, k=5, k1=1.5, b=0.75):
             if d["w"] <= 1.0:
                 s *= max(AGE_FLOOR, 1 - AGE_W * (tod - d["dord"]) / 372)
         s *= SUP_W if d["sup"] else 1.0
+        uc = _USE.get(os.path.basename(d["path"]), 0)
+        if uc:
+            s *= 1 + USE_W * min(1.0, math.log1p(uc) / math.log1p(USE_CAP))
         scored.append((s * d["w"], d))
     scored.sort(key=lambda x: -x[0])
     seen, uniq = set(), []                          # dedupe: top-k must be distinct notes
