@@ -59,5 +59,23 @@ for x, t in zip(r, tiers):
     if hint: print("      what: " + hint[:130])
     t = " ".join(x.get("text","").split())[:200]
     if t: print("      " + t)
+# Usage-reinforcement (mirrors a spacing-effect boost from a sibling project): count each note that
+# was actually surfaced here into <vault>/.index/recall_counts.json ({basename: {c, ts}}); brain_bm25.py
+# reads it back as a small score boost. Best-effort - a write failure must never drop the recall output.
+try:
+    import json as _j, time as _t
+    _vault = os.environ.get("BRAIN_DIR") or os.path.join(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/brain")), "vault")
+    _cf = os.path.join(_vault, ".index", "recall_counts.json")
+    try: _c = _j.load(open(_cf))
+    except Exception: _c = {}
+    for x in r:
+        _b = os.path.basename(x.get("path",""))
+        if not _b: continue
+        _e = _c.get(_b) or {"c": 0}
+        if not isinstance(_e, dict): _e = {"c": int(_e)}
+        _e["c"] = _e.get("c", 0) + 1; _e["ts"] = int(_t.time())
+        _c[_b] = _e
+    _j.dump(_c, open(_cf, "w"), ensure_ascii=False)
+except Exception: pass
 ' 2>/dev/null
 exit 0
