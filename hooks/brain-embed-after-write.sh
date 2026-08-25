@@ -24,6 +24,21 @@ export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${S
 case "$FP" in
   "$VAULT"/*.md|*/.claude/projects/*/memory/*.md)
     # Fixed cd: the hook inherits the session cwd, which may be unreadable and crash the child.
+    # Race lock (mkdir is atomic; no flock on macOS): two Edits landing close together can both
+    # trigger this hook and race to append to embeddings.jsonl, corrupting it with a half-written
+    # line. Wait up to 30s for the lock; if it's still held, skip this run - the next write's
+    # embed is hash-incremental and closes the gap.
+    LOCK="$VAULT/.index/.embed.lock"
+    n=0
+    while ! mkdir "$LOCK" 2>/dev/null; do
+      n=$((n+1))
+      if [ "$n" -ge 30 ]; then
+        jq -n '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:"brain embed: SKIPPED (lock held 30s - next write will catch up)"}}'
+        exit 0
+      fi
+      sleep 1
+    done
+    trap 'rmdir "$LOCK" 2>/dev/null' EXIT
     R=$(cd "$BRAIN_ROOT" && "$PY" scripts/brain_embed.py 2>&1 | grep -aoE "OK -.*" | tail -1)
     [ -z "$R" ] && R="embed did NOT run (showing the truth, not a fake success)"
     jq -n --arg c "brain embed: $R" \
