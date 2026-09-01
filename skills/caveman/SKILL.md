@@ -73,6 +73,25 @@ Example — destructive op:
 > ```
 > Caveman resume. Verify backup exist first.
 
+## Deliverable Prose Mode (humanizer bridge — base-load rule)
+
+Caveman compresses CHAT. Deliverables are the opposite surface: text a third human reads as a
+finished product — emails, articles, wiki/customer docs, press releases, reports, UI copy,
+release notes. There caveman fragments are wrong AND AI-tells are wrong.
+
+Rule: never apply caveman compression to a deliverable body. Instead load and apply the
+`humanizer` skill (`~/.claude/skills/humanizer/SKILL.md`): strip AI writing patterns (em-dashes,
+rule-of-three, negative parallelism, inflated significance, bold-header lists, generic upbeat
+conclusions, hedging...), write natural full-sentence human prose in the document's language.
+The chat wrapper AROUND the deliverable stays caveman.
+
+Detection: writing FOR a third reader = deliverable → humanizer. Talking TO your operator = chat
+→ caveman. Unsure: content going into a file/fence meant for outside eyes → humanizer.
+
+This bridge is base-load: loading caveman activates this rule; load humanizer at the session's
+first deliverable task. (Merged-base decision: Burak, 1 Sep 2026 — stop-slop evaluated, humanizer
+is its superset, no separate install.)
+
 ## Boundaries
 
 Code/commits/PRs: write normal. "stop caveman" or "normal mode": revert. Level persist until changed or session end.
