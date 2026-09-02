@@ -16,8 +16,10 @@ UserPromptSubmit -> _auto_retrieve.sh -> brain_recall.py
                                           |-- brain_bm25.search()          (in-process)
                                           |-- GET 127.0.0.1:8799/search    (brain_searchd, warm BGE-M3)
                                           '-- RRF fuse -> top-k -> injected
-brain_searchd reads <vault>/.index/embeddings.jsonl (written by the embed hook on every note change)
-and reloads it whenever the file's mtime changes - no restart needed after you write.
+brain_searchd reads <vault>/.index/brain.db (the SQLite index brain_index.py maintains; kept fresh
+by the embed hook on every note change) and reloads it whenever the file's mtime changes - no
+restart needed after you write. A plain read-only connection, so there is no half-written-file
+race to guard against, unlike the flat file this replaced.
 ```
 
 Per-project memory is tagged `imem/<project-slug>/` by `brain_embed.py`; the daemon only returns

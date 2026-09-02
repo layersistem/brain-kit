@@ -56,6 +56,7 @@ cat > "$CLAUDE_DIR/brain-kit.env" <<EOF
 BRAIN_ROOT="\${BRAIN_ROOT:-$BRAIN_ROOT}"
 BRAIN_DIR="\${BRAIN_DIR:-$VAULT}"
 BRAIN_EMBED="\${BRAIN_EMBED:-$EMBED}"
+BRAIN_INDEX="\${BRAIN_INDEX:-sqlite}"
 EOF
 ok "$BRAIN_ROOT/scripts, $HOOKS, $CLAUDE_DIR/brain-kit.env"
 say "(4/6) hook wiring in $SETTINGS"
@@ -97,9 +98,21 @@ ID_FILE="$VAULT/.brain-instance"                   # instance name, read by focu
 [ -f "$ID_FILE" ] || printf '%s\n' "$INST" > "$ID_FILE"
 [ -f "$VAULT/focus/_FOCUS_$INST.txt" ] || cp "$KIT/vault-seed/focus/_FOCUS_main.txt" "$VAULT/focus/_FOCUS_$INST.txt"
 cp -n "$KIT"/vault-seed/decision/*.md "$VAULT/decision/" 2>/dev/null || true
+cp -n "$KIT"/vault-seed/knowledge/beliefs.md "$VAULT/knowledge/" 2>/dev/null || true
 CM="$CLAUDE_DIR/CLAUDE.md"
 if grep -q "brain-kit-operating-rules" "$CM" 2>/dev/null; then ok "CLAUDE.md block already there"
 else sed "s|<vault>|$VAULT|g" "$KIT/docs/CLAUDE_BLOCK.md" >> "$CM"; ok "operating rules appended to $CM"; fi
+say "building the index"
+# After the seed, not before it: an index built earlier would miss the example decision record
+# and the belief-ledger template this step just copied in.
+if [ "$EMBED" = "1" ]; then
+  BRAIN_ROOT="$BRAIN_ROOT" BRAIN_DIR="$VAULT" "$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" build --embed \
+    && ok "brain.db built (BM25 + BGE-M3)" || die "index build failed"
+else
+  BRAIN_ROOT="$BRAIN_ROOT" BRAIN_DIR="$VAULT" "$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" build \
+    && ok "brain.db built (BM25 only - no torch needed)" || die "index build failed"
+fi
 say "done - restart your agent session so the hooks load, then read README.md"
-echo "   smoke test: BRAIN_ROOT=\"$BRAIN_ROOT\" python3 \"$BRAIN_ROOT/scripts/brain_bm25.py\" \"example decision\" 3"
-echo "   semantic index (needs embeddings): \"$BRAIN_ROOT/.venv/bin/python\" \"$BRAIN_ROOT/scripts/brain_embed.py\""
+echo "   smoke test: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_INDEX=sqlite python3 \"$BRAIN_ROOT/scripts/brain_bm25.py\" \"example decision\" 3"
+echo "   index stats: \"$BRAIN_ROOT/.venv/bin/python\" \"$BRAIN_ROOT/scripts/brain_index.py\" stats"
+echo "   re-embed after --no-embed: \"$BRAIN_ROOT/.venv/bin/python\" \"$BRAIN_ROOT/scripts/brain_index.py\" build --embed"

@@ -5,7 +5,9 @@ recency boost, superseded penalty, frontmatter weight, usage-reinforcement and a
 relevance gate that returns nothing rather than noise. Semantic counterpart: brain_search.py.
 Usage: brain_bm25.py "query" [k]
 Env: BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_MEMORY . BRAIN_MEMORY2 .
-     BRAIN_WIKI_DIR . BRAIN_STOPWORDS (extra stopwords, comma/space separated)"""
+     BRAIN_WIKI_DIR . BRAIN_STOPWORDS (extra stopwords, comma/space separated) .
+     BRAIN_INDEX=sqlite - route through brain_index_search.py's SQLite/FTS5 build instead of
+     re-scanning every file on disk (same formula, same output shape; see brain_index.py)."""
 import os, sys, re, math, pathlib, datetime
 from collections import Counter
 from brain_stem import stem                               # Turkish-aware suffix stripper
@@ -110,6 +112,12 @@ def _corpus():
     return docs
 
 def search(query, k=5, k1=1.5, b=0.75):
+    if os.environ.get("BRAIN_INDEX") == "sqlite":  # accelerated path: brain_index.py's SQLite/FTS5 build
+        try:
+            from brain_index_search import search as _sqlite_search
+            return _sqlite_search(query, k, k1, b)
+        except Exception:
+            pass  # index missing or broken -> fall through to the file-scan path below, silently
     q = [t for t in _toks(query) if t not in STOP]; qset = set(q); ap = active_project()
     docs = [d for d in _corpus() if not (ap and d["project"] not in (ap, "general"))]
     if not docs or not q:

@@ -2,15 +2,17 @@
 """brain_searchd - warm BGE-M3 dense-recall daemon (the dense half of hybrid recall).
 
 HTTP 127.0.0.1:8799   GET /search?q=<text>&k=5&scope=<project-slug>   GET /health
-Source: <vault>/.index/embeddings.jsonl (kept fresh by the embed hook). Reloads automatically when
-the file's mtime changes. Cosine only - no reranker (measured: slower and worse on this corpus).
-CPU on purpose: the model stays resident at ~2-3 GB and a warm query takes ~80 ms.
+Source: <vault>/.index/brain.db, the SQLite index brain_index.py maintains (`chunks.embedding`,
+kept fresh by the embed hook). Reloads automatically when the file's mtime changes - a plain
+read-only connection, so there is no half-written-line failure mode to guard against. Cosine
+only - no reranker (measured: slower and worse on this corpus). CPU on purpose: the model stays
+resident at ~2-3 GB and a warm query takes ~80 ms.
 Scope: `vault/` and `memory/` entries are visible to everyone; `imem/<slug>/` (per-project memory)
 only to the instance whose slug matches. If the daemon is down, brain_recall.py falls back to BM25.
 
 Env:  BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_EMBED_MODEL (BAAI/bge-m3) . BRAIN_SEARCHD_PORT (8799)
 Run:  <venv>/bin/python scripts/brain_searchd.py   (launchd / systemd unit: see docs/DENSE_RECALL.md)"""
-import os, json, time, pathlib, threading, urllib.parse, warnings
+import os, json, time, pathlib, sqlite3, threading, urllib.parse, warnings
 from http.server import BaseHTTPRequestHandler, HTTPServer
 warnings.filterwarnings("ignore")
 import numpy as np
@@ -18,7 +20,7 @@ np.seterr(all="ignore")
 
 BRAIN_ROOT = pathlib.Path(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/brain")))
 VAULT = pathlib.Path(os.environ.get("BRAIN_DIR", str(BRAIN_ROOT / "vault")))
-EMB_FILE = VAULT / ".index" / "embeddings.jsonl"
+EMB_FILE = VAULT / ".index" / "brain.db"
 EMB_MODEL = os.environ.get("BRAIN_EMBED_MODEL", "BAAI/bge-m3")
 PORT = int(os.environ.get("BRAIN_SEARCHD_PORT", "8799"))
 _LOCK = threading.Lock()
@@ -27,24 +29,23 @@ _RELOADING = {"on": False}
 
 
 def _load_blocking(mt):
-    ent = []
-    for l in EMB_FILE.read_text().splitlines():
-        if not l.strip():
-            continue
-        try:
-            ent.append(json.loads(l))
-        except json.JSONDecodeError:
-            pass  # a concurrent embed-hook write can leave a half-written last line; skip it, index survives
-    ent = [e for e in ent if "vector" in e]
+    """brain.db -> memory: a read-only connection against brain_index.py's `chunks` table."""
+    ent, vecs = [], []
+    with sqlite3.connect(f"file:{EMB_FILE}?mode=ro", uri=True) as c:
+        for rel, note, heading, text, blob in c.execute(
+                "SELECT c.rel, f.note, c.heading, c.text600, c.embedding FROM chunks c JOIN files f ON f.rel = c.rel "
+                "WHERE c.embedding IS NOT NULL ORDER BY c.id"):
+            ent.append({"path": rel, "note": note, "heading": heading or "", "text": text or ""})
+            vecs.append(np.frombuffer(blob, dtype="float32"))
     with _LOCK:
         _S["entries"] = ent
-        _S["mat"] = np.array([e["vector"] for e in ent], dtype="float32") if ent else None
+        _S["mat"] = np.vstack(vecs) if vecs else None
         _S["mtime"], _S["loaded_at"] = mt, time.time()
     print(f"brain_searchd: index loaded, {len(ent)} chunks", flush=True)
 
 
 def _load():
-    """embeddings.jsonl -> memory, only when its mtime changed. Hot-swap: once an index is already
+    """brain.db -> memory, only when its mtime changed. Hot-swap: once an index is already
     resident, a reload runs on a background thread and queries keep answering from the old index
     until it finishes - a synchronous reload (~1-2 s on a few thousand chunks) could outlast the
     client's short HTTP timeout and surface as a BrokenPipe with an empty dense-recall result for
