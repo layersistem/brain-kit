@@ -18,7 +18,8 @@ if [ -z "$I" ]; then                       # walk up from cwd for a .brain-insta
     _d=$(dirname "$_d")
   done
 fi
-[ -z "$I" ] && I="default"
+[ -z "$I" ] && [ -f "$VAULT/.brain-instance" ] && I=$(head -1 "$VAULT/.brain-instance" | tr -cd 'a-zA-Z0-9_-')
+[ -z "$I" ] && exit 0   # no identity resolved -> don't log under a shared "default" bucket, skip
 TOOL=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty')
 LINE=""
 case "$TOOL" in

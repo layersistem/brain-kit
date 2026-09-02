@@ -43,7 +43,7 @@ try:
             m = d.get("message") or {}
             if d.get("type") == "user":
                 t = " ".join(x for x in texts(m.get("content", "")) if x).strip()
-                if t and not t.startswith("<"): users.append(t)
+                if t and not t.startswith("<") and "local-command-caveat" not in t: users.append(t)
             elif d.get("type") == "assistant":
                 t = " ".join(x for x in texts(m.get("content", "")) if x).strip()
                 if t: last_asst = t

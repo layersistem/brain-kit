@@ -25,9 +25,18 @@ fi
 [ -z "$I" ] && [ -f "$VAULT/.brain-instance" ] && I=$(head -1 "$VAULT/.brain-instance" | tr -d '[:space:]')
 [ -z "$I" ] && I="main"
 SNAP="$VAULT/_drafts/compact_snapshot_$I.md"
-HUB=$(ls -t "$VAULT"/decision/DR-*handoff*.md "$VAULT"/decision/DR-*compact-hub*.md 2>/dev/null | head -1)
+# A per-instance hub file (an installer's own convention, e.g. one long-lived handoff record per
+# instance instead of the newest dated one) wins if the install provides a lookup for it; that
+# dependency is entirely optional here - a missing script just falls through to the plain glob.
+HUB=""
+INSTANCE_SH="$BRAIN_ROOT/hooks/_instance.sh"
+if [ -f "$INSTANCE_SH" ]; then
+  . "$INSTANCE_SH" 2>/dev/null
+  command -v instance_hub >/dev/null 2>&1 && HUB=$(instance_hub)
+fi
+[ -z "$HUB" ] && HUB=$(ls -t "$VAULT"/decision/DR-*handoff*.md "$VAULT"/decision/DR-*compact-hub*.md 2>/dev/null | head -1)
 echo "AFTER COMPACTION ($I): re-read the skills this session was using - compaction drops their"
 echo "bodies. Then summarise where things stand in one message and confirm before continuing."
 [ -n "$HUB" ] && echo "   read first, handoff record: ${HUB#$VAULT/}"
-[ -f "$SNAP" ] && echo "   raw snapshot (if the summary lost something): ${SNAP#$VAULT/}"
+[ -f "$SNAP" ] && echo "   raw snapshot (if the summary lost something): ${SNAP#$VAULT/} - $(sed -n 1p "$SNAP")"
 exit 0
