@@ -13,6 +13,10 @@ try:
 except Exception: print("", "")' 2>/dev/null)
 [ -n "$PROMPT" ] || exit 0
 P=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]')
+# Not a correction when the "prompt" is a harness notification (background task / monitor / desk event): agent text
+# saying "wrong" or "mistake" about its own work is not the human correcting us. Skip, or the day counter inflates.
+NOTIF_RX="system notification - not user input|<task-notification>|📬 masa|monitor event:"
+printf '%s' "$P" | grep -qE "$NOTIF_RX" && exit 0
 RX="${BRAIN_SALIENCE_RX:-(wrong|incorrect|mistake|you broke|broken now|undo|revert|roll back|hallucinat|made up|why did you|why would you|i told you|i said|didn.t i say|stop[ ,.!]|stop$|^no[ ,.!]|[ ,.]no[ ,.!]|not what i asked|again the same|same mistake|you didn.t read)}"
 HIT=$(printf '%s' "$P" | grep -oE "$RX" | head -1)
 [ -n "$HIT" ] || exit 0
