@@ -6,10 +6,12 @@ commands yourself, verify the results, and finish with a five-line report.
 
 Two engines, neither of which calls an API:
 
-- **Recall** - `brain_recall.py`: BM25 (pure stdlib, ~100 ms) fused with dense BGE-M3 hits from
-  the `brain_searchd` daemon (recommended, run as a service - docs/DENSE_RECALL.md); runs on every
+- **Recall** - `brain_recall.py`: BM25 (pure stdlib; reads a prebuilt SQLite index when
+  `BRAIN_INDEX=sqlite`, else rescans the vault) fused with dense BGE-M3 hits from the
+  `brain_searchd` daemon (recommended, run as a service - docs/DENSE_RECALL.md); runs on every
   prompt through a hook. Without the daemon it is plain BM25.
-- **Embed** - `brain_embed.py`, BGE-M3 on local CPU, runs whenever a note is written.
+- **Index/Embed** - `brain_index.py`, backed by `brain_embed.py`'s BGE-M3 model (local CPU), runs
+  whenever a note is written and keeps `.index/brain.db` current for both engines.
 
 Nothing leaves this machine. **BGE-M3 is a requirement of the full kit** (~2 GB model, downloaded
 once by the first embed run); `--no-embed` is a degraded BM25-only mode for machines that cannot
@@ -128,8 +130,8 @@ Do not rewrite note bodies. This is a memory install, not a documentation refact
 
 ```bash
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
-"$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_embed.py"      # skip if --no-embed
-python3 "$BRAIN_ROOT/scripts/brain_bm25.py" "<a phrase you know is in the notes>" 5
+"$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" build --embed   # drop --embed if --no-embed
+BRAIN_INDEX=sqlite python3 "$BRAIN_ROOT/scripts/brain_bm25.py" "<a phrase you know is in the notes>" 5
 "$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_search.py" "<the same idea, other words>" -k 5
 ```
 

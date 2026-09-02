@@ -61,7 +61,10 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
       |
       +--> [UserPromptSubmit] _focus_inject.sh ----> current focus file, verbatim
       +--> [UserPromptSubmit] _auto_retrieve.sh ---> brain_recall.py --> top-k notes injected
-                                                     |-- brain_bm25 (zero model, ~100 ms, stdlib only)
+                                                     |-- brain_bm25 (zero model, stdlib only; reads
+                                                     |   .index/brain.db when BRAIN_INDEX=sqlite -
+                                                     |   FTS5 narrows candidates, same BM25 formula
+                                                     |   scores them - else re-scans the vault)
                                                      '-- brain_searchd daemon (warm BGE-M3, ~80 ms,
                                                          RRF-fused; recommended, run as a service;
                                                          absent -> plain BM25; docs/DENSE_RECALL.md)
@@ -72,8 +75,8 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
       +--> [UserPromptSubmit] context-inject.sh ----> how full the context is, delta since last prompt,
                                                      warning before auto-compaction (Claude Code only)
   you write a note
-      +--> [PostToolUse] brain-embed-after-write.sh --> brain_embed.py --> .index/embeddings.jsonl
-      |                                                 (BGE-M3, local CPU, hash-incremental)
+      +--> [PostToolUse] brain-embed-after-write.sh --> brain_index.py update [--embed] --> .index/brain.db
+      |                                                 (BM25 tokens + BGE-M3 vectors, local CPU, hash-incremental)
       +--> [PostToolUse] postwrite-check.sh ----------> ghost-link + empty-note check
   you mutate anything (write, edit, state-changing shell)
       +--> [PostToolUse] observe-mutations.sh --------> _drafts/observations_<instance>_<day>.md
@@ -109,6 +112,21 @@ search) - useful for reading and pruning by hand, but optional: nothing in brain
 `.obsidian/app.json` - it holds working files, not notes, so it should not show up as orphans. If you
 already keep an Obsidian vault, point `BRAIN_DIR` at it (see [`INTRO_PROMPT.md`](INTRO_PROMPT.md), track B).
 
+## The index
+
+BM25 recall's file-scan is fine for a few hundred notes and gets slow past a couple thousand,
+since it re-reads and re-tokenizes every file on every query. `brain_index.py` builds and
+maintains `<vault>/.index/brain.db` instead - one SQLite file holding a `files` table (sha-hashed,
+so an unchanged note costs one hash comparison, not a re-scan), a `chunks` table (BM25 tokens, a
+600-char excerpt, the BGE-M3 vector as a BLOB) and an FTS5 shadow table for fast candidate lookup,
+so the same rows serve both the sparse and the dense engine. Setting `BRAIN_INDEX=sqlite` (the
+default `setup.sh` writes) routes `brain_bm25.search()` through it; the write hook keeps it
+current with an incremental `update` after every note change, and a missing or broken index falls
+back to the plain file-scan on its own. Measured on a ~1,200-note vault: a query that took 1.1 s
+scanning files takes 0.007 s through the index (about 150x), and the recall hook's end-to-end
+time drops from 1.47 s to 0.22 s. `brain_index.py build [--embed]` does a full rebuild; `stats`
+prints row counts and file size.
+
 ## Prostheses: what each part stands in for
 
 The model's weights are frozen and its context is a working memory that compaction empties.
@@ -131,6 +149,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Salience / emotional tagging | amygdala | `weight:` (canon > lesson > approval > routine) in the ranking, and the reflex that sets it: `salience-inject.sh` spots a correction in your prompt ("wrong", "undo", "why did you"; `BRAIN_SALIENCE_RX` for your language) and tells the model to tag this turn's record `weight: lesson`; `salience-postwrite.sh` warns if a decision record is then written without a weight | canon outranks routine at equal relevance; and what hurt gets encoded as a lesson without anyone remembering to do it |
 | Forgetting | synaptic decay | age decay + `superseded` penalty | an old, undated-importance note fades instead of crowding out this week's |
 | Sleep consolidation | hippocampus -> cortex replay | `brain_consolidate.py` proposal | distil episodes into knowledge, mark superseded, surface contradictions - a human approves |
+| Belief tracking | orbitofrontal / anterior cingulate | the optional belief ledger, `docs/BELIEFS.md` | one falsifiable claim per belief, with its own status, separate from the episodic record of how you got there - so "is this still true" does not require re-reading history |
 | Implicit episodic trace | hippocampal indexing of what you did, not what you decided | `observe-mutations.sh` stream | every mutation leaves a one-line trace; consolidation matches traces to decisions and flags the unexplained ones |
 | Metacognition | anterior cingulate | confidence tags on every recalled note (STRONG = both engines agreed or dense cosine over the floor, FAIR = one engine) + an explicit "no matching note - treat as not known" line when a real question finds nothing; discipline docs, `docs/DISCIPLINE.md` | knowing how much to trust what memory just handed you, knowing that you don't know (say so, label the guess a hypothesis) - and when the tool is wrong, when to stop, when to ask |
 | Perseveration guard | basal ganglia loop that normally lets a stuck motor pattern break | `identical-answer-stop.sh` | a person snaps out of repeating themselves when the response clearly isn't landing; a model can keep emitting the same templated answer turn after turn, even under a one-character correction buried inside it. This hook blocks a byte-for-byte repeat of the previous turn's answer and forces a re-read, making that failure mode mechanically impossible instead of relying on the model to notice it |
@@ -143,13 +162,14 @@ anything; it gives a frozen model a memory it can read.
 | Moment | Hook | What lands in context |
 |---|---|---|
 | every prompt | `_focus_inject.sh` | your focus file for this instance, verbatim |
-| every prompt | `_auto_retrieve.sh` | top-k matching notes with a confidence tag each (STRONG/FAIR) and a count in the header; STRONG notes carry the "what" line + excerpt, FAIR notes only title + address (low confidence gets less room); on a real question (>= 6 words) with no match, one line saying so - not silence |
+| every prompt | `_auto_retrieve.sh` | top-k matching notes with a confidence tag each (STRONG/FAIR) and a count in the header; STRONG notes carry the "what" line + excerpt, FAIR notes only title + address (low confidence gets less room); on a real question (>= 6 words) with no match, one line saying so - not silence; a note saying the dense engine did not answer this turn, if none of the results came from it |
+| every prompt | `beliefs_recall.py` (called from `_auto_retrieve.sh`) | active beliefs tied to whatever notes recall just surfaced, plus a pointer to anything on the same topic that has since evolved; silent until you opt into the belief layer (`docs/BELIEFS.md`) |
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
 | every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |
 | every prompt | `salience-inject.sh` | only when your prompt carries a correction signal: one line - "tag this turn's record `weight: lesson`" |
 | after a note write | `salience-postwrite.sh` | only when a decision record is written weight-less after a correction in this session |
 | every prompt | `context-inject.sh` | context ~Nk (P% of window), delta since last prompt, warning past 80% (`BRAIN_CTX_WARN`, `BRAIN_CTX_WINDOW`). **Claude Code only** - needs the hook's `transcript_path`; silent elsewhere |
-| after a note write | `brain-embed-after-write.sh` | one line confirming the re-embed (or that it failed) |
+| after a note write | `brain-embed-after-write.sh` | one line confirming the index update (or that it failed) |
 | after a note write | `postwrite-check.sh` | only when a wikilink points at a missing note, or a note is empty |
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |
 | after compaction | `sessionstart-compact-pointer.sh` | addresses: the handoff note and the snapshot |
@@ -160,7 +180,7 @@ because five irrelevant notes cost more than none.
 
 ## Configuration
 
-Everything is environment variables; `setup.sh` writes the two that matter into
+Everything is environment variables; `setup.sh` writes the few that matter into
 `<agent-config-dir>/brain-kit.env`, which every hook sources. An exported variable always wins.
 
 | Variable | Default | What it does |
@@ -172,7 +192,8 @@ Everything is environment variables; `setup.sh` writes the two that matter into
 | `BRAIN_WIKI_DIR` | none | optional shared docs root, read-only, indexed alongside |
 | `BRAIN_RECALL_K` | `5` | how many notes recall injects |
 | `BRAIN_STOPWORDS` | empty | extra stopwords (also `<root>/.brain-stopwords`) |
-| `BRAIN_EMBED` | `1` | `0` keeps the embedding hook idle (set by `--no-embed`) |
+| `BRAIN_INDEX` | `sqlite` | BM25 reads `.index/brain.db` instead of scanning files; unset or a broken index falls back on its own |
+| `BRAIN_EMBED` | `1` | `0` keeps the write hook's `--embed` flag off (set by `--no-embed`) - the index itself still updates |
 | `BRAIN_EMBED_MODEL` / `BRAIN_RERANK_MODEL` | BGE-M3 / bge-reranker-v2-m3 | local model overrides |
 | `BRAIN_SEARCHD_URL` / `_TIMEOUT` / `_PORT` | `127.0.0.1:8799`, `0.3`, `8799` | dense-recall daemon (recommended, `docs/DENSE_RECALL.md`); absent = BM25 only |
 | `BRAIN_DENSE_MIN` / `BRAIN_DENSE_JOIN` | `0.62` / `0.55` | dense cosine gates: answer-alone / enter-fusion |
