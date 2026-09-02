@@ -53,16 +53,31 @@ def fuse(sparse, dens, k):
     return out
 
 
+def single(lst, k, tag):
+    """One engine's own results, relabelled onto fuse()'s scale (same RRF-rank score plus an engine
+    letter) instead of that engine's raw score (a BM25 score can be in the thousands; a bare cosine
+    looks like a dense hit even when it was never fused). This way a caller reading the "score"
+    field can always tell which engine(s) answered from the trailing letter alone - including the
+    case where the dense daemon never answered at all, which the hook uses to warn about that."""
+    out = []
+    for i, r in enumerate(lst[:k]):
+        it = dict(r)
+        it["bm25" if tag == "b" else "cos"] = r.get("score")
+        it["score"] = f"{round(100.0 / (RRF_K + i + 1), 1)}{tag}"
+        out.append(it)
+    return out
+
+
 def recall(q, k=5):
     sparse = bm.search(q, k * 2)
     dens = dense(q, k * 2)
     if not dens:
-        return sparse[:k]
+        return single(sparse, k, "b")
     top = dens[0].get("score", 0.0)
     if not sparse:
-        return dens[:k] if top >= DENSE_MIN else []     # BM25 empty: dense rescues only when confident
+        return single(dens, k, "d") if top >= DENSE_MIN else []  # BM25 empty: dense rescues only when confident
     dens = [r for r in dens if r.get("score", 0.0) >= DENSE_JOIN]
-    return fuse(sparse, dens, k) if dens else sparse[:k]
+    return fuse(sparse, dens, k) if dens else single(sparse, k, "b")
 
 
 if __name__ == "__main__":

@@ -7,6 +7,8 @@
 # Config: BRAIN_ROOT, BRAIN_DIR (via <claude-dir>/brain-kit.env or the environment).
 #         BRAIN_RECALL_K   - how many notes to inject (default 5)
 #         BRAIN_ISOLATE_DIRS - space separated dir globs where this hook stays quiet.
+#         BRAIN_INDEX=sqlite - brain_bm25 reads <vault>/.index/brain.db (brain_index.py) instead
+#         of rescanning every file; falls back to the file scan on its own if the DB is missing.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 # Identity and scope derive from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd:
 # a `cd` into another project inside a session must not change who you are or whose memory you read.
@@ -45,8 +47,15 @@ def tier(x):
     s = str(x.get("score",""))
     return "STRONG" if s.endswith("bd") or (x.get("cos") is not None and float(x["cos"]) >= DM) else "FAIR"
 tiers = [tier(x) for x in r]
+# Dense-daemon health, read off the results themselves (2 Sep 2026): every result score ends in a
+# "b"/"d"/"bd" engine tag (brain_recall.single/fuse); if none carries "d" the dense side of hybrid
+# recall never answered this turn - the daemon is down, slow, or the index is not built. Surfacing
+# that explains a run of "FAIR" tiers instead of leaving it looking like a corpus quality problem.
+dense_ok = any("d" in str(x.get("score","")) for x in r)
 print("AUTO-RECALL (your own notes, closest to this message - if one is relevant, use it "
-      "before re-deriving or reverse-engineering anything) - confidence: %d strong, %d fair:" % (tiers.count("STRONG"), tiers.count("FAIR")))
+      "before re-deriving or reverse-engineering anything) - confidence: %d strong, %d fair%s:" % (
+      tiers.count("STRONG"), tiers.count("FAIR"),
+      "" if dense_ok else " - dense engine did not answer (BM25 only; check brain_searchd on 8799)"))
 for x, t in zip(r, tiers):
     h = (x.get("heading") or "").strip()
     line = "  %s [%s] %s:%s" % (t, x["score"], x["root"], x["note"])
