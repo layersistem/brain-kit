@@ -114,5 +114,5 @@ else
 fi
 say "done - restart your agent session so the hooks load, then read README.md"
 echo "   smoke test: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_INDEX=sqlite python3 \"$BRAIN_ROOT/scripts/brain_bm25.py\" \"example decision\" 3"
-echo "   index stats: \"$BRAIN_ROOT/.venv/bin/python\" \"$BRAIN_ROOT/scripts/brain_index.py\" stats"
-echo "   re-embed after --no-embed: \"$BRAIN_ROOT/.venv/bin/python\" \"$BRAIN_ROOT/scripts/brain_index.py\" build --embed"
+echo "   index stats: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_DIR=\"$VAULT\" \"$BRAIN_ROOT/.venv/bin/python\" \"$BRAIN_ROOT/scripts/brain_index.py\" stats"
+echo "   re-embed after --no-embed: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_DIR=\"$VAULT\" \"$BRAIN_ROOT/.venv/bin/python\" \"$BRAIN_ROOT/scripts/brain_index.py\" build --embed"
