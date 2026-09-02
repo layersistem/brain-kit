@@ -68,6 +68,18 @@ for x, t in zip(r, tiers):
     if hint: print("      what: " + hint[:130])
     t = " ".join(x.get("text","").split())[:200]
     if t: print("      " + t)
+# Belief layer (optional, 2 Sep 2026): if beliefs_rebuild.py has ever been run, .index/beliefs.db
+# exists and this shows the active beliefs tied to whatever notes recall just surfaced, plus a
+# pointer to anything on the same topic that has since evolved - so a judgement gets made against
+# the current belief, not against whatever the recalled note happened to say when it was written.
+# Silent if the DB does not exist yet (kit ships the layer opt-in; see docs/BELIEFS.md).
+try:
+    import subprocess as _sp
+    _root = os.environ.get("BRAIN_ROOT", os.path.expanduser("~/brain"))
+    _o = _sp.run([sys.executable, os.path.join(_root, "scripts", "beliefs_recall.py")] + [x.get("path","") for x in r],
+                 capture_output=True, text=True, timeout=1.5).stdout
+    if _o.strip(): print(_o.rstrip())
+except Exception: pass
 # Usage-reinforcement (mirrors a spacing-effect boost from a sibling project): count each note that
 # was actually surfaced here into <vault>/.index/recall_counts.json ({basename: {c, ts}}); brain_bm25.py
 # reads it back as a small score boost. Best-effort - a write failure must never drop the recall output.
