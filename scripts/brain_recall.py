@@ -20,8 +20,28 @@ SCOPE = pathlib.Path(os.environ.get("BRAIN_MEMORY2", "/x/y")).parent.name   # mu
 RRF_K = 60
 
 
+_BRAIN_ROOT = pathlib.Path(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/brain")))
+VAULT = pathlib.Path(os.environ.get("BRAIN_DIR", str(_BRAIN_ROOT / "vault"))).resolve()
+
+
+def daemon_serves_my_vault():
+    """True only if the daemon on URL reports the same vault this recall runs against.
+    Two installs on one machine share the default port; without this check the second install
+    quietly returned the first one's notes (isolated-install test, 2026-09-03). Older daemons
+    that report no `vault` field are trusted (single-install, pre-fix)."""
+    try:
+        with urllib.request.urlopen(f"{URL}/health", timeout=TIMEOUT) as r:
+            h = json.load(r)
+    except Exception:
+        return False
+    v = h.get("vault")
+    return v is None or pathlib.Path(v).resolve() == VAULT
+
+
 def dense(q, k):
-    """Dense hits from the daemon; any error or timeout -> [] (silent)."""
+    """Dense hits from the daemon; any error, timeout or foreign-vault daemon -> [] (silent)."""
+    if not daemon_serves_my_vault():
+        return []
     try:
         u = f"{URL}/search?" + urllib.parse.urlencode({"q": q, "k": k, "scope": SCOPE})
         with urllib.request.urlopen(u, timeout=TIMEOUT) as r:

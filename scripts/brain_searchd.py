@@ -114,8 +114,11 @@ class H(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path); p = urllib.parse.parse_qs(u.query)
         if u.path == "/health":
             _load()
+            # `vault` lets brain_recall.py verify this daemon serves ITS vault: two installs on one
+            # machine both default to :8799, and without this check the second one silently recalls
+            # the first one's notes (found 2026-09-03 in an isolated-install test).
             return self._send({"ok": True, "entries": len(_S["entries"]), "index_mtime": _S["mtime"],
-                               "model": EMB_MODEL})
+                               "model": EMB_MODEL, "vault": str(VAULT.resolve())})
         q = (p.get("q", [""])[0]).strip(); k = int(p.get("k", ["5"])[0]); scope = p.get("scope", [""])[0]
         try:
             r = search(q, k, scope) if q else []

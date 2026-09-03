@@ -110,3 +110,22 @@ When you spot a second problem while working on the first, do not chase it. One 
 `[observation, out of scope] file:line - what you saw` and go back to your task. The finding
 survives, the focus does not scatter. Retracted claims are the currency of lost trust; before
 you assert, gates 3 and 4.
+
+## 9. Anti-rationalization table
+
+The left column is the sentence you say to yourself at the moment you are about to skip a gate.
+When you notice it, apply the right column without debate. Each row cost a real day of work
+before it was written down (pattern borrowed from addyosmani/agent-skills).
+
+| What you tell yourself | What you do instead |
+|---|---|
+| "The tests / the SQL check passed, so the output is right." | Numbers being right is not the answer being right. Read the actual output as the user will see it. |
+| "CI is green and the reviewer said clean, so it ships." | Those are process gates. The product gate is a human looking at the result. |
+| "The other agent verified it." | Verified how, and from which entry point? Open the evidence yourself; a function called in a test is not a function reached in production. |
+| "There is output, so it passed." | Existence is not correctness. Every result gets read, or the run has no result. |
+| "The data is not here, go search outside." | First check the module that owns that data. It usually exists and you designed it. |
+| "That component is known-broken, but it returned something." | Output from a known-broken source does not count. Report it as broken on its own line. |
+| "My handoff note says this is how we run it." | A handoff note is not the canon. Reopen the skill or decision record before you start. |
+| "Let the subagent do it, I will manage." | Work that touches the whole system is not delegated. Write it yourself; you catch ten things on the way that a brief never mentions. |
+| "It is a one-line change, no test needed." | One apostrophe broke a hook today. Run the test, show the output. |
+| "They said talk, but doing is faster." | If the operator said discuss, discuss. Work starts on an explicit go.
