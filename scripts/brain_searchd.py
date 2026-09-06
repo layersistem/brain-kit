@@ -70,9 +70,17 @@ def _load():
     threading.Thread(target=_bg, daemon=True).start()
 
 
+WIKI_SCOPE_RX = os.environ.get("BRAIN_WIKI_SCOPE_RX", "")  # same knob as brain_index_search: empty = docs root visible to all
+
+
 def _visible(path, scope):
+    """vault/ and memory/ to everyone; imem/<slug>/ only to its own session; wiki/ (the shared docs
+    root) to everyone unless BRAIN_WIKI_SCOPE_RX narrows it to sessions whose slug matches."""
     if path.startswith("imem/"):
         return bool(scope) and path.startswith(f"imem/{scope}/")
+    if path.startswith("wiki/") and WIKI_SCOPE_RX:
+        import re
+        return bool(scope) and bool(re.search(WIKI_SCOPE_RX, scope))
     return True
 
 
@@ -90,7 +98,8 @@ def search(q, k=5, scope=""):
         if not _visible(e["path"], scope) or e["note"] in seen:
             continue
         seen.add(e["note"])
-        root = "memory" if e["path"].startswith(("memory/", "imem/")) else "brain"
+        top = e["path"].split("/", 1)[0]  # docs-root hits are labelled "wiki", not "brain" - the hook resolves their real path
+        root = "memory" if top == "memory" or e["path"].startswith("imem/") else ("wiki" if top == "wiki" else "brain")
         out.append({"root": root, "note": e["note"], "heading": e.get("heading", ""), "path": e["path"],
                     "score": round(float(cos[i]), 3), "text": e["text"][:600]})
         if len(out) >= k:

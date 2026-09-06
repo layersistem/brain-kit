@@ -7,7 +7,11 @@ MRR 0.93. It is a modest gain, measured before it was switched on - install it o
 
 What it costs: one Python process holding the model (~2-3 GB RSS, idle CPU 0 %), ~80 ms per query,
 and a service definition so it survives reboots. What it never costs: correctness. If the daemon is
-down or slow (>0.3 s), `brain_recall.py` silently returns plain BM25.
+down or slow (>0.8 s), `brain_recall.py` silently returns plain BM25 - and writes one line per call to
+`<agent-config-dir>/brain-kit-state/dense_calls.log` (`epoch|ok/miss|ms|error|instance`), because a
+silent fallback you cannot count is a fallback you will never notice. The budget was 0.3 s until it was
+measured: a warm query answers in ~90 ms, but while the write hook embeds a note (10-14 s of CPU) the
+daemon took 311 ms and lost the dense half for that turn. 0.8 s costs nothing on a quiet machine.
 
 ## How it fits
 
@@ -24,9 +28,11 @@ race to guard against, unlike the flat file this replaced.
 
 Per-project memory is tagged `imem/<project-slug>/` by `brain_embed.py`; the daemon only returns
 those entries to the instance whose slug matches (`scope=` parameter, derived from `BRAIN_MEMORY2`).
-Vault and shared memory are visible to every instance.
+Vault and shared memory are visible to every instance. The shared docs root (`BRAIN_WIKI_DIR`) is
+embedded too and visible to everyone, unless `BRAIN_WIKI_SCOPE_RX` narrows it to the sessions whose
+slug matches - one machine, several products, each session only sees its own product's docs.
 
-Tuning knobs (env, all optional): `BRAIN_SEARCHD_URL`, `BRAIN_SEARCHD_TIMEOUT` (0.3),
+Tuning knobs (env, all optional): `BRAIN_SEARCHD_URL`, `BRAIN_SEARCHD_TIMEOUT` (0.8),
 `BRAIN_DENSE_MIN` (0.62 - dense may answer alone, when BM25 is empty, only above this cosine),
 `BRAIN_DENSE_JOIN` (0.55 - dense hits below this do not enter the fusion). The two thresholds came
 from measuring gold cosines (min 0.61) against chit-chat cosines (max 0.595) on the author's vault;

@@ -107,7 +107,11 @@ def sync(full=False, embed=False):
         con.execute("DELETE FROM files WHERE rel=?", (r,))
     # missing = every vectorless vault/memory chunk in the DB right now, not just the ones this pass touched -
     # so an interrupted or partial embed run is topped up on the next call instead of staying stuck.
-    missing = con.execute("SELECT c.id, c.embed_text FROM chunks c JOIN files f ON f.rel=c.rel WHERE c.embedding IS NULL AND f.root!='wiki'").fetchall()
+    # The shared docs root (BRAIN_WIKI_DIR) is embedded too since 6 Sep 2026: it used to be BM25-only, which
+    # meant dense recall never saw it and its hits came back labelled as if they were vault notes. Set
+    # BRAIN_WIKI_EMBED=0 to keep a very large docs tree out of the encoder (it stays searchable by BM25).
+    wiki_filter = "" if os.environ.get("BRAIN_WIKI_EMBED", "1") != "0" else " AND f.root!='wiki'"
+    missing = con.execute("SELECT c.id, c.embed_text FROM chunks c JOIN files f ON f.rel=c.rel WHERE c.embedding IS NULL" + wiki_filter).fetchall()
     if missing and not embed and be.EMB_FILE.exists():  # migration window: an old jsonl on disk can still supply a vector
         jv = old_vectors(); fill = [(rid, t) for rid, t in missing if any(k[2] == t for k in jv)]
         for rid, t in fill:

@@ -18,18 +18,24 @@ P=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]')
 NOTIF_RX="system notification - not user input|<task-notification>|📬 masa|monitor event:"
 printf '%s' "$P" | grep -qE "$NOTIF_RX" && exit 0
 RX="${BRAIN_SALIENCE_RX:-(wrong|incorrect|mistake|you broke|broken now|undo|revert|roll back|hallucinat|made up|why did you|why would you|i told you|i said|didn.t i say|stop[ ,.!]|stop$|^no[ ,.!]|[ ,.]no[ ,.!]|not what i asked|again the same|same mistake|you didn.t read)}"
-HIT=$(printf '%s' "$P" | grep -oE "$RX" | head -1)
+# Negation veto (6 Sep 2026): "nothing wrong", "not a mistake", "you didn't break it" carry a marker word but
+# are the opposite of a correction. They are blanked before matching. BRAIN_SALIENCE_NEG_RX overrides the list.
+NEG="${BRAIN_SALIENCE_NEG_RX:-(nothing wrong|not wrong|isn.t wrong|wasn.t wrong|no mistake|not a mistake|didn.t break|not broken|no need to (undo|revert)|don.t (undo|revert))}"
+HIT=$(printf '%s' "$P" | sed -E "s/$NEG/ /g" | grep -oE "$RX" | head -1)
 [ -n "$HIT" ] || exit 0
 ST="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit-state"; mkdir -p "$ST"; F="$ST/salience_${SID:-x}"
 echo "$(date +%s)|$HIT" >> "$F"
 N=$(wc -l < "$F" | tr -d ' ')
-# Day counter + inflation-breaker threshold: a session that keeps correcting the same class of
-# mistake needs more than another one-off lesson tag - past a daily count it means a gate is being
-# missed repeatedly, and the right response is a pattern analysis, not another single-case fix.
+# Day counter for the record, but the hard warning fires on a BURST, not on the day's total (6 Sep 2026):
+# a cumulative daily threshold turned into a lock - once a day crossed it, every remaining turn came up red,
+# 26 turns in a row on the day it was measured. A gate that is really being missed shows up as several
+# corrections close together, so the hard line now needs BRAIN_SALIENCE_BURST signals (3) inside
+# BRAIN_SALIENCE_WINDOW seconds (5400 = 90 min).
 DG="$ST/salience_day_$(date +%Y%m%d)"; echo "$(date +%s)|$HIT" >> "$DG"; NG=$(wc -l < "$DG" | tr -d ' ')
-THRESH="${BRAIN_SALIENCE_DAILY_THRESHOLD:-10}"
-if [ "$NG" -gt "$THRESH" ]; then
-  echo "SALIENCE-HARD (signal #$NG today, over $THRESH): a single-case lesson is not enough - STOP, run a PATTERN ANALYSIS: what gate keeps failing across today's signals (read $DG, group them), write a pattern section into the root-cause record, then fix. Confirm before continuing."
+BURST="${BRAIN_SALIENCE_BURST:-3}"; WINDOW="${BRAIN_SALIENCE_WINDOW:-5400}"
+RECENT=$(awk -F'|' -v n="$(date +%s)" -v w="$WINDOW" '($1+0) > n-w {c++} END{print c+0}' "$DG")
+if [ "$RECENT" -ge "$BURST" ]; then
+  echo "SALIENCE-HARD (signal \"$HIT\" - $RECENT in the last $((WINDOW/60)) min, #$NG today): a single-case lesson is not enough - slow down, run a PATTERN ANALYSIS: what gate keeps failing across these signals (read $DG, group them), write a pattern section into the root-cause record, then fix. Confirm before continuing."
 else
   echo "SALIENCE: correction signal \"$HIT\" - #$N this session, #$NG today. Give this turn's record \`weight: lesson\` + a \"## Lesson\" (what was wrong, what is right, which gate failed). Understand the cause before fixing."
 fi

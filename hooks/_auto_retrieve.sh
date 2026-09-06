@@ -24,6 +24,7 @@ BM="$BRAIN_ROOT/scripts/brain_recall.py"
 [ -f "$BM" ] || exit 0
 # Third root: the per-project memory directory some agent CLIs manage themselves.
 export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${SESSION_ROOT:-}" | tr '/ _' '---')/memory}"
+export BRAIN_WIKI_DIR   # shared docs root, if brain-kit.env sets one - the printer below resolves wiki hits to real paths
 IN=$(cat)
 PROMPT=$(printf '%s' "$IN" | python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("prompt",""))
@@ -51,13 +52,29 @@ tiers = [tier(x) for x in r]
 # "b"/"d"/"bd" engine tag (brain_recall.single/fuse); if none carries "d" the dense side of hybrid
 # recall never answered this turn - the daemon is down, slow, or the index is not built. Surfacing
 # that explains a run of "FAIR" tiers instead of leaving it looking like a corpus quality problem.
-dense_ok = any("d" in str(x.get("score","")) for x in r)
-print("AUTO-RECALL (your own notes, closest to this message - if one is relevant, use it "
+dense_ok = any("d" in str(x.get("score","")) or x.get("dense_answered") for x in r)  # daemon replied (even if nothing cleared the cosine gate)
+# Shared docs root (BRAIN_WIKI_DIR): hits carry root "wiki" and only a basename; resolve to the real file so the
+# model can Read it directly instead of guessing where the doc lives. One directory walk, cached per call.
+WIKI_DIR = os.environ.get("BRAIN_WIKI_DIR", "")
+_WIKI_IDX = None
+def wiki_path(name):
+    global _WIKI_IDX
+    if _WIKI_IDX is None:
+        _WIKI_IDX = {}
+        for dp, dn, fn in os.walk(WIKI_DIR or "/nonexistent"):
+            dn[:] = [d for d in dn if not d.startswith(".") and d != "_archive"]
+            for f in fn:
+                if f.endswith(".md"): _WIKI_IDX.setdefault(f, os.path.join(dp, f))
+    return _WIKI_IDX.get(name, "wiki/" + name)
+has_wiki = any(x.get("root") == "wiki" for x in r)
+print("AUTO-RECALL (your own notes%s, closest to this message - if one is relevant, use it "
       "before re-deriving or reverse-engineering anything) - confidence: %d strong, %d fair%s:" % (
+      " + shared docs (wiki: lines - Read the path)" if has_wiki else "",
       tiers.count("STRONG"), tiers.count("FAIR"),
       "" if dense_ok else " - dense engine did not answer (BM25 only; check brain_searchd on 8799)"))
 for x, t in zip(r, tiers):
     h = (x.get("heading") or "").strip()
+    if x.get("root") == "wiki": x["path"] = wiki_path(os.path.basename(x["path"]))
     line = "  %s [%s] %s:%s" % (t, x["score"], x["root"], x["note"])
     if h: line += " > " + h
     print(line + "  (" + x["path"] + ")")

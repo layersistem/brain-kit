@@ -77,7 +77,7 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
   you write a note
       +--> [PostToolUse] brain-embed-after-write.sh --> brain_index.py update [--embed] --> .index/brain.db
       |                                                 (BM25 tokens + BGE-M3 vectors, local CPU, hash-incremental)
-      +--> [PostToolUse] postwrite-check.sh ----------> ghost-link + empty-note check
+      +--> [PostToolUse] postwrite-check.sh ----------> ghost-link + orphan-note + empty-note check (the file just written)
   you mutate anything (write, edit, state-changing shell)
       +--> [PostToolUse] observe-mutations.sh --------> _drafts/observations_<instance>_<day>.md
                                                        (append-only trail, secrets masked, kept out
@@ -166,11 +166,11 @@ anything; it gives a frozen model a memory it can read.
 | every prompt | `beliefs_recall.py` (called from `_auto_retrieve.sh`) | active beliefs tied to whatever notes recall just surfaced, plus a pointer to anything on the same topic that has since evolved; silent until you opt into the belief layer (`docs/BELIEFS.md`) |
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
 | every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |
-| every prompt | `salience-inject.sh` | only when your prompt carries a correction signal: one line - "tag this turn's record `weight: lesson`" |
+| every prompt | `salience-inject.sh` | only when your prompt carries a correction signal: one line - "tag this turn's record `weight: lesson`"; a hard "run a pattern analysis" line when several corrections land inside 90 minutes (a burst, not the day's total - `BRAIN_SALIENCE_BURST` / `_WINDOW`); negated phrases ("nothing wrong") do not count |
 | after a note write | `salience-postwrite.sh` | only when a decision record is written weight-less after a correction in this session |
 | every prompt | `context-inject.sh` | context ~Nk (P% of window), delta since last prompt, warning past 80% (`BRAIN_CTX_WARN`, `BRAIN_CTX_WINDOW`). **Claude Code only** - needs the hook's `transcript_path`; silent elsewhere |
 | after a note write | `brain-embed-after-write.sh` | one line confirming the index update (or that it failed) |
-| after a note write | `postwrite-check.sh` | only when a wikilink points at a missing note, or a note is empty |
+| after a note write | `postwrite-check.sh` | only when the note you just wrote links to a missing note, has no links at all (an orphan; `BRAIN_ORPHAN_EXEMPT` dirs are fine), or is empty. Code blocks and backticks are not scanned; the vault-wide ghost count is shown as background only |
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |
 | after compaction | `sessionstart-compact-pointer.sh` | addresses: the handoff note and the snapshot |
 | end of turn | `identical-answer-stop.sh` | only when this answer is byte-for-byte identical to the previous turn's: blocks and forces a re-read of the incoming message (`full` profile only, `BRAIN_PERSEVERATION_GUARD=0` disables) |
@@ -189,13 +189,17 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_DIR` | `$BRAIN_ROOT/vault` | the vault itself - point it at notes you already have |
 | `BRAIN_INSTANCE` | `main` | this session's name (else `.brain-instance`) |
 | `BRAIN_MEMORY` / `BRAIN_MEMORY2` | `$BRAIN_ROOT/memory`, none | extra roots indexed as timeless memory |
-| `BRAIN_WIKI_DIR` | none | optional shared docs root, read-only, indexed alongside |
+| `BRAIN_WIKI_DIR` | none | optional shared docs root (a product wiki, a repo's docs), read-only, indexed alongside - BM25 and dense; recall prints the real file path so the model can Read it |
+| `BRAIN_WIKI_SCOPE_RX` | empty | regex on the session's project slug; set it and only matching sessions see the docs root (others keep vault + memory) |
+| `BRAIN_WIKI_EMBED` | `1` | `0` keeps the docs root out of the encoder (BM25 only) - for a very large tree |
+| `BRAIN_ORPHAN_EXEMPT` / `BRAIN_WRITING_RULE` | `_drafts _archive refs focus`, empty | dirs where linkless files are fine by design; an optional rule name quoted in the orphan message |
+| `BRAIN_SALIENCE_BURST` / `_WINDOW` / `_NEG_RX` | `3`, `5400`, built-in | hard warning after N corrections inside the window (seconds); negation phrases that cancel a match |
 | `BRAIN_RECALL_K` | `5` | how many notes recall injects |
 | `BRAIN_STOPWORDS` | empty | extra stopwords (also `<root>/.brain-stopwords`) |
 | `BRAIN_INDEX` | `sqlite` | BM25 reads `.index/brain.db` instead of scanning files; unset or a broken index falls back on its own |
 | `BRAIN_EMBED` | `1` | `0` keeps the write hook's `--embed` flag off (set by `--no-embed`) - the index itself still updates |
 | `BRAIN_EMBED_MODEL` / `BRAIN_RERANK_MODEL` | BGE-M3 / bge-reranker-v2-m3 | local model overrides |
-| `BRAIN_SEARCHD_URL` / `_TIMEOUT` / `_PORT` | `127.0.0.1:8799`, `0.3`, `8799` | dense-recall daemon (recommended, `docs/DENSE_RECALL.md`); absent = BM25 only |
+| `BRAIN_SEARCHD_URL` / `_TIMEOUT` / `_PORT` | `127.0.0.1:8799`, `0.8`, `8799` | dense-recall daemon (recommended, `docs/DENSE_RECALL.md`); absent = BM25 only. Every call is logged to `<agent-config-dir>/brain-kit-state/dense_calls.log` (ok/miss, ms) so a silent fallback stays measurable |
 | `BRAIN_DENSE_MIN` / `BRAIN_DENSE_JOIN` | `0.62` / `0.55` | dense cosine gates: answer-alone / enter-fusion |
 | `BRAIN_PROJECT_NAME` / `_VOCAB` / `BRAIN_CWD_MARKERS` | empty | project scope filter (off by default) |
 | `BRAIN_FOCUS_DIRS` / `BRAIN_ISOLATE_DIRS` | empty | directory globs where hooks speak, or stay silent |
