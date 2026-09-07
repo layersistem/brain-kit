@@ -60,7 +60,7 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
   your prompt
       |
       +--> [UserPromptSubmit] _focus_inject.sh ----> current focus file, verbatim
-      +--> [UserPromptSubmit] _auto_retrieve.sh ---> brain_recall.py --> top-k notes injected
+      +--> [UserPromptSubmit] _auto_retrieve.sh ---> brain_recall.py --> brain_recall_print.py --> top-k notes injected
                                                      |-- brain_bm25 (zero model, stdlib only; reads
                                                      |   .index/brain.db when BRAIN_INDEX=sqlite -
                                                      |   FTS5 narrows candidates, same BM25 formula
@@ -162,7 +162,7 @@ anything; it gives a frozen model a memory it can read.
 | Moment | Hook | What lands in context |
 |---|---|---|
 | every prompt | `_focus_inject.sh` | your focus file for this instance, verbatim |
-| every prompt | `_auto_retrieve.sh` | top-k matching notes with a confidence tag each (STRONG/FAIR) and a count in the header; STRONG notes carry the "what" line + excerpt, FAIR notes only title + address (low confidence gets less room); on a real question (>= 6 words) with no match, one line saying so - not silence; a note saying the dense engine did not answer this turn, if none of the results came from it |
+| every prompt | `_auto_retrieve.sh` (renderer: `scripts/brain_recall_print.py` - the hook itself holds no Python, so a quoting slip can never block every session's prompts again) | top-k matching notes with a confidence tag each (STRONG/FAIR) and a count in the header; with `BRAIN_WIKI_DIR` set, docs hits in a SOURCE block with a `code:` bridge line and notes under UNVERIFIED; STRONG notes carry the "what" line + excerpt, FAIR notes only title + address (low confidence gets less room); on a real question (>= 6 words) with no match, one line saying so - not silence; a note saying the dense engine did not answer this turn, if none of the results came from it |
 | every prompt | `beliefs_recall.py` (called from `_auto_retrieve.sh`) | active beliefs tied to whatever notes recall just surfaced, plus a pointer to anything on the same topic that has since evolved; silent until you opt into the belief layer (`docs/BELIEFS.md`) |
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
 | every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |

@@ -137,6 +137,8 @@ def wiki_pull(q, out, k=40):
     second. Disable with BRAIN_RECALL_WIKI_PULL=0."""
     if os.environ.get("BRAIN_RECALL_WIKI_PULL", "1") != "1" or any(x.get("root") == "wiki" for x in out):
         return out
+    if int(os.environ.get("RECALL_PROMPT_WORDS", "9") or 9) < 4:  # no docs-pull for one-word / chat prompts (an unrelated doc is worse than none)
+        return out
     floor = int(os.environ.get("BRAIN_RECALL_WIKI_PULL_RANK", "10") or 10)
     for lst, tag in ((bm.search(q, k), "b"), (dense(q, k), "d")):
         for i, r in enumerate((lst or [])[:floor]):
