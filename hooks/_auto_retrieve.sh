@@ -66,15 +66,43 @@ def wiki_path(name):
             for f in fn:
                 if f.endswith(".md"): _WIKI_IDX.setdefault(f, os.path.join(dp, f))
     return _WIKI_IDX.get(name, "wiki/" + name)
-has_wiki = any(x.get("root") == "wiki" for x in r)
-print("AUTO-RECALL (your own notes%s, closest to this message - if one is relevant, use it "
-      "before re-deriving or reverse-engineering anything) - confidence: %d strong, %d fair%s:" % (
-      " + shared docs (wiki: lines - Read the path)" if has_wiki else "",
+# Trust order (7 Sep 2026): DOCS -> CODE -> everything else is UNVERIFIED. Nobody labels anything at write
+# time; the reader sees it here. Shared-docs hits go in a SOURCE block (brain_recall.wiki_pull appends the best
+# docs hit even when it did not make the fused top-k), notes go in an UNVERIFIED block: valid for decisions and
+# history, not a source for how the system behaves until checked against the code. File paths mentioned in the
+# docs excerpt become a "code:" line - the docs-to-code bridge. Motivating case: the doc was right, recall showed
+# only notes, a note carrying an inference was repeated as fact, and the correction cost far more than one Read.
+import re as _re
+docs = [x for x in r if x.get("root") == "wiki"]
+rest = [x for x in r if x.get("root") != "wiki"]
+tiers_rest = [tier(x) for x in rest]
+print("AUTO-RECALL (closest to this message - trust order DOCS -> CODE -> everything else UNVERIFIED; "
+      "use it before re-deriving or reverse-engineering anything) - confidence: %d strong, %d fair%s:" % (
       tiers.count("STRONG"), tiers.count("FAIR"),
       "" if dense_ok else " - dense engine did not answer (BM25 only; check brain_searchd on 8799)"))
+if docs:
+    print("  SOURCE (shared docs - Read the path; a claim about how the system works is built from here and from the code):")
+    for x in docs:
+        h = (x.get("heading") or "").strip()
+        x["path"] = wiki_path(os.path.basename(x["path"]))
+        tag = " (low score, surfaced by docs-priority)" if x.get("wiki_pull") else ""
+        print("  %s [%s] %s:%s%s%s  (%s)" % (tier(x), x["score"], x["root"], x["note"], (" > " + h) if h else "", tag, x["path"]))
+        hint = (x.get("hint") or "").strip()
+        if hint: print("      what: " + hint[:130])
+        tx = " ".join((x.get("text") or "").split())[:200]
+        if tx: print("      " + tx)
+        paths = []
+        for m in _re.findall(r"[\w./-]+\.(?:py|sh|sql|js|jsx|ts|go|rs|yml|yaml|toml)\b", (x.get("hint") or "") + " " + (x.get("text") or "")):
+            m = m.lstrip("./")
+            if m and m not in paths and ("/" in m or m.endswith((".py", ".sh"))): paths.append(m)
+        if paths: print("      code: " + " - ".join(paths[:5]) + "  (docs-to-code bridge: open before judging)")
+elif WIKI_DIR:
+    print("  SOURCE (shared docs): no match - if this is a how-does-it-work question, find the doc and open the code; the notes below are not a source for that.")
+if rest:
+    print("  UNVERIFIED (notes/memory/inference - valid for decisions and history; not a source for how the system behaves until checked against the code):")
+r, tiers = rest, tiers_rest
 for x, t in zip(r, tiers):
     h = (x.get("heading") or "").strip()
-    if x.get("root") == "wiki": x["path"] = wiki_path(os.path.basename(x["path"]))
     line = "  %s [%s] %s:%s" % (t, x["score"], x["root"], x["note"])
     if h: line += " > " + h
     print(line + "  (" + x["path"] + ")")

@@ -189,7 +189,9 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_DIR` | `$BRAIN_ROOT/vault` | the vault itself - point it at notes you already have |
 | `BRAIN_INSTANCE` | `main` | this session's name (else `.brain-instance`) |
 | `BRAIN_MEMORY` / `BRAIN_MEMORY2` | `$BRAIN_ROOT/memory`, none | extra roots indexed as timeless memory |
-| `BRAIN_WIKI_DIR` | none | optional shared docs root (a product wiki, a repo's docs), read-only, indexed alongside - BM25 and dense; recall prints the real file path so the model can Read it |
+| `BRAIN_WIKI_DIR` | none | optional shared docs root (a product wiki, a repo's docs), read-only, indexed alongside - BM25 and dense; recall prints the real file path so the model can Read it. With a docs root set, recall output follows a trust order: docs hits in a SOURCE block (with a `code:` line of file paths the doc mentions), notes in an UNVERIFIED block - notes are valid for decisions and history, not for how the system behaves until checked against the code |
+| `BRAIN_RECALL_WIKI_PULL` | `1` | when the fused top-k has no docs hit, append the best docs hit anyway (flagged as low score) so the map is on screen before the model judges from a note; `0` disables |
+| `BRAIN_RECALL_WIKI_PULL_RANK` | `10` | how far down either engine's ranking the docs-pull may reach; beyond it nothing is pulled and recall says "no match" instead of showing an unrelated doc |
 | `BRAIN_WIKI_SCOPE_RX` | empty | regex on the session's project slug; set it and only matching sessions see the docs root (others keep vault + memory) |
 | `BRAIN_WIKI_EMBED` | `1` | `0` keeps the docs root out of the encoder (BM25 only) - for a very large tree |
 | `BRAIN_ORPHAN_EXEMPT` / `BRAIN_WRITING_RULE` | `_drafts _archive refs focus`, empty | dirs where linkless files are fine by design; an optional rule name quoted in the orphan message |

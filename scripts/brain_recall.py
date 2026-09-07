@@ -127,7 +127,27 @@ def recall(q, k=5):
     return fuse(sparse, dens, k) if dens else single(sparse, k, "b", dense_answered=True)
 
 
+def wiki_pull(q, out, k=40):
+    """Trust order (7 Sep 2026): shared docs (BRAIN_WIKI_DIR) rank above notes for *how the system works*
+    questions. If the fused top-k carries no docs hit, the best docs hit is appended anyway (flagged
+    `wiki_pull`), provided it ranks within BRAIN_RECALL_WIKI_PULL_RANK (default 10) of either engine —
+    so a marginally relevant doc is surfaced as a pointer, an irrelevant one is not. The hook prints it in
+    its own SOURCE block. Case that motivated it: the right doc existed, recall showed only notes, a note
+    carrying an inference was repeated as fact and cost a long correction. BM25 first (index, ~7 ms), dense
+    second. Disable with BRAIN_RECALL_WIKI_PULL=0."""
+    if os.environ.get("BRAIN_RECALL_WIKI_PULL", "1") != "1" or any(x.get("root") == "wiki" for x in out):
+        return out
+    floor = int(os.environ.get("BRAIN_RECALL_WIKI_PULL_RANK", "10") or 10)
+    for lst, tag in ((bm.search(q, k), "b"), (dense(q, k), "d")):
+        for i, r in enumerate((lst or [])[:floor]):
+            if r.get("root") == "wiki":
+                it = dict(r); it["bm25" if tag == "b" else "cos"] = r.get("score")
+                it["score"] = f"{round(100.0 / (RRF_K + i + 1), 1)}{tag}"; it["wiki_pull"] = True
+                return out + [it]
+    return out
+
+
 if __name__ == "__main__":
     q = sys.argv[1] if len(sys.argv) > 1 else ""
     k = int(sys.argv[2]) if len(sys.argv) > 2 else 5
-    print(json.dumps(recall(q, k) if q else [], ensure_ascii=False))
+    print(json.dumps(wiki_pull(q, recall(q, k)) if q else [], ensure_ascii=False))
