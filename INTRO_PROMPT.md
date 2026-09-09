@@ -113,7 +113,9 @@ Then choose one of two shapes and tell the user which you picked:
   Existing files stay where they are - retrieval walks the whole tree.
 - **Keep the new vault and link the old notes in.** Best when the existing notes belong to
   something else (a repo wiki, product docs). Leave `BRAIN_DIR` alone and set `BRAIN_WIKI_DIR`
-  to the other tree; it gets indexed read-only alongside the vault.
+  to the other tree; it gets indexed read-only alongside the vault. Several doc roots, each scoped to
+  the sessions that need it: `BRAIN_WIKI_DIRS` and `BRAIN_WIKI_SCOPE_RXS`, `;`-separated (README
+  "Configuration").
 
 Check what you are about to index first: `find <notes dir> -name '*.md' | wc -l`. Thousands of
 files are fine for BM25 but make the first embedding pass slow - tell the user the number.

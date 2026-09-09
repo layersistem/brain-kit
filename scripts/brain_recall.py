@@ -13,6 +13,7 @@ Telemetry: every daemon call appends one line to <claude-dir>/brain-kit-state/de
 import os, sys, json, time, pathlib, urllib.request, urllib.parse
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import brain_bm25 as bm
+import brain_wiki as bw
 
 URL = os.environ.get("BRAIN_SEARCHD_URL", "http://127.0.0.1:8799")
 # 0.3 s was measured too tight (6 Sep 2026): a warm query answers in 90-100 ms, but while the write hook
@@ -128,21 +129,21 @@ def recall(q, k=5):
 
 
 def wiki_pull(q, out, k=40):
-    """Trust order (7 Sep 2026): shared docs (BRAIN_WIKI_DIR) rank above notes for *how the system works*
+    """Trust order (7 Sep 2026): shared docs (BRAIN_WIKI_DIR, BRAIN_WIKI_DIRS) rank above notes for *how the system works*
     questions. If the fused top-k carries no docs hit, the best docs hit is appended anyway (flagged
     `wiki_pull`), provided it ranks within BRAIN_RECALL_WIKI_PULL_RANK (default 10) of either engine —
     so a marginally relevant doc is surfaced as a pointer, an irrelevant one is not. The hook prints it in
     its own SOURCE block. Case that motivated it: the right doc existed, recall showed only notes, a note
     carrying an inference was repeated as fact and cost a long correction. BM25 first (index, ~7 ms), dense
     second. Disable with BRAIN_RECALL_WIKI_PULL=0."""
-    if os.environ.get("BRAIN_RECALL_WIKI_PULL", "1") != "1" or any(x.get("root") == "wiki" for x in out):
+    if os.environ.get("BRAIN_RECALL_WIKI_PULL", "1") != "1" or any(bw.is_wiki(x.get("root")) for x in out):
         return out
     if int(os.environ.get("RECALL_PROMPT_WORDS", "9") or 9) < 4:  # no docs-pull for one-word / chat prompts (an unrelated doc is worse than none)
         return out
     floor = int(os.environ.get("BRAIN_RECALL_WIKI_PULL_RANK", "10") or 10)
     for lst, tag in ((bm.search(q, k), "b"), (dense(q, k), "d")):
         for i, r in enumerate((lst or [])[:floor]):
-            if r.get("root") == "wiki":
+            if bw.is_wiki(r.get("root")):
                 it = dict(r); it["bm25" if tag == "b" else "cos"] = r.get("score")
                 it["score"] = f"{round(100.0 / (RRF_K + i + 1), 1)}{tag}"; it["wiki_pull"] = True
                 return out + [it]

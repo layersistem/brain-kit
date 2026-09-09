@@ -14,14 +14,16 @@ import os, re, math, sqlite3
 from collections import Counter
 import brain_bm25 as bm
 import brain_embed as be
+import brain_wiki as bw
 
 DB = be.INDEX_DIR / "brain.db"
 CAND = 200
-# Optional scope for the shared docs root: BRAIN_WIKI_SCOPE_RX is an extended regex matched against this
-# session's per-project slug (brain_embed.IMEM_TAG); empty (default) = the docs root is visible to every
-# session, as before. Lets one machine index product docs that only the sessions working on that product see.
-_WIKI_RX = os.environ.get("BRAIN_WIKI_SCOPE_RX", "")
-WIKI_OK = 1 if not _WIKI_RX or re.search(_WIKI_RX, be.IMEM_TAG) else 0
+# Docs roots (brain_wiki.py): each root carries its own scope regex, matched against this session's
+# per-project slug (brain_embed.IMEM_TAG); empty = visible to every session. Lets one machine index several
+# products' docs and show each only to the sessions working on it. Rows tagged with a docs root that is no
+# longer configured stay hidden.
+_WIKI_VIS = [t for _, t, _ in bw.ROOTS if bw.visible(t, be.IMEM_TAG)]
+_WIKI_SQL = " AND (f.root NOT LIKE 'wiki%'" + (" OR f.root IN (%s)" % ",".join("?" * len(_WIKI_VIS)) if _WIKI_VIS else "") + ")"
 
 
 def _df(con, term):
@@ -52,8 +54,8 @@ def search(query, k=5, k1=1.5, b=0.75):
     rows = con.execute(
         "SELECT c.id, c.rel, c.chunk_id, c.heading, c.text600, c.ctx_tok, c.name_tok, c.hw, f.root, f.note, f.hint, f.dord, f.sup, f.project "
         "FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid JOIN files f ON f.rel = c.rel "
-        "WHERE chunks_fts MATCH ? AND (f.root NOT LIKE 'imem/%' OR f.root = ?) AND (f.root != 'wiki' OR ?) ORDER BY chunks_fts.rank LIMIT ?",
-        (match, be.IMEM_TAG, WIKI_OK, CAND)).fetchall()
+        "WHERE chunks_fts MATCH ? AND (f.root NOT LIKE 'imem/%' OR f.root = ?) " + _WIKI_SQL + " ORDER BY chunks_fts.rank LIMIT ?",
+        (match, be.IMEM_TAG, *_WIKI_VIS, CAND)).fetchall()
     scored = []
     for cid, rel, chunk_id, h, text600, ctx_tok, name_tok, hw, root, note, hint, dord, sup, project in rows:
         if ap and project not in (ap, "general"):

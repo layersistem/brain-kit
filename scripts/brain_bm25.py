@@ -5,7 +5,7 @@ recency boost, superseded penalty, frontmatter weight, usage-reinforcement and a
 relevance gate that returns nothing rather than noise. Semantic counterpart: brain_search.py.
 Usage: brain_bm25.py "query" [k]
 Env: BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_MEMORY . BRAIN_MEMORY2 .
-     BRAIN_WIKI_DIR . BRAIN_STOPWORDS (extra stopwords, comma/space separated) .
+     BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS (+ _SCOPE_RX / _SCOPE_RXS, brain_wiki.py) . BRAIN_STOPWORDS (extra stopwords, comma/space separated) .
      BRAIN_INDEX=sqlite - route through brain_index_search.py's SQLite/FTS5 build instead of
      re-scanning every file on disk (same formula, same output shape; see brain_index.py)."""
 import os, sys, re, math, pathlib, datetime
@@ -17,8 +17,10 @@ BRAIN_ROOT = pathlib.Path(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/bra
 VAULT = pathlib.Path(os.environ.get("BRAIN_DIR", str(BRAIN_ROOT / "vault")))
 MEMORY = pathlib.Path(os.environ.get("BRAIN_MEMORY", str(BRAIN_ROOT / "memory")))
 MEMORY2 = pathlib.Path(os.environ.get("BRAIN_MEMORY2", "/nonexistent"))  # agent-managed memory dir
-WIKI = pathlib.Path(os.environ.get("BRAIN_WIKI_DIR", "/nonexistent"))    # optional shared docs root
-ROOTS = ((VAULT, "vault"), (MEMORY, "memory"), (MEMORY2, "memory"), (WIKI, "wiki"))
+import brain_wiki as bw                                   # shared docs roots: BRAIN_WIKI_DIR + BRAIN_WIKI_DIRS
+WIKI = bw.ROOTS[0][0] if bw.ROOTS else pathlib.Path("/nonexistent")  # first docs root, kept for older callers
+ROOTS = ((VAULT, "vault"), (MEMORY, "memory"), (MEMORY2, "memory")) + tuple((p, t) for p, t, _ in bw.ROOTS)
+_SLUG = f"imem/{MEMORY2.parent.name}"       # this session's project slug - the string the docs-root scope regexes match
 _TR = str.maketrans("çğıöşüâîûÇĞİÖŞÜ", "cgiosuaiuCGIOSU")   # de-accent so Turkish tokens match
 ENT_W, REC_W, SUP_W = 0.5, 0.3, 0.5         # entity boost, recency boost, superseded penalty
 W_MAP = {"canon": 1.5, "lesson": 1.3, "approval": 1.15, "decision": 1.15, "routine": 0.85, "hub": 0.85}  # frontmatter weight:
@@ -89,6 +91,8 @@ def _corpus():
     for root, tag in ROOTS:
         if not root.exists():
             continue
+        if bw.is_wiki(tag) and not bw.visible(tag, _SLUG):
+            continue                         # a docs root scoped to other sessions (the SQLite path filters the same way)
         for f in root.rglob("*.md"):
             rel = f.relative_to(root).parts
             if any(p.startswith(".") for p in rel) or f.name == "MEMORY.md" \

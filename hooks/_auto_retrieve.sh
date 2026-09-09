@@ -9,8 +9,9 @@
 #         BRAIN_ISOLATE_DIRS - space separated dir globs where this hook stays quiet.
 #         BRAIN_INDEX=sqlite - brain_bm25 reads <vault>/.index/brain.db (brain_index.py) instead
 #         of rescanning every file; falls back to the file scan on its own if the DB is missing.
-#         BRAIN_WIKI_DIR   - optional shared docs root; with it set, output follows the trust order
-#         DOCS -> CODE -> everything else UNVERIFIED (see scripts/brain_recall_print.py).
+#         BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS - optional shared docs roots, each scoped per session by
+#         BRAIN_WIKI_SCOPE_RX / _SCOPE_RXS (scripts/brain_wiki.py); with one set, output follows the
+#         trust order DOCS -> CODE -> everything else UNVERIFIED (see scripts/brain_recall_print.py).
 #
 # 7 Sep 2026: the output renderer moved to scripts/brain_recall_print.py. It used to be an inline single-quoted
 # `python3 -c '...'` block here; one apostrophe in a comment broke the quoting and, this being a global
@@ -33,7 +34,7 @@ PR="$BRAIN_ROOT/scripts/brain_recall_print.py"
 [ -f "$PR" ] || exit 0
 # Third root: the per-project memory directory some agent CLIs manage themselves.
 export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${SESSION_ROOT:-}" | tr '/ _' '---')/memory}"
-export BRAIN_WIKI_DIR   # shared docs root, if brain-kit.env sets one - the renderer resolves docs hits to real paths
+export BRAIN_WIKI_DIR BRAIN_WIKI_DIRS BRAIN_WIKI_SCOPE_RX BRAIN_WIKI_SCOPE_RXS   # docs roots + scopes from brain-kit.env - the renderer resolves docs hits to real paths
 IN=$(cat)
 PROMPT=$(printf '%s' "$IN" | python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("prompt",""))

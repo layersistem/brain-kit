@@ -5,7 +5,7 @@ stdin: the JSON list produced by brain_recall.py. stdout: the text block. Everyt
   RECALL_PROMPT_WORDS  word count of the prompt (the "no note on this" line needs a real question, >= 6 words)
   RECALL_PROMPT_TEXT   the prompt itself (only hashed, for the docs-topic marker below)
   RECALL_INSTANCE      instance name, if the install has one (marker file name)
-  BRAIN_ROOT, BRAIN_DIR, BRAIN_WIKI_DIR, BRAIN_MEMORY2, BRAIN_DENSE_MIN as in the hook
+  BRAIN_ROOT, BRAIN_DIR, BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS, BRAIN_MEMORY2, BRAIN_DENSE_MIN as in the hook
 
 Why a separate file (7 Sep 2026): this used to live inside the hook as a single-quoted `python3 -c '...'` block.
 One apostrophe in a comment broke the quoting, the hook errored, and because it is a global UserPromptSubmit hook
@@ -34,23 +34,17 @@ def main():
     dense_ok = any("d" in str(x.get("score", "")) or x.get("dense_answered") for x in r)
     root = os.environ.get("BRAIN_ROOT", os.path.expanduser("~/brain"))
     vault = os.environ.get("BRAIN_DIR") or os.path.join(root, "vault")
-    WIKI_DIR = os.environ.get("BRAIN_WIKI_DIR", "")
-    wiki_idx = None
-
-    def wiki_path(name):
-        nonlocal wiki_idx
-        if wiki_idx is None:
-            wiki_idx = {}
-            for dp, dn, fn in os.walk(WIKI_DIR or "/nonexistent"):
-                dn[:] = [d for d in dn if not d.startswith(".") and d != "_archive"]
-                for f in fn:
-                    if f.endswith(".md"):
-                        wiki_idx.setdefault(f, os.path.join(dp, f))
-        return wiki_idx.get(name, "wiki/" + name)
+    # Docs roots (scripts/brain_wiki.py): a hit carries its root tag (wiki, wiki2, ...); the tag resolves to the real path.
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import brain_wiki as bw
+        has_docs, is_wiki, wiki_path = bool(bw.ROOTS), bw.is_wiki, bw.resolve
+    except Exception:  # a docs-root problem must not take recall down with it
+        has_docs, is_wiki, wiki_path = False, (lambda t: str(t).startswith("wiki")), (lambda t, n: f"{t}/{n}")
 
     # Trust order: DOCS -> CODE -> everything else UNVERIFIED. Nobody labels at write time; the reader sees it here.
-    docs = [x for x in r if x.get("root") == "wiki"]
-    rest = [x for x in r if x.get("root") != "wiki"]
+    docs = [x for x in r if is_wiki(x.get("root"))]
+    rest = [x for x in r if not is_wiki(x.get("root"))]
     print("AUTO-RECALL (closest to this message - trust order DOCS -> CODE -> everything else UNVERIFIED; "
           "use it before re-deriving or reverse-engineering anything) - confidence: %d strong, %d fair%s:" % (
               tiers.count("STRONG"), tiers.count("FAIR"),
@@ -73,7 +67,7 @@ def main():
         print("  SOURCE (shared docs - Read the path; a claim about how the system works is built from here and from the code):")
         for x in docs:
             h = (x.get("heading") or "").strip()
-            x["path"] = wiki_path(os.path.basename(x["path"]))
+            x["path"] = wiki_path(x["root"], os.path.basename(x["path"]))
             tag = " (low score, surfaced by docs-priority)" if x.get("wiki_pull") else ""
             print("  %s [%s] %s:%s%s%s  (%s)" % (tier(x), x["score"], x["root"], x["note"], (" > " + h) if h else "", tag, x["path"]))
             hint = (x.get("hint") or "").strip()
@@ -89,7 +83,7 @@ def main():
                     paths.append(m)
             if paths:
                 print("      code: " + " - ".join(paths[:5]) + "  (docs-to-code bridge: open before judging)")
-    elif WIKI_DIR:
+    elif has_docs:
         print("  SOURCE (shared docs): no match - if this is a how-does-it-work question, find the doc and open the code; the notes below are not a source for that.")
     if rest:
         print("  UNVERIFIED (notes/memory/inference - valid for decisions and history; not a source for how the system behaves until checked against the code):")

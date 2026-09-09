@@ -25,9 +25,10 @@ import os, sys, json, struct, sqlite3, pathlib, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import brain_bm25 as bm
 import brain_embed as be
+import brain_wiki as bw
 
 DB = be.INDEX_DIR / "brain.db"
-ROOTS = list(be.ROOTS) + [(bm.WIKI, "wiki")]
+ROOTS = list(be.ROOTS) + [(p, t) for p, t, _ in bw.ROOTS]   # docs roots: wiki, wiki2, ...
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (rel TEXT PRIMARY KEY, root TEXT, note TEXT, sha TEXT, hint TEXT, dord INTEGER,
   sup INTEGER, w REAL, project TEXT, mtime REAL, indexed_at TEXT DEFAULT (datetime('now','localtime')));
@@ -39,7 +40,7 @@ CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);"""
 
 
 def md_files():
-    """Same filter brain_embed._corpus() used to apply, plus the wiki root: (root, tag, path, rel)."""
+    """Same filter brain_embed._corpus() used to apply, plus the docs roots: (root, tag, path, rel)."""
     for root, tag in ROOTS:
         if not root.exists():
             continue
@@ -107,10 +108,10 @@ def sync(full=False, embed=False):
         con.execute("DELETE FROM files WHERE rel=?", (r,))
     # missing = every vectorless vault/memory chunk in the DB right now, not just the ones this pass touched -
     # so an interrupted or partial embed run is topped up on the next call instead of staying stuck.
-    # The shared docs root (BRAIN_WIKI_DIR) is embedded too since 6 Sep 2026: it used to be BM25-only, which
+    # The shared docs roots (BRAIN_WIKI_DIR, BRAIN_WIKI_DIRS) are embedded too since 6 Sep 2026: it used to be BM25-only, which
     # meant dense recall never saw it and its hits came back labelled as if they were vault notes. Set
     # BRAIN_WIKI_EMBED=0 to keep a very large docs tree out of the encoder (it stays searchable by BM25).
-    wiki_filter = "" if os.environ.get("BRAIN_WIKI_EMBED", "1") != "0" else " AND f.root!='wiki'"
+    wiki_filter = "" if os.environ.get("BRAIN_WIKI_EMBED", "1") != "0" else " AND f.root NOT LIKE 'wiki%'"
     missing = con.execute("SELECT c.id, c.embed_text FROM chunks c JOIN files f ON f.rel=c.rel WHERE c.embedding IS NULL" + wiki_filter).fetchall()
     if missing and not embed and be.EMB_FILE.exists():  # migration window: an old jsonl on disk can still supply a vector
         jv = old_vectors(); fill = [(rid, t) for rid, t in missing if any(k[2] == t for k in jv)]

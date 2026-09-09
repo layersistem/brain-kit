@@ -28,9 +28,10 @@ race to guard against, unlike the flat file this replaced.
 
 Per-project memory is tagged `imem/<project-slug>/` by `brain_embed.py`; the daemon only returns
 those entries to the instance whose slug matches (`scope=` parameter, derived from `BRAIN_MEMORY2`).
-Vault and shared memory are visible to every instance. The shared docs root (`BRAIN_WIKI_DIR`) is
-embedded too and visible to everyone, unless `BRAIN_WIKI_SCOPE_RX` narrows it to the sessions whose
-slug matches - one machine, several products, each session only sees its own product's docs.
+Vault and shared memory are visible to every instance. The shared docs roots (`BRAIN_WIKI_DIR`, plus
+`BRAIN_WIKI_DIRS` for further ones - tagged `wiki`, `wiki2`, ...) are embedded too and visible to everyone,
+unless `BRAIN_WIKI_SCOPE_RX` / `BRAIN_WIKI_SCOPE_RXS` narrow each one to the sessions whose slug matches -
+one machine, several products, each session only sees its own product's docs (`scripts/brain_wiki.py`).
 
 Tuning knobs (env, all optional): `BRAIN_SEARCHD_URL`, `BRAIN_SEARCHD_TIMEOUT` (0.8),
 `BRAIN_DENSE_MIN` (0.62 - dense may answer alone, when BM25 is empty, only above this cosine),

@@ -11,12 +11,16 @@ Scope: `vault/` and `memory/` entries are visible to everyone; `imem/<slug>/` (p
 only to the instance whose slug matches. If the daemon is down, brain_recall.py falls back to BM25.
 
 Env:  BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_EMBED_MODEL (BAAI/bge-m3) . BRAIN_SEARCHD_PORT (8799)
+      BRAIN_WIKI_SCOPE_RX / _RXS - docs-root visibility per session (scripts/brain_wiki.py)
 Run:  <venv>/bin/python scripts/brain_searchd.py   (launchd / systemd unit: see docs/DENSE_RECALL.md)"""
 import os, json, time, pathlib, sqlite3, threading, urllib.parse, warnings
 from http.server import BaseHTTPRequestHandler, HTTPServer
 warnings.filterwarnings("ignore")
 import numpy as np
 np.seterr(all="ignore")
+import sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import brain_wiki as bw
 
 BRAIN_ROOT = pathlib.Path(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/brain")))
 VAULT = pathlib.Path(os.environ.get("BRAIN_DIR", str(BRAIN_ROOT / "vault")))
@@ -70,17 +74,15 @@ def _load():
     threading.Thread(target=_bg, daemon=True).start()
 
 
-WIKI_SCOPE_RX = os.environ.get("BRAIN_WIKI_SCOPE_RX", "")  # same knob as brain_index_search: empty = docs root visible to all
-
-
 def _visible(path, scope):
-    """vault/ and memory/ to everyone; imem/<slug>/ only to its own session; wiki/ (the shared docs
-    root) to everyone unless BRAIN_WIKI_SCOPE_RX narrows it to sessions whose slug matches."""
+    """vault/ and memory/ to everyone; imem/<slug>/ only to its own session; a docs root (wiki/, wiki2/, ...)
+    to everyone unless its scope regex (BRAIN_WIKI_SCOPE_RX / _RXS, brain_wiki.py) narrows it to sessions
+    whose slug matches - the same knobs brain_index_search applies on the sparse side."""
     if path.startswith("imem/"):
         return bool(scope) and path.startswith(f"imem/{scope}/")
-    if path.startswith("wiki/") and WIKI_SCOPE_RX:
-        import re
-        return bool(scope) and bool(re.search(WIKI_SCOPE_RX, scope))
+    top = path.split("/", 1)[0]
+    if bw.is_wiki(top):
+        return bw.visible(top, scope)
     return True
 
 
@@ -98,8 +100,8 @@ def search(q, k=5, scope=""):
         if not _visible(e["path"], scope) or e["note"] in seen:
             continue
         seen.add(e["note"])
-        top = e["path"].split("/", 1)[0]  # docs-root hits are labelled "wiki", not "brain" - the hook resolves their real path
-        root = "memory" if top == "memory" or e["path"].startswith("imem/") else ("wiki" if top == "wiki" else "brain")
+        top = e["path"].split("/", 1)[0]  # docs-root hits keep their root tag (wiki, wiki2, ...) - the renderer resolves the real path
+        root = "memory" if top == "memory" or e["path"].startswith("imem/") else (top if bw.is_wiki(top) else "brain")
         out.append({"root": root, "note": e["note"], "heading": e.get("heading", ""), "path": e["path"],
                     "score": round(float(cos[i]), 3), "text": e["text"][:600]})
         if len(out) >= k:
