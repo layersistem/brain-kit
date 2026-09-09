@@ -35,7 +35,8 @@ def _display_root(root):
 
 
 def search(query, k=5, k1=1.5, b=0.75):
-    q = [bm.stem(t) for t in re.findall(r"[a-z0-9]+", query.translate(bm._TR).lower()) if t not in bm.STOP]
+    raw = re.findall(r"[a-z0-9]+", query.translate(bm._TR).lower())
+    q = [bm.stem(t) for t in raw if t not in bm.STOP]
     qset = set(q)
     if not q or not DB.exists():
         return []
@@ -46,6 +47,7 @@ def search(query, k=5, k1=1.5, b=0.75):
     drange = (dmax - dmin) if dmin is not None and dmax != dmin else 1
     tod = bm._date_ord(bm.datetime.date.today().isoformat())
     ap = bm.active_project()
+    q = bm._join_bigrams(raw, q, lambda t: _df(con, t)); qset = set(q)  # compound-word bridge, see brain_bm25
     df = {t: _df(con, t) for t in qset}
     idf = {t: math.log(1 + (N - df[t] + 0.5) / (df[t] + 0.5)) for t in qset}
     match = " OR ".join(f'"{t}"' for t in qset if df[t])

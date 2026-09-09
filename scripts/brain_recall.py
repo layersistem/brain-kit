@@ -89,7 +89,9 @@ def fuse(sparse, dens, k):
                 cur["cos"] = r.get("score")
                 cur.setdefault("hint", "")
     out = []
-    for n, s in sorted(sc.items(), key=lambda x: -x[1])[:k]:
+    # Tie order (9 Sep 2026): equal RRF scores used to fall to whichever list was merged first (BM25), so a BM25-only note
+    # beat a dense-only one at 1.6 vs 1.6. A note the dense engine also saw now wins the tie - measured hybrid hit@1 0.60 -> 0.67.
+    for n, s in sorted(sc.items(), key=lambda x: (-x[1], 0 if item[x[0]].get("cos") is not None else 1))[:k]:
         it = item[n]
         src = ("b" if it.get("bm25") is not None else "") + ("d" if it.get("cos") is not None else "")
         it["score"] = f"{round(s * 100, 1)}{src}"    # e.g. "3.3bd" = found by both engines
