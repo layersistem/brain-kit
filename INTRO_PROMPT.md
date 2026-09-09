@@ -69,7 +69,9 @@ possible - the seeded example decision record should make it non-empty.
 Ask the user what they are working on. Then:
 
 1. Rewrite `$BRAIN_ROOT/vault/focus/_FOCUS_main.txt` - first line `SUMMARY: <one line>`, then
-   what is happening now, next, and what is waiting.
+   what is happening now, next, and what is waiting. Keep the whole file short: it is injected
+   verbatim on every prompt. SUMMARY under ~700 characters, the file under ~500 tokens; history
+   belongs in decision records, not here. `scripts/context_budget.sh` measures it.
 2. Write `$BRAIN_ROOT/vault/decision/DR-<today>-<slug>.md` for the first real decision of this
    session, using the seeded example as the shape: frontmatter (`instance`, `date`, `topic`,
    `status`, `weight`), a `> **When to look:**` line, then DECISION / ALTERNATIVES / RATIONALE /

@@ -1,4 +1,5 @@
 #!/bin/bash
+. "$(dirname "$0")/_dryrun.sh"   # dry-run layer: HOOK_DRY_RUN=1 -> report instead of block
 # PostToolUse (Write|Edit) - vault hygiene, three checks only:
 #   (a) 0-byte *.md stubs are deleted (an empty note is a ghost node in a graph view)
 #   (b) [[wikilinks]] IN THE FILE JUST WRITTEN that point at a note which does not exist are reported back
@@ -73,6 +74,7 @@ in the graph. Give it front matter and a closing 'Related' section with 2-5 link
 its hub.${BRAIN_WRITING_RULE:+ Rule: $BRAIN_WRITING_RULE.} "
 [ -n "$msg" ] && [ "${ghosts_all:-0}" -gt 0 ] && msg="${msg}(Vault-wide ghost targets, background only: $ghosts_all.)"
 if [ -n "$msg" ]; then
+  dry_guard "postwrite-check" "vault-hygiene"
   jq -n --arg r "$msg" '{decision:"block",reason:$r}'
 fi
 exit 0

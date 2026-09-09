@@ -1,4 +1,5 @@
 #!/bin/bash
+. "$(dirname "$0")/_dryrun.sh"   # dry-run layer: HOOK_DRY_RUN=1 -> report instead of block
 # Stop hook - PERSEVERATION GUARD: if this turn's final answer is byte-for-byte the same (after
 # whitespace trimming) as the previous turn's final answer, block and force a re-read. Root case a
 # kit like this exists to prevent: a model stuck in a templated response ("Waiting." x6) can keep
@@ -26,5 +27,6 @@ B=$(printf '%s' "$NOW" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')
 [ -z "$B" ] && exit 0
 [ ${#B} -lt 3 ] && exit 0
 [ "$A" != "$B" ] && exit 0
+dry_guard "identical-answer-stop" "perseveration"
 jq -n '{decision:"block",reason:"PERSEVERATION GUARD: this answer is byte-for-byte identical to the previous turn'\''s. STOP - re-read the incoming message (it may be a hook callback, not your human - and a one-character reply can carry a real answer or approval), then write a different, situation-specific response. No templated repeats."}'
 exit 0

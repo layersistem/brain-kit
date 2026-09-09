@@ -127,6 +127,17 @@ scanning files takes 0.007 s through the index (about 150x), and the recall hook
 time drops from 1.47 s to 0.22 s. `brain_index.py build [--embed]` does a full rebuild; `stats`
 prints row counts and file size.
 
+## Measuring what it costs
+
+Everything the kit injects is paid in context tokens, and the bill has two shapes: a fixed cost
+per session (skill descriptions, the CLAUDE.md chain) and a cost per prompt (the focus file,
+injected verbatim every time). `scripts/context_budget.sh [instance]` prints both, line by line
+for the focus file, with warnings past the thresholds that hurt: a skill description over 60
+words, a focus SUMMARY over 700 characters, a focus file over ~500 tokens per prompt. Run it after
+any change to skills, CLAUDE.md or the focus file. The reason it exists: on 2026-09-09 a skill
+cleanup cut the per-session cost by 90%, and the very next measurement showed the focus file
+alone was costing ~1,200 tokens on every prompt - the larger lever, invisible until measured.
+
 ## Prostheses: what each part stands in for
 
 The model's weights are frozen and its context is a working memory that compaction empties.
@@ -207,6 +218,7 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_FOCUS_DIRS` / `BRAIN_ISOLATE_DIRS` | empty | directory globs where hooks speak, or stay silent |
 | `BRAIN_CONSOLIDATE_CMD` | `claude -p` | CLI used by the optional `--llm` consolidation path |
 | `BRAIN_PERSEVERATION_GUARD` | `1` | `0` disables `identical-answer-stop.sh` (`full` profile only) |
+| `HOOK_DRY_RUN` | empty | set to anything and the two gates that can block (`identical-answer-stop.sh`, `postwrite-check.sh`) run their full logic but report instead of blocking: `DRY-RUN [hook] would have blocked: <reason>` on stderr, one line in `<agent-config-dir>/brain-kit-state/hook-dryrun.log` (mode 600), exit 0. Test a gate's negative case with `HOOK_DRY_RUN=1 bash hooks/<gate>.sh < payload.json`; a gate that has never shown red is an untested claim |
 
 ## What this is not
 

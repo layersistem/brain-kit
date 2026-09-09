@@ -78,6 +78,22 @@ other work you have. "I still have one open decision" repeated across turns is n
   do not pronounce on the system. Test the tool against a known-positive case, show stderr,
   check the column name, the scope parameter, the null join. Most consecutive zeros are the
   measuring tool, not the system.
+- **A name is about to be used as evidence** - a check name, a record name, a field name, a
+  directory name -> measure the value. A name says what something is called, not what it
+  contains: two vault paths with identical field names held two different mail accounts; a
+  key file named `vera_github` opened a different project's repos; a `hooks/` directory held
+  zero lines of code.
+- **A risk claim rests on a mechanism you read correctly and a precondition you did not
+  measure** -> measure the precondition. "Later load overrides earlier" was true; the two
+  paths shared zero keys, so nothing could be overridden.
+- **A number is about to be written without its method** -> add who measured, where, when
+  (that makes it traceable) and the query (that makes it verifiable). "Counted", "measured",
+  "in production" are claims until the query sits next to them; a correct number without its
+  query gets re-measured next time anyway.
+- **You are relaying someone else's decision** -> prefix it `RELAYED, not verified:`. To the
+  receiver a relayed approval is a report, not an approval; one word on your side saves a doubt
+  on theirs. (These four smells come from one night, 2026-09-08/09, in which six instances each
+  found their own error in the same class after reading another instance's self-correction.)
 
 ## 5. Foresight, in three dimensions
 
