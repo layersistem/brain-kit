@@ -67,6 +67,7 @@ W=("UserPromptSubmit::::_focus_inject.sh" "UserPromptSubmit::::_auto_retrieve.sh
    "UserPromptSubmit::::context-inject.sh" "UserPromptSubmit::::salience-inject.sh"
    "PostToolUse::Write|Edit::salience-postwrite.sh"
    "PostToolUse::Write|Edit::brain-embed-after-write.sh" "PreCompact::::precompact-snapshot.sh"
+   "SessionStart::startup|resume|compact|clear::session-instance-bind.sh"
    "SessionStart::compact::sessionstart-compact-pointer.sh")
 [ "$PROFILE" = "full" ] && W+=("PostToolUse::Write|Edit::postwrite-check.sh"
                                "PostToolUse::Bash|Write|Edit|MultiEdit::observe-mutations.sh"

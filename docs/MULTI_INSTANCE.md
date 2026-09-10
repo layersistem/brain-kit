@@ -64,3 +64,32 @@ Recall can also filter by **project**, which is separate from instance. Set
 different project stop competing for the top-k slots while you work. Notes tagged
 `project: general` or `scope: hive` surface everywhere. Leave those variables empty and the
 filter is off - which is the right default until one vault genuinely covers several projects.
+
+## 6. Two sessions in one folder: session-bound identity
+
+`.brain-instance` is per folder, so two sessions opened in the same folder get the
+same name and write over each other's focus and notes. Since 2026-09-10 identity is
+resolved per **session** first (`hooks/_instance.sh`):
+
+1. `hooks/session-instance-bind.sh` runs on `SessionStart` (startup, resume,
+   compact, clear). It binds a name to this session's `claude` process and to its
+   `session_id`, under `<claude-dir>/brain-kit-state/session-instance/`.
+2. Every hook (and anything the Bash tool runs) reads the pid file first, then
+   `BRAIN_INSTANCE`, then the nearest `.brain-instance`. Hooks and the Bash tool
+   are descendants of the same `claude` process, so the pid is the one key that is
+   per-session rather than per-folder.
+3. To open a second instance in a folder that already has one, write a one-line
+   ticket before opening the session:
+
+   ```
+   printf 'web /Users/me/project\n' > ~/.claude/brain-kit-state/next-instance
+   ```
+
+   The first session started under that folder consumes the ticket and becomes
+   `web`; every other session there keeps resolving to the folder's name. Resume
+   and compact keep the binding through the `sid-<session_id>` file.
+
+Measured on the day it shipped: a pid file set to a test name changed every hook's
+identity at once; removing it restored the old one; the ticket was consumed exactly once. Rename the state files if you must, but
+never write them by hand for a running session - that is how a session ends up
+signing another one's name.

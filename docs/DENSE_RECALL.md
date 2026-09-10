@@ -92,3 +92,18 @@ A cross-encoder reranker (`bge-reranker-v2-m3`) was measured on the same set: MR
 query - worse and two orders of magnitude slower than plain cosine on this kind of corpus (short,
 title-led markdown sections). `brain_search.py` still offers it for one-off deep searches; the hook
 path never uses it.
+
+## Concurrency and the miss rate (measured 2026-09-09 → 2026-09-10)
+
+`dense_calls.log` (`epoch|ok/miss|ms|error|instance`) makes the silent fallback measurable, so
+measure it. On a machine running many sessions, the misses were not random: with concurrency
+defined as other calls within ±1 s, the 0-3 buckets missed ~1% while the 4+ bucket missed 40.6%
+(313/770 calls). The cause was several sessions being woken by the same event and all calling
+the single-threaded daemon in the same second.
+
+Two changes, both outside the daemon: stagger whatever wakes the sessions (a per-session random
+delay of a few seconds before the recall call) and raise `BRAIN_SEARCHD_TIMEOUT` from 0.8 to
+1.5. After that the 4+ bucket missed 0.6% (2/336) over the next 25 hours and 0% (0/213) on the
+full following day; the in-burst median fell from 302 ms to 111 ms. Of the four remaining
+misses two were an encoding error rather than latency and two were timeouts at zero concurrency.
+Re-run the same query weekly; the 4+ bucket is the number to watch.

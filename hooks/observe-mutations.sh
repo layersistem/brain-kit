@@ -10,7 +10,7 @@ ENVF="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$ENVF" ] && . "$
 # Identity derives from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd.
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 VAULT="${BRAIN_DIR:-${BRAIN_ROOT:-$HOME/brain}/vault}"
-I="${BRAIN_INSTANCE:-}"
+. "$(dirname "$0")/_instance.sh" 2>/dev/null; I="$(pid_instance 2>/dev/null)"; [ -z "$I" ] && I="${BRAIN_INSTANCE:-}"   # session-bound identity first (see _instance.sh)
 if [ -z "$I" ]; then                       # walk up from cwd for a .brain-instance marker
   _d="$SESSION_ROOT"
   while [ "$_d" != "/" ] && [ -n "$_d" ]; do

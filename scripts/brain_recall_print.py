@@ -42,10 +42,12 @@ def main():
     except Exception:  # a docs-root problem must not take recall down with it
         has_docs, is_wiki, wiki_path = False, (lambda t: str(t).startswith("wiki")), (lambda t, n: f"{t}/{n}")
 
-    # Trust order: DOCS -> CODE -> everything else UNVERIFIED. Nobody labels at write time; the reader sees it here.
+    # Trust order: DOCS -> CODE -> RECORD (notes/memory). Nobody labels at write time; the reader sees it here.
+    # 2026-09-10: the notes block used to be labelled UNVERIFIED and got skipped; a "nothing is written about this"
+    # verdict was then given while the note that answered the question sat in the list. RECORD says what it is for.
     docs = [x for x in r if is_wiki(x.get("root"))]
     rest = [x for x in r if not is_wiki(x.get("root"))]
-    print("AUTO-RECALL (closest to this message - trust order DOCS -> CODE -> everything else UNVERIFIED; "
+    print("AUTO-RECALL (closest to this message - trust order DOCS -> CODE -> RECORD(notes/memory); "
           "use it before re-deriving or reverse-engineering anything) - confidence: %d strong, %d fair%s:" % (
               tiers.count("STRONG"), tiers.count("FAIR"),
               "" if dense_ok else " - dense engine did not answer (BM25 only; check brain_searchd on 8799)"))
@@ -84,9 +86,9 @@ def main():
             if paths:
                 print("      code: " + " - ".join(paths[:5]) + "  (docs-to-code bridge: open before judging)")
     elif has_docs:
-        print("  SOURCE (shared docs): no match - if this is a how-does-it-work question, find the doc and open the code; the notes below are not a source for that.")
+        print("  SOURCE (shared docs): no match - if this is a how-does-it-work question, find the doc and open the code.")
     if rest:
-        print("  UNVERIFIED (notes/memory/inference - valid for decisions and history; not a source for how the system behaves until checked against the code):")
+        print("  RECORD (notes/memory/decisions - the SOURCE for decisions and history: no 'nothing written / not recorded' verdict before these are opened; for how the system behaves, verify against the code):")
     for x in rest:
         t = tier(x)
         h = (x.get("heading") or "").strip()

@@ -14,7 +14,7 @@ SRC=$(printf '%s' "$INPUT" | python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("source",""))
 except Exception: print("")' 2>/dev/null)
 [ "$SRC" != "compact" ] && exit 0
-I="${BRAIN_INSTANCE:-}"
+. "$(dirname "$0")/_instance.sh" 2>/dev/null; I="$(pid_instance 2>/dev/null)"; [ -z "$I" ] && I="${BRAIN_INSTANCE:-}"   # session-bound identity first (see _instance.sh)
 if [ -z "$I" ]; then
   _d="$SESSION_ROOT"
   while [ "$_d" != "/" ] && [ -n "$_d" ]; do

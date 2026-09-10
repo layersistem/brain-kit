@@ -11,7 +11,7 @@
 #         of rescanning every file; falls back to the file scan on its own if the DB is missing.
 #         BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS - optional shared docs roots, each scoped per session by
 #         BRAIN_WIKI_SCOPE_RX / _SCOPE_RXS (scripts/brain_wiki.py); with one set, output follows the
-#         trust order DOCS -> CODE -> everything else UNVERIFIED (see scripts/brain_recall_print.py).
+#         trust order DOCS -> CODE -> RECORD, i.e. notes/memory (see scripts/brain_recall_print.py).
 #
 # 7 Sep 2026: the output renderer moved to scripts/brain_recall_print.py. It used to be an inline single-quoted
 # `python3 -c '...'` block here; one apostrophe in a comment broke the quoting and, this being a global
