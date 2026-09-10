@@ -69,7 +69,7 @@ def main():
         print("  SOURCE (shared docs - Read the path; a claim about how the system works is built from here and from the code):")
         for x in docs:
             h = (x.get("heading") or "").strip()
-            x["path"] = wiki_path(x["root"], os.path.basename(x["path"]))
+            x["path"] = wiki_path(x["root"], x["path"].split("/", 1)[1] if "/" in x["path"] else x["path"])
             tag = " (low score, surfaced by docs-priority)" if x.get("wiki_pull") else ""
             print("  %s [%s] %s:%s%s%s  (%s)" % (tier(x), x["score"], x["root"], x["note"], (" > " + h) if h else "", tag, x["path"]))
             hint = (x.get("hint") or "").strip()

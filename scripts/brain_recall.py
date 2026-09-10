@@ -22,6 +22,19 @@ URL = os.environ.get("BRAIN_SEARCHD_URL", "http://127.0.0.1:8799")
 TIMEOUT = float(os.environ.get("BRAIN_SEARCHD_TIMEOUT", "0.8"))
 DENSE_MIN = float(os.environ.get("BRAIN_DENSE_MIN", "0.62"))
 DENSE_JOIN = float(os.environ.get("BRAIN_DENSE_JOIN", "0.55"))
+# Per-root fusion gate. 0.55 was measured on one vault; a docs root in another language or register can carry its
+# gold at 0.50 and the dense hit then never enters the fusion. BRAIN_DENSE_JOIN_ROOTS="wiki=0.48,wiki2=0.50" gives
+# each root tag its own gate; anything not listed keeps BRAIN_DENSE_JOIN.
+def _root_joins():
+    out = {}
+    for kv in os.environ.get("BRAIN_DENSE_JOIN_ROOTS", "").replace(";", ",").split(","):
+        if "=" in kv:
+            k, v = kv.split("=", 1)
+            try: out[k.strip()] = float(v)
+            except ValueError: pass
+    return out
+DENSE_JOIN_ROOTS = _root_joins()
+def join_for(root): return DENSE_JOIN_ROOTS.get(root or "", DENSE_JOIN)
 SCOPE = pathlib.Path(os.environ.get("BRAIN_MEMORY2", "/x/y")).parent.name   # must match brain_embed's IMEM_TAG
 RRF_K = 60
 
@@ -126,7 +139,7 @@ def recall(q, k=5):
     top = dens[0].get("score", 0.0)
     if not sparse:
         return single(dens, k, "d") if top >= DENSE_MIN else []  # BM25 empty: dense rescues only when confident
-    dens = [r for r in dens if r.get("score", 0.0) >= DENSE_JOIN]
+    dens = [r for r in dens if r.get("score", 0.0) >= join_for(r.get("root"))]
     return fuse(sparse, dens, k) if dens else single(sparse, k, "b", dense_answered=True)
 
 

@@ -81,7 +81,7 @@ def search(query, k=5, k1=1.5, b=0.75):
             s *= 1 + 0.15 * min(1.0, math.log1p(uc) / math.log1p(5))
         if dord and tag != "memory" and hw <= 1.0:
             s *= max(bm.AGE_FLOOR, 1 - bm.AGE_W * (tod - dord) / 372)
-        scored.append((s, {"root": tag, "note": note, "heading": h, "path": f"{tag}/{os.path.basename(rel)}",
+        scored.append((s, {"root": tag, "note": note, "heading": h, "path": rel,  # the DB rel is already root-prefixed (wiki/sub/dir/note.md); flattening to a basename collided two same-named notes and never matched the dense daemon
                            "score": round(s, 2), "hint": hint, "text": text600, "tok": toks}))
     scored.sort(key=lambda x: -x[0])
     seen, uniq = set(), []

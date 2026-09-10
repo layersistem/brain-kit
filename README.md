@@ -184,7 +184,7 @@ anything; it gives a frozen model a memory it can read.
 | after a note write | `brain-embed-after-write.sh` | one line confirming the index update (or that it failed) |
 | after a note write | `postwrite-check.sh` | only when the note you just wrote links to a missing note, has no links at all (an orphan; `BRAIN_ORPHAN_EXEMPT` dirs are fine), or is empty. Code blocks and backticks are not scanned; the vault-wide ghost count is shown as background only |
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |
-| at session start (startup, resume, compact, clear) | `session-instance-bind.sh` | one line: which instance this session is bound to |
+| at session start (startup, resume, compact, clear) and first on every prompt | `session-instance-bind.sh` | one line, only when the identity changes: which instance this session is bound to (on a prompt it is a silent self-check unless the binding was lost) |
 | after compaction | `sessionstart-compact-pointer.sh` | addresses: the handoff note and the snapshot |
 | end of turn | `identical-answer-stop.sh` | only when this answer is byte-for-byte identical to the previous turn's: blocks and forces a re-read of the incoming message (`full` profile only, `BRAIN_PERSEVERATION_GUARD=0` disables) |
 
@@ -201,6 +201,7 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_ROOT` | `~/brain` | install root: vault, scripts, hooks, venv |
 | `BRAIN_DIR` | `$BRAIN_ROOT/vault` | the vault itself - point it at notes you already have |
 | `BRAIN_INSTANCE` | `main` | this session's name (else `.brain-instance`) |
+| `BRAIN_TITLE_MAP` | empty | `web|frontend=web;api=api` - map a client-recorded session title (`agent-name` / `custom-title` in the transcript) to an instance; consulted after the bound session and the ticket, before the folder walk-up (`docs/MULTI_INSTANCE.md` §6) |
 | `BRAIN_MEMORY` / `BRAIN_MEMORY2` | `$BRAIN_ROOT/memory`, none | extra roots indexed as timeless memory |
 | `BRAIN_WIKI_DIR` | none | optional shared docs root (a product wiki, a repo's docs), read-only, indexed alongside - BM25 and dense; recall prints the real file path so the model can Read it. With a docs root set, recall output follows a trust order: docs hits in a SOURCE block (with a `code:` line of file paths the doc mentions), notes in a RECORD block - the source for decisions and history, to be opened before any "nothing is written" verdict; how the system behaves is still checked against the code |
 | `BRAIN_RECALL_WIKI_PULL` | `1` | when the fused top-k has no docs hit, append the best docs hit anyway (flagged as low score) so the map is on screen before the model judges from a note; `0` disables |
@@ -217,6 +218,7 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_EMBED_MODEL` / `BRAIN_RERANK_MODEL` | BGE-M3 / bge-reranker-v2-m3 | local model overrides |
 | `BRAIN_SEARCHD_URL` / `_TIMEOUT` / `_PORT` | `127.0.0.1:8799`, `0.8`, `8799` | dense-recall daemon (recommended, `docs/DENSE_RECALL.md`); absent = BM25 only. Every call is logged to `<agent-config-dir>/brain-kit-state/dense_calls.log` (ok/miss, ms) so a silent fallback stays measurable |
 | `BRAIN_DENSE_MIN` / `BRAIN_DENSE_JOIN` | `0.62` / `0.55` | dense cosine gates: answer-alone / enter-fusion |
+| `BRAIN_DENSE_JOIN_ROOTS` | empty | per-root fusion gate, `wiki=0.48,wiki2=0.50`; a docs root whose gold sits lower than the vault's keeps its dense hits in the fusion |
 | `BRAIN_PROJECT_NAME` / `_VOCAB` / `BRAIN_CWD_MARKERS` | empty | project scope filter (off by default) |
 | `BRAIN_FOCUS_DIRS` / `BRAIN_ISOLATE_DIRS` | empty | directory globs where hooks speak, or stay silent |
 | `BRAIN_CONSOLIDATE_CMD` | `claude -p` | CLI used by the optional `--llm` consolidation path |

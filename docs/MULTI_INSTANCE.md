@@ -72,8 +72,14 @@ same name and write over each other's focus and notes. Since 2026-09-10 identity
 resolved per **session** first (`hooks/_instance.sh`):
 
 1. `hooks/session-instance-bind.sh` runs on `SessionStart` (startup, resume,
-   compact, clear). It binds a name to this session's `claude` process and to its
-   `session_id`, under `<claude-dir>/brain-kit-state/session-instance/`.
+   compact, clear) **and first on every `UserPromptSubmit`**. It binds a name to this
+   session's `claude` process and to its `session_id`, under
+   `<claude-dir>/brain-kit-state/session-instance/`. On a prompt it exits at once when
+   the pid file exists and the session's sid file agrees with it; otherwise it re-binds.
+   That second trigger exists because a desktop client once continued a window under a
+   new `session_id` without firing `SessionStart`: no pid file, no sid file, and every
+   hook fell back to the folder's name for a quarter of an hour. A line is printed only
+   when the identity changes.
 2. Every hook (and anything the Bash tool runs) reads the pid file first, then
    `BRAIN_INSTANCE`, then the nearest `.brain-instance`. Hooks and the Bash tool
    are descendants of the same `claude` process, so the pid is the one key that is
@@ -88,6 +94,12 @@ resolved per **session** first (`hooks/_instance.sh`):
    The first session started under that folder consumes the ticket and becomes
    `web`; every other session there keeps resolving to the folder's name. Resume
    and compact keep the binding through the `sid-<session_id>` file.
+4. A client that names its sessions (the desktop app writes `agent-name` /
+   `custom-title` into the transcript) can hand the name over without a ticket:
+   set `BRAIN_TITLE_MAP="web|frontend=web;api=api"` in `brain-kit.env`. The title is
+   matched case-insensitively as a substring; the first rule that matches wins. The
+   order of sources is therefore: bound session -> ticket -> title -> folder. Unset,
+   the title source is skipped and nothing changes.
 
 Measured on the day it shipped: a pid file set to a test name changed every hook's
 identity at once; removing it restored the old one; the ticket was consumed exactly once. Rename the state files if you must, but

@@ -37,7 +37,10 @@ Tuning knobs (env, all optional): `BRAIN_SEARCHD_URL`, `BRAIN_SEARCHD_TIMEOUT` (
 `BRAIN_DENSE_MIN` (0.62 - dense may answer alone, when BM25 is empty, only above this cosine),
 `BRAIN_DENSE_JOIN` (0.55 - dense hits below this do not enter the fusion). The two thresholds came
 from measuring gold cosines (min 0.61) against chit-chat cosines (max 0.595) on the author's vault;
-re-measure on yours with `ml/brain_eval`-style gold pairs before changing them.
+re-measure on yours with `ml/brain_eval`-style gold pairs before changing them. A shared docs root can
+sit at a different level than the vault - one measured case had gold passages at 0.51 cosine in an
+English technical wiki while the vault's own gold started at 0.61 - so the fusion gate is also settable
+per root tag: `BRAIN_DENSE_JOIN_ROOTS="wiki=0.48,wiki2=0.50"`. Roots not listed keep `BRAIN_DENSE_JOIN`.
 
 ## Running it as a service
 

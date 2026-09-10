@@ -45,7 +45,12 @@ def visible(tag, slug):
 
 
 def resolve(tag, name):
-    """Real file path for a docs hit (index rows carry only the basename). Walks the root once, lazily."""
+    """Real file path for a docs hit. Since 2026-09-10 index rows carry the path under the root
+    (sub/dir/note.md) and it is joined directly; a bare basename (older rows, the file-scan fallback)
+    still resolves through a lazy walk of the root. Two same-named notes in different folders no
+    longer collapse onto whichever the walk met first."""
+    if "/" in name and tag in _BY_TAG:
+        return os.path.join(_BY_TAG[tag][0], name)
     if tag not in _IDX:
         idx = {}
         for dp, dn, fn in os.walk(_BY_TAG[tag][0] if tag in _BY_TAG else "/nonexistent"):
