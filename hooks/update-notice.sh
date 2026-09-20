@@ -32,8 +32,10 @@ printf '%s\n' "$TODAY" > "$STAMP" 2>/dev/null   # stamp first: a remote that han
 bounded() {
   secs="$1"; shift
   if command -v timeout >/dev/null 2>&1; then timeout "$secs" "$@"; return $?; fi
-  "$@" & pid=$!
-  ( sleep "$secs"; kill -9 "$pid" >/dev/null 2>&1 ) >/dev/null 2>&1 & guard=$!
+  # Job control gives the command a process group of its own, so the kill below reaches the helpers it
+  # started (git-remote-https) and not only the process this shell knows.
+  set -m; "$@" </dev/null & pid=$!; set +m
+  ( sleep "$secs"; kill -9 -- "-$pid" >/dev/null 2>&1 || kill -9 "$pid" >/dev/null 2>&1 ) >/dev/null 2>&1 & guard=$!
   wait "$pid" >/dev/null 2>&1; rc=$?
   kill -9 "$guard" >/dev/null 2>&1; wait "$guard" >/dev/null 2>&1
   return $rc
@@ -47,8 +49,9 @@ GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/true GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-
 [ -s "$TAGS" ] || { rm -f "$TAGS"; exit 0; }    # unreachable, timed out, or no tags: say nothing
 
 # Whole-line match only. v1.2, v1.2.3-rc, a tag carrying free text and a name containing a newline all
-# fail this pattern and are dropped; what survives is three integers.
-REMOTE_V=$(sed -n 's#^[0-9a-f]\{7,\}[[:space:]]*refs/tags/v\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\)$#\1#p' "$TAGS" \
+# fail this pattern and are dropped; what survives is three integers of at most six digits, which awk
+# compares exactly (a longer number would lose precision and always look newer).
+REMOTE_V=$(sed -n 's#^[0-9a-f]\{7,\}[[:space:]]*refs/tags/v\([0-9]\{1,6\}\.[0-9]\{1,6\}\.[0-9]\{1,6\}\)$#\1#p' "$TAGS" \
   | awk -F. 'NF==3 { if ($1>a || ($1==a && ($2>b || ($2==b && $3>c)))) { a=$1; b=$2; c=$3 } }
              END { if (a != "") printf "%d.%d.%d", a, b, c }')
 rm -f "$TAGS"
@@ -60,5 +63,5 @@ newer "$REMOTE_V" "$LOCAL" || exit 0
 
 echo "brain-kit $REMOTE_V is available (installed: $LOCAL). Nothing was downloaded and nothing changed."
 echo "If the user wants it: bash \"$BRAIN_ROOT/scripts/update.sh\" - it shows the changes and asks before"
-echo "touching anything; UPGRADE.md is the instruction sheet. BRAIN_UPDATE_CHECK=0 stops this check."
+echo "touching anything; UPGRADE.md in the kit repository is the instruction sheet. BRAIN_UPDATE_CHECK=0 stops this check."
 exit 0

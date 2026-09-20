@@ -6,7 +6,7 @@ description: >
   DELIVERABLE: text a third human reads (mail, doc, report, wiki, release note, UI copy,
   issue body) written as natural full-sentence prose with AI-writing tells removed
   (humanizer folded in). Trigger: /caveman, "caveman mode", "be brief", "less tokens",
-  or any deliverable writing. Merged 1 Sep 2026 (Burak): humanizer absorbed,
+  or any deliverable writing. Merged 1 Sep 2026: humanizer absorbed,
   wenyan levels dropped. Original kept in ~/.claude/skills-archive/.
 ---
 
@@ -124,7 +124,7 @@ Full catalog with before/after examples: `~/.claude/skills/humanizer/SKILL.md`. 
 for a deliverable longer than a page or when a tell is unclear. Never auto-load it.
 
 ## Provenance
-Merged 1 Sep 2026 on Burak's decision: caveman (original) plus humanizer (Wikipedia "Signs of
+Merged 1 Sep 2026: caveman (original) plus humanizer (Wikipedia "Signs of
 AI writing", WikiProject AI Cleanup) folded into one mandatory base skill. Dropped: the three
 wenyan levels, humanizer's voice-calibration and "personality" sections, all but one example
 per class. Original file: `~/.claude/skills-archive/caveman-SKILL-orig-20260901.md`.

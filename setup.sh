@@ -57,6 +57,9 @@ ORIGIN=$(git -C "$KIT" remote get-url origin 2>/dev/null || true)     # tags are
 # An ssh clone would make the daily check an authenticated call - the host learns which account asks.
 # The https form of the same address reads a public repo's tags with no key and no identity.
 ORIGIN=$(printf '%s' "$ORIGIN" | sed -E 's#^(ssh://)?git@([^:/]+)[:/](.+)$#https://\2/\3#; s#\.git$##')
+# Every hook sources the file written below, so the address goes in only when it is plain address
+# characters. Anything else is left out and the check falls back to the upstream repository.
+printf '%s' "$ORIGIN" | grep -Eq '^[A-Za-z0-9._:/@+~-]+$' || ORIGIN=""
 cp -f "$KIT"/hooks/*.sh "$HOOKS/"; chmod +x "$HOOKS"/*.sh
 cat > "$CLAUDE_DIR/brain-kit.env" <<EOF
 # written by brain-kit setup.sh - every hook sources this. An exported variable still wins.

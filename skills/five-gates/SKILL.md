@@ -81,7 +81,7 @@ other work you have. "I still have one open decision" repeated across turns is n
 - **A name is about to be used as evidence** - a check name, a record name, a field name, a
   directory name -> measure the value. A name says what something is called, not what it
   contains: two vault paths with identical field names held two different mail accounts; a
-  key file named `vera_github` opened a different project's repos; a `hooks/` directory held
+  key file named `projecta_github` opened a different project's repos; a `hooks/` directory held
   zero lines of code.
 - **A risk claim rests on a mechanism you read correctly and a precondition you did not
   measure** -> measure the precondition. "Later load overrides earlier" was true; the two

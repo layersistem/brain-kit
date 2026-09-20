@@ -40,4 +40,7 @@ version next to the install, a tag per release, and one line at session start wh
   the README's "run it after any change" advice pointed at a file that was not there. It now copies the
   shell scripts too, records `VERSION` in the install root, and writes `BRAIN_UPDATE_REMOTE` from the
   checkout's own origin - in its https form, so an ssh clone does not turn the daily check into an
-  authenticated call.
+  authenticated call, and only when the address is plain address characters, because every hook
+  sources that file.
+- `skills/find-skills` named its author as the one who approves an install and listed the projects of
+  the author's own machine. It now speaks about the user and about whatever shares the skills folder.

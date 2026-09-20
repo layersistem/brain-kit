@@ -51,7 +51,7 @@ technical, no decoration. An empty section may simply say 'none'."""
 
 
 def _skill_names():
-    """'ad — description(kısa)' listesi: yalnız ad verilince agent skill'in zaten kapsadığını yeniden önerir."""
+    """A list of 'name - description (short)': given names alone, the agent proposes again what a skill already covers."""
     import os, pathlib, re
     root = pathlib.Path(os.environ.get("BRAIN_SKILLS", os.path.expanduser("~/.claude/skills")))
     out = []
