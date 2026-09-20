@@ -58,8 +58,9 @@ ORIGIN=$(git -C "$KIT" remote get-url origin 2>/dev/null || true)     # tags are
 # The https form of the same address reads a public repo's tags with no key and no identity.
 ORIGIN=$(printf '%s' "$ORIGIN" | sed -E 's#^(ssh://)?git@([^:/]+)[:/](.+)$#https://\2/\3#; s#\.git$##')
 # Every hook sources the file written below, so the address goes in only when it is plain address
-# characters. Anything else is left out and the check falls back to the upstream repository.
-printf '%s' "$ORIGIN" | grep -Eq '^[A-Za-z0-9._:/@+~-]+$' || ORIGIN=""
+# characters. Anything else is left out and the check falls back to the upstream repository. A shell
+# pattern looks at the whole value; grep would pass a value of several lines if one line is clean.
+case "$ORIGIN" in *[!A-Za-z0-9._:/@+~-]*) ORIGIN="" ;; esac
 cp -f "$KIT"/hooks/*.sh "$HOOKS/"; chmod +x "$HOOKS"/*.sh
 cat > "$CLAUDE_DIR/brain-kit.env" <<EOF
 # written by brain-kit setup.sh - every hook sources this. An exported variable still wins.
