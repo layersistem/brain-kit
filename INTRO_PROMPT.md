@@ -32,6 +32,9 @@ what they mean (full table: README "What gets injected, and when"):
   invent.
 - **SALIENCE** (`salience-inject.sh`) - fires only when the user corrects you; tag this turn's
   decision record `weight: lesson`.
+- **update notice** (`update-notice.sh`) - at session start, at most once a day: one line if a newer
+  release is tagged. It downloads and changes nothing. Applying it is a separate step the user has to
+  ask for - `scripts/update.sh`, procedure in [`UPGRADE.md`](UPGRADE.md).
 
 Pick your track:
 

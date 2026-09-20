@@ -89,6 +89,11 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
   after compaction
       +--> [SessionStart:compact] pointer ------------> "read the handoff note, then this snapshot"
 
+  at session start
+      +--> [SessionStart] update-notice.sh ----------> one line if a newer release is tagged
+                                                       (once a day, version number only, installs
+                                                        nothing - applying it is scripts/update.sh)
+
   by hand / nightly
       brain_search.py       BGE-M3 retrieve (+ optional reranker; measured worse
                             than plain cosine here) - one-off deep search, still local
@@ -138,6 +143,14 @@ any change to skills, CLAUDE.md or the focus file. The reason it exists: on 2026
 cleanup cut the per-session cost by 90%, and the very next measurement showed the focus file
 alone was costing ~1,200 tokens on every prompt - the larger lever, invisible until measured.
 
+What the sessions actually spent is a second question, and `scripts/usage_report.py` answers it from
+the transcripts the agent already writes: calls, context per call and token totals per project, for
+today or any window you pass. Two traps it avoids, both of which inflated our own first numbers by
+1.85x to 2.6x: one API response lands in the transcript as one line *per content block*, all of them
+repeating the same `message.id` and the same `usage` (so it counts distinct ids, not lines), and
+context per call is input + cache_read + cache_creation, not input alone. Use it to rank projects
+against each other; it is not a billing statement.
+
 ## Prostheses: what each part stands in for
 
 The model's weights are frozen and its context is a working memory that compaction empties.
@@ -186,6 +199,7 @@ anything; it gives a frozen model a memory it can read.
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |
 | at session start (startup, resume, compact, clear) and first on every prompt | `session-instance-bind.sh` | one line, only when the identity changes: which instance this session is bound to (on a prompt it is a silent self-check unless the binding was lost) |
 | after compaction | `sessionstart-compact-pointer.sh` | addresses: the handoff note and the snapshot |
+| at session start (startup, resume) | `update-notice.sh` | only when the remote has a newer `vX.Y.Z` tag than your `VERSION`: one line naming that version and how to apply it. At most once a day, 2 s budget, nothing but the version number crosses over, installs nothing (`BRAIN_UPDATE_CHECK=0` disables) |
 | end of turn | `identical-answer-stop.sh` | only when this answer is byte-for-byte identical to the previous turn's: blocks and forces a re-read of the incoming message (`full` profile only, `BRAIN_PERSEVERATION_GUARD=0` disables) |
 
 Recall stays quiet when it has nothing good: below a relevance floor it returns no block at all,
@@ -224,6 +238,38 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_CONSOLIDATE_CMD` | `claude -p` | CLI used by the optional `--llm` consolidation path |
 | `BRAIN_PERSEVERATION_GUARD` | `1` | `0` disables `identical-answer-stop.sh` (`full` profile only) |
 | `HOOK_DRY_RUN` | empty | set to anything and the two gates that can block (`identical-answer-stop.sh`, `postwrite-check.sh`) run their full logic but report instead of blocking: `DRY-RUN [hook] would have blocked: <reason>` on stderr, one line in `<agent-config-dir>/brain-kit-state/hook-dryrun.log` (mode 600), exit 0. Test a gate's negative case with `HOOK_DRY_RUN=1 bash hooks/<gate>.sh < payload.json`; a gate that has never shown red is an untested claim |
+| `BRAIN_CTX_WINDOW` / `BRAIN_CTX_WARN` / `BRAIN_CTX_HARD` | from the model name / 80% of the window / none | context-inject thresholds. Per project, `<project>/.claude/ctx-thresholds` sets them without a restart - `WARN=120000` and `HARD=160k`, one per line, plain tokens or a `k` suffix; a five-file repo and a monorepo do not deserve the same threshold. An exported variable still wins, and `HARD` adds a second, louder line |
+| `BRAIN_UPDATE_CHECK` / `BRAIN_UPDATE_REMOTE` / `BRAIN_UPDATE_TIMEOUT` | `1` / the origin of the checkout `setup.sh` ran from, in its https form / `2` | the session-start update notice: `0` turns it off for good, the remote is where tag names are read from, the timeout bounds the single `git ls-remote` call |
+
+## Staying up to date
+
+An installed kit knows its own version (`VERSION`, written by `setup.sh`) and releases are git tags.
+At session start `hooks/update-notice.sh` compares the two and, at most once a day, says one line if
+the remote has a newer `vX.Y.Z`:
+
+```
+brain-kit 1.1.0 is available (installed: 1.0.0). Nothing was downloaded and nothing changed.
+```
+
+What is checked: `git ls-remote --tags <remote>`, with a 2 s budget. What is sent: nothing - no
+identity, no vault, no usage, and the call needs no account or key. What enters your context: a
+version number and that sentence. Tag names are matched whole-line against `^v[0-9]+.[0-9]+.[0-9]+$`,
+so a tag carrying free text cannot put words into your session. No network, a slow remote or no tags
+at all means no output at all, and the check is skipped for the rest of the day either way.
+
+Applying it is a separate, deliberate step - a hook that installed remote code by itself would be a
+supply-chain hole:
+
+```bash
+bash "$BRAIN_ROOT/scripts/update.sh"     # --dry-run to look first, --to v1.0.0 to pin a release
+```
+
+It moves to the tag (not to the tip of the branch), prints that release's CHANGELOG section and the
+exact file list first, asks before writing, and copies anything you edited by hand into
+`$BRAIN_ROOT/backups/<stamp>/` before replacing it. Your vault, your `settings.json` and your skills
+are never touched; a release that adds a new hook needs `./setup.sh` re-run to wire it.
+[`UPGRADE.md`](UPGRADE.md) is the same procedure written for the model that will carry it out. Turn
+the whole thing off with `BRAIN_UPDATE_CHECK=0` in `<agent-config-dir>/brain-kit.env`.
 
 ## What this is not
 
@@ -235,8 +281,10 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 - **Not a rulebook.** The habits that make this work - decision records, the "when to look"
   line, sparing weight tags, propose-then-approve consolidation - live in
   [`docs/DISCIPLINE.md`](docs/DISCIPLINE.md) as advice. Take what fits.
-- **Not a hosted service.** No account, no telemetry, no network call after the one-time model
-  download.
+- **Not a hosted service.** No account, no telemetry, nothing about you or your vault leaves the
+  machine. Two network calls exist in the whole kit: the one-time model download at install, and the
+  optional update check - `git ls-remote --tags` against the repo you cloned, at most once a day,
+  sending nothing, off with `BRAIN_UPDATE_CHECK=0`.
 
 ## Turkish-aware stemming
 

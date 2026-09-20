@@ -122,3 +122,32 @@ shell each:
 
 Write your own if you want them. Keep them out of the recall path: a memory engine that refuses
 to answer is worse than no memory engine.
+
+One pattern from that private setup is written up here because it is not opinionated at all, just
+cheaper: [`WATCHERS.md`](WATCHERS.md) - when a session waits for something that happens elsewhere,
+put the waiting in a process outside the model and let the event wake the session. A polling loop
+pays for its whole context on every empty look.
+
+## 9. Measuring a session from its own transcript
+
+Two lessons that cost us a wrong answer each, both about the JSONL transcript the agent writes as it
+goes. `scripts/usage_report.py` implements them; if you write your own accounting, start here.
+
+**One response is many lines, and they all carry the same bill.** An assistant response lands in the
+transcript as one line *per content block* - thinking, text, each tool call - and every one of those
+lines repeats the same `message.id` and the same `usage` object. Counting lines, or summing `usage`
+per line, therefore counts the same tokens several times over: 1.85x to 2.6x on our own transcripts,
+which is the difference between "this agent is fine" and "this agent is the most expensive thing we
+run". Count distinct `message.id` values and take each one's `usage` once. Context per call is
+`input + cache_read + cache_creation`; once a session is warm the cache read is most of it, so
+leaving it out makes a long session look free.
+
+**A message typed while the model is working does not arrive as its own turn.** It is absorbed into
+the turn already in flight - in Claude Code's transcript as a `queue-operation` / `remove` record
+marked `absorbed_mid_turn`, with no separate user line. Any count of "how many times did the human
+speak" that reads user lines alone will miss them, and any watcher that waits for a new user turn
+before reacting will wait forever. Look for the absorbed record, not only for the turn.
+
+The general rule behind both: a transcript is an append-only log of an implementation, not a receipt.
+Before you quote a number from it, take one hour of it apart by hand and check that the parser and
+the eye agree.

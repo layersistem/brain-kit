@@ -50,6 +50,13 @@ else
 fi
 say "(3/6) scripts, hooks, environment file"
 cp -f "$KIT"/scripts/*.py "$BRAIN_ROOT/scripts/"
+cp -f "$KIT"/scripts/*.sh "$BRAIN_ROOT/scripts/" 2>/dev/null || true
+chmod +x "$BRAIN_ROOT"/scripts/*.sh 2>/dev/null || true
+[ -f "$KIT/VERSION" ] && cp -f "$KIT/VERSION" "$BRAIN_ROOT/VERSION"   # what the update check compares against
+ORIGIN=$(git -C "$KIT" remote get-url origin 2>/dev/null || true)     # tags are read from where you cloned
+# An ssh clone would make the daily check an authenticated call - the host learns which account asks.
+# The https form of the same address reads a public repo's tags with no key and no identity.
+ORIGIN=$(printf '%s' "$ORIGIN" | sed -E 's#^(ssh://)?git@([^:/]+)[:/](.+)$#https://\2/\3#; s#\.git$##')
 cp -f "$KIT"/hooks/*.sh "$HOOKS/"; chmod +x "$HOOKS"/*.sh
 cat > "$CLAUDE_DIR/brain-kit.env" <<EOF
 # written by brain-kit setup.sh - every hook sources this. An exported variable still wins.
@@ -57,6 +64,8 @@ BRAIN_ROOT="\${BRAIN_ROOT:-$BRAIN_ROOT}"
 BRAIN_DIR="\${BRAIN_DIR:-$VAULT}"
 BRAIN_EMBED="\${BRAIN_EMBED:-$EMBED}"
 BRAIN_INDEX="\${BRAIN_INDEX:-sqlite}"
+BRAIN_UPDATE_CHECK="\${BRAIN_UPDATE_CHECK:-1}"
+BRAIN_UPDATE_REMOTE="\${BRAIN_UPDATE_REMOTE:-$ORIGIN}"
 EOF
 ok "$BRAIN_ROOT/scripts, $HOOKS, $CLAUDE_DIR/brain-kit.env"
 say "(4/6) hook wiring in $SETTINGS"
@@ -69,7 +78,8 @@ W=("UserPromptSubmit::::session-instance-bind.sh"   # first: every later hook re
    "PostToolUse::Write|Edit::salience-postwrite.sh"
    "PostToolUse::Write|Edit::brain-embed-after-write.sh" "PreCompact::::precompact-snapshot.sh"
    "SessionStart::startup|resume|compact|clear::session-instance-bind.sh"
-   "SessionStart::compact::sessionstart-compact-pointer.sh")
+   "SessionStart::compact::sessionstart-compact-pointer.sh"
+   "SessionStart::startup|resume::update-notice.sh")
 [ "$PROFILE" = "full" ] && W+=("PostToolUse::Write|Edit::postwrite-check.sh"
                                "PostToolUse::Bash|Write|Edit|MultiEdit::observe-mutations.sh"
                                "Stop::::identical-answer-stop.sh")
