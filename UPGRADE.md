@@ -50,6 +50,27 @@ Re-run `setup.sh` whenever the CHANGELOG mentions a new hook, a new skill or a s
 there is no checkout on the machine, clone the repo first - the updater can work from a temporary
 clone, but `setup.sh` needs a real one.
 
+### Coming from 1.0.x
+
+Two steps that `update.sh` cannot do for you, because one touches `settings.json` and the other touches
+the vault:
+
+1. **Wire the new hook.** 1.1.0 adds `hooks/recall-usage-count.sh` on `PostToolUse` / `Read`. Re-running
+   `setup.sh` adds that entry and keeps every other one; without it the usage counter simply never
+   increments, and ranking falls back to what it was before the counter existed.
+2. **Reset the usage counter.** The counts in `<vault>/.index/recall_counts.json` were written by the old
+   renderer and measure how often a note was *shown*, which 1.1.0 stops treating as a signal. Carrying them
+   forward would keep boosting the notes nobody opened:
+
+```bash
+VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
+cp "$VAULT/.index/recall_counts.json" "$VAULT/.index/recall_counts.json.bak" 2>/dev/null
+echo '{}' > "$VAULT/.index/recall_counts.json"
+```
+
+The file refills from real reads within a few sessions. Nothing else in the vault changes, and no note is
+touched. If you run the dense daemon, restart it as well (`BRAIN_EMB_MAX_TOKENS` is read at startup).
+
 ## Verify, then report
 
 ```bash

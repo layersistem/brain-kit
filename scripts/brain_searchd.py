@@ -11,6 +11,7 @@ Scope: `vault/` and `memory/` entries are visible to everyone; `imem/<slug>/` (p
 only to the instance whose slug matches. If the daemon is down, brain_recall.py falls back to BM25.
 
 Env:  BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_EMBED_MODEL (BAAI/bge-m3) . BRAIN_SEARCHD_PORT (8799)
+      BRAIN_EMB_MAX_TOKENS (192) / BRAIN_Q_MAX_CHARS (1500) - query length caps, see the note below
       BRAIN_WIKI_SCOPE_RX / _RXS - docs-root visibility per session (scripts/brain_wiki.py)
 Run:  <venv>/bin/python scripts/brain_searchd.py   (launchd / systemd unit: see docs/DENSE_RECALL.md)"""
 import os, json, time, pathlib, sqlite3, threading, urllib.parse, warnings
@@ -26,6 +27,16 @@ BRAIN_ROOT = pathlib.Path(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/bra
 VAULT = pathlib.Path(os.environ.get("BRAIN_DIR", str(BRAIN_ROOT / "vault")))
 EMB_FILE = VAULT / ".index" / "brain.db"
 EMB_MODEL = os.environ.get("BRAIN_EMBED_MODEL", "BAAI/bge-m3")
+# Query length caps (23 Sep 2026). CPU encode time is linear in query length and the model's own default
+# window is 8192 tokens, so nothing stopped a pasted document from being encoded in full: measured on an
+# idle 24-core box, 20 words 0.38 s, 100 words 1.08 s, 300 words 2.8 s, 800 words 10.3 s, 2000 words 30 s.
+# Two things break at once. The client gives up after its short timeout and loses the dense half; and this
+# server is single-threaded, so the encode it abandoned keeps running and every other session's query waits
+# behind it. With the caps in place all five lengths answer in 0.35-0.73 s. A query is a question, not a
+# document: 192 tokens is roughly 130 words, and the gold sets (mean 15.7 words) are untouched - hit@1,
+# hit@3 and MRR were identical before and after on both of them.
+EMB_MAX_TOKENS = int(os.environ.get("BRAIN_EMB_MAX_TOKENS", "192"))
+Q_MAX_CHARS = int(os.environ.get("BRAIN_Q_MAX_CHARS", "1500"))
 PORT = int(os.environ.get("BRAIN_SEARCHD_PORT", "8799"))
 _LOCK = threading.Lock()
 _S = {"mtime": 0.0, "entries": [], "mat": None, "loaded_at": 0.0}
@@ -36,10 +47,12 @@ def _load_blocking(mt):
     """brain.db -> memory: a read-only connection against brain_index.py's `chunks` table."""
     ent, vecs = [], []
     with sqlite3.connect(f"file:{EMB_FILE}?mode=ro", uri=True) as c:
-        for rel, note, heading, text, blob in c.execute(
-                "SELECT c.rel, f.note, c.heading, c.text600, c.embedding FROM chunks c JOIN files f ON f.rel = c.rel "
+        for rel, note, heading, text, dord, blob in c.execute(
+                "SELECT c.rel, f.note, c.heading, c.text600, f.dord, c.embedding FROM chunks c JOIN files f ON f.rel = c.rel "
                 "WHERE c.embedding IS NOT NULL ORDER BY c.id"):
-            ent.append({"path": rel, "note": note, "heading": heading or "", "text": text or ""})
+            # dord (the note's frontmatter date, brain_bm25._date_ord's scale) rides along so a dense-only
+            # hit can be weighed for freshness in the fusion, the way a BM25 hit already can.
+            ent.append({"path": rel, "note": note, "heading": heading or "", "text": text or "", "dord": dord})
             vecs.append(np.frombuffer(blob, dtype="float32"))
     with _LOCK:
         _S["entries"] = ent
@@ -87,6 +100,7 @@ def _visible(path, scope):
 
 
 def search(q, k=5, scope=""):
+    q = q[:Q_MAX_CHARS]                  # long-prompt cap; see the EMB_MAX_TOKENS note
     _load()
     with _LOCK:
         ent, mat = _S["entries"], _S["mat"]
@@ -103,7 +117,7 @@ def search(q, k=5, scope=""):
         top = e["path"].split("/", 1)[0]  # docs-root hits keep their root tag (wiki, wiki2, ...) - the renderer resolves the real path
         root = "memory" if top == "memory" or e["path"].startswith("imem/") else (top if bw.is_wiki(top) else "brain")
         out.append({"root": root, "note": e["note"], "heading": e.get("heading", ""), "path": e["path"],
-                    "score": round(float(cos[i]), 3), "text": e["text"][:600]})
+                    "score": round(float(cos[i]), 3), "text": e["text"][:600], "dord": e.get("dord")})
         if len(out) >= k:
             break
     return out
@@ -142,6 +156,7 @@ if __name__ == "__main__":
     print(f"brain_searchd: loading {EMB_MODEL} ...", flush=True)
     from sentence_transformers import SentenceTransformer
     EMB = SentenceTransformer(EMB_MODEL, device="cpu")
+    EMB.max_seq_length = EMB_MAX_TOKENS          # encode-time ceiling; see the EMB_MAX_TOKENS note
     EMB.encode(["warm-up"], normalize_embeddings=True)
     _load()
     print(f"brain_searchd: ready on http://127.0.0.1:{PORT}", flush=True)

@@ -110,3 +110,22 @@ delay of a few seconds before the recall call) and raise `BRAIN_SEARCHD_TIMEOUT`
 full following day; the in-burst median fell from 302 ms to 111 ms. Of the four remaining
 misses two were an encoding error rather than latency and two were timeouts at zero concurrency.
 Re-run the same query weekly; the 4+ bucket is the number to watch.
+
+## Query length (measured 2026-09-23)
+
+The rest of the misses came from the other end: the query itself. Encode time on CPU is linear in
+query length, and nothing capped it, so a pasted document or a long report arriving as a prompt was
+embedded in full - 20 words 0.38 s, 100 words 1.08 s, 300 words 2.8 s, 800 words 10.3 s, 2000 words
+30 s, on an idle 24-core box. Two failures fall out of that. The client gives up after
+`BRAIN_SEARCHD_TIMEOUT` and loses its dense half; and since the server is single-threaded, the
+encode it abandoned keeps running, so every other session's query waits behind a query nobody is
+waiting for any more. One 24-hour window on the author's machine: 29 such timeouts, each 1.5 s, all
+of them long prompts, with the database side of the same queries answering in 8 ms.
+
+The daemon now caps a query at `BRAIN_EMB_MAX_TOKENS` (192, applied as the model's `max_seq_length`)
+and `BRAIN_Q_MAX_CHARS` (1500); `brain_recall.py` cuts at `BRAIN_DENSE_Q_MAX` (1500) before the call,
+so a 15 KB query never travels. All five lengths above then answer in 0.35-0.73 s. A query is a
+question, not a document: 192 tokens is roughly 130 words, and on two gold sets whose queries average
+15.7 words, hit@1, hit@3 and MRR were identical before and after. Raise the cap if your prompts are
+genuinely long and you have the CPU for it - and measure the miss rate afterwards, not before. The
+daemon reads both values at startup, so restart it after a change.

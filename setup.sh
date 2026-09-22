@@ -80,7 +80,9 @@ W=("UserPromptSubmit::::session-instance-bind.sh"   # first: every later hook re
    "UserPromptSubmit::::time-inject.sh" "UserPromptSubmit::::due-inject.sh"
    "UserPromptSubmit::::context-inject.sh" "UserPromptSubmit::::salience-inject.sh"
    "PostToolUse::Write|Edit::salience-postwrite.sh"
-   "PostToolUse::Write|Edit::brain-embed-after-write.sh" "PreCompact::::precompact-snapshot.sh"
+   "PostToolUse::Write|Edit::brain-embed-after-write.sh"
+   "PostToolUse::Read::recall-usage-count.sh"       # ranking input: notes the model opened, not ones it was shown
+   "PreCompact::::precompact-snapshot.sh"
    "SessionStart::startup|resume|compact|clear::session-instance-bind.sh"
    "SessionStart::compact::sessionstart-compact-pointer.sh"
    "SessionStart::startup|resume::update-notice.sh")

@@ -2,10 +2,14 @@
 # UserPromptSubmit - AUTO RECALL: run the incoming prompt through brain_recall.py (hybrid: BM25 in-process
 # + BGE-M3 dense from the optional brain_searchd daemon, fused by RRF) and inject the top-k vault/memory
 # hits into context. Without the daemon this is plain BM25 - zero model, ~100 ms, no network. Any failure
-# is silent: recall must never break the session. Score "3.3bd" = RRF x100 + which engines found it (b/d).
+# is silent: recall must never break the session. Score: "3.3bd" = RRF x100 when both engines found the
+# note; a single engine prints its own measure instead - "0.71d" is the cosine, "0.83b" the BM25 score as a
+# fraction of the best one for this query (23 Sep 2026; the old rank-derived number carried no information).
 #
 # Config: BRAIN_ROOT, BRAIN_DIR (via <claude-dir>/brain-kit.env or the environment).
 #         BRAIN_RECALL_K   - how many notes to inject (default 5)
+#         BRAIN_RECALL_MIN_WORDS - prompts shorter than this get no recall at all (default 4, i.e. <= 3
+#         words is silent); BRAIN_RECALL_FORCE=1 exempts a deliberate manual call.
 #         BRAIN_ISOLATE_DIRS - space separated dir globs where this hook stays quiet.
 #         BRAIN_INDEX=sqlite - brain_bm25 reads <vault>/.index/brain.db (brain_index.py) instead
 #         of rescanning every file; falls back to the file scan on its own if the DB is missing.
@@ -36,14 +40,35 @@ PR="$BRAIN_ROOT/scripts/brain_recall_print.py"
 export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${SESSION_ROOT:-}" | tr '/ _' '---')/memory}"
 export BRAIN_WIKI_DIR BRAIN_WIKI_DIRS BRAIN_WIKI_SCOPE_RX BRAIN_WIKI_SCOPE_RXS   # docs roots + scopes from brain-kit.env - the renderer resolves docs hits to real paths
 IN=$(cat)
-PROMPT=$(printf '%s' "$IN" | python3 -c 'import sys,json
-try: print(json.load(sys.stdin).get("prompt",""))
-except Exception: print("")' 2>/dev/null)
+# 23 Sep 2026: the session id is read alongside the prompt, because the renderer keeps a per-session
+# "already shown you this note" list (scripts/brain_recall_print.py). Still one python call: line 1 is the
+# session id, everything from line 2 on is the prompt (which may itself span lines).
+OUT=$(printf '%s' "$IN" | python3 -c 'import sys,json
+try:
+    o = json.load(sys.stdin)
+    print(o.get("session_id","") or "")
+    print(o.get("prompt","") or "")
+except Exception:
+    print("")
+    print("")' 2>/dev/null)
+RECALL_SESSION_ID=$(printf '%s\n' "$OUT" | sed -n 1p); export RECALL_SESSION_ID
+PROMPT=$(printf '%s\n' "$OUT" | sed -n '2,$p')
 [ -z "$PROMPT" ] && exit 0
 # Metacognition (17 Aug 2026): confidence tag per note (STRONG/FAIR) and a count in the header; when nothing matched a
 # real question (>= 6 words) the renderer says so out loud instead of staying silent.
 export RECALL_PROMPT_WORDS=$(printf '%s' "$PROMPT" | wc -w | tr -d ' ')
 export RECALL_PROMPT_TEXT="$PROMPT"                      # hashed only - docs-topic marker for an optional Stop gate
 export RECALL_INSTANCE="${BRAIN_INSTANCE:-}"             # marker file name, if the install names its instances
+# Short-prompt gate (23 Sep 2026, measured on the author's install over 1529 prompt/read pairs): prompts of
+# three words or fewer ("go on", "yes do it", "thanks") produced 88 recall blocks and not one of the notes in
+# them was opened afterwards. The block is pure noise there and costs the whole hook's latency, so it is not
+# produced at all. The docs-topic marker is cleared by hand on the way out: the renderer used to do that when
+# it found no docs match, and a stale marker would leave an optional Stop gate locked on a topic that moved on.
+# BRAIN_RECALL_FORCE=1 exempts a deliberate lookup (a wrapper that calls this hook by hand with one keyword is
+# a statement of intent, unlike the automatic firing this gate is about).
+if [ "${RECALL_PROMPT_WORDS:-9}" -lt "${BRAIN_RECALL_MIN_WORDS:-4}" ] && [ "${BRAIN_RECALL_FORCE:-0}" != "1" ]; then
+  rm -f "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit-state/wiki_topic.${RECALL_INSTANCE:-default}" 2>/dev/null
+  exit 0
+fi
 python3 "$BM" "$PROMPT" "${BRAIN_RECALL_K:-5}" 2>/dev/null | python3 "$PR" 2>/dev/null
 exit 0

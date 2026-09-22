@@ -26,10 +26,12 @@ ENT_W, REC_W, SUP_W = 0.5, 0.3, 0.5         # entity boost, recency boost, super
 W_MAP = {"canon": 1.5, "lesson": 1.3, "approval": 1.15, "decision": 1.15, "routine": 0.85, "hub": 0.85}  # frontmatter weight:
 AGE_W, AGE_FLOOR = 0.4, 0.6                 # dated + unweighted notes fade to 0.6 over a year
 MARK = re.compile(r"CANON|LESSON|NEVER|\U0001F534")  # heading markers implying weight: lesson
-USE_W, USE_CAP = 0.15, 5   # usage-reinforcement: notes actually surfaced-and-read earn a small,
-# capped recency-independent boost. hooks/_auto_retrieve.sh appends a basename to
-# .index/recall_counts.json ({basename: {c, ts}}) each time a note is injected into a prompt;
-# read it here as a log-scaled multiplier so a note's own recall history nudges its future rank.
+USE_W, USE_CAP = 0.15, 5   # usage-reinforcement: notes the model actually opened earn a small, capped,
+# recency-independent boost. hooks/recall-usage-count.sh (PostToolUse on Read) adds a basename to
+# .index/recall_counts.json ({basename: {c, ts}}) each time such a note is read; it is applied here as a
+# log-scaled multiplier so a note's own reading history nudges its future rank. Until 23 Sep 2026 the
+# counter was written by the renderer and counted injections, which reinforced notes nobody opened (see
+# scripts/brain_usage_count.py for the measurement). The multiplier is unchanged; its input is not.
 try:
     import json as _json
     _USE = {k: (v.get("c", 0) if isinstance(v, dict) else v)
@@ -120,6 +122,11 @@ def _corpus():
             hint, date, sup, w = _meta(txt)
             dord = _date_ord(date)
             for h, b in _sections(txt):
+                # The 4000-character cut is per section, not per note, and it is a real limit worth knowing:
+                # past that point a long section's tail is invisible to BM25 (the dense side indexes the same
+                # section's first 600 characters, so it does not cover the tail either). Sections are the unit
+                # recall points at anyway - a note whose one section runs past 4000 characters is asking to be
+                # split under `##` headings, which also makes the recall line say where to look.
                 tok = _toks((f.stem + " " + h + " " + hint + " " + b)[:4000])
                 docs.append({"root": rtag, "note": f.stem, "heading": h,
                              "path": f"{rtag}/{f.relative_to(root)}",
@@ -183,7 +190,8 @@ def search(query, k=5, k1=1.5, b=0.75):
     if len(qset & tt) / max(len(qset), 1) < 0.45 and len(rare) < 2:
         return []   # gate: neither short-query coverage nor rare-word overlap -> unrelated
     return [{"root": d["root"], "note": d["note"], "heading": d["heading"], "path": d["path"],
-             "score": round(s, 2), "hint": d["hint"], "text": d["text"]} for s, d in uniq]
+             "score": round(s, 2), "hint": d["hint"], "text": d["text"],
+             "dord": d["dord"]} for s, d in uniq]   # dord travels so brain_recall can weigh freshness
 
 if __name__ == "__main__":
     import json
