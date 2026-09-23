@@ -41,6 +41,13 @@ live process's own command line (`bash .../self-compact.sh`), not the shell that
 `bash -c "(setsid nohup .../self-compact.sh ...)"` wrapper also contains the script's name and used
 to be mistaken for a running copy.
 
+**The latest launch decides the continuation line.** The first copy may wait up to 30 minutes for the
+turn to end, and the agent can launch the script again in that time with a newer line. The argument is
+written to `brain-kit-state/self-compact.<project>.line` before the lock check, so the second launch
+still exits 4 but leaves its line behind, and the running copy reads the file right before it sends.
+The line that was sent lands in `self-compact.<project>.last`, for hooks that need to tell the
+agent's own continuation line from a message a human typed.
+
 **Manual compacts.** If you typed `/compact` yourself, start the script with `SKIP_COMPACT=1`: it
 skips step 2, waits for the boundary and sends the continuation line.
 
@@ -97,7 +104,8 @@ SELF_COMPACT_TMUX_SESSION=nosuch bash scripts/self-compact.sh   # "tmux session 
 ```
 
 The double-launch lock: start one copy, start a second for the same project, the second logs
-"already running" and exits 4 while the first keeps waiting.
+"already running" and exits 4 while the first keeps waiting; if the second was given a line, the first
+sends that line, not its own.
 
 ## Limits
 

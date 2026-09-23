@@ -34,7 +34,8 @@
 # launched the first copy (whose command line also contains this script's name) can never be mistaken for it.
 #
 # Exit codes: 1 no tmux / no session / no transcript . 2 the turn did not end in 30 min . 3 no boundary in
-# 20 min (continuation NOT sent) . 4 another copy is running for this project.
+# 20 min (continuation NOT sent) . 4 another copy is running for this project (its continuation line was replaced
+# by this launch's argument, if one was given).
 set -u
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 [ -f "$CFG/brain-kit.env" ] && . "$CFG/brain-kit.env" 2>/dev/null
@@ -45,21 +46,28 @@ PROJ_DIR="$CFG/projects/$SLUG"
 ST="$CFG/brain-kit-state"; mkdir -p "$ST"
 LOG="$ST/self-compact.log"
 PIDF="$ST/self-compact.$SLUG.pid"
+LINEF="$ST/self-compact.$SLUG.line"   # the continuation line the running copy will send; a later launch overwrites it
+LASTF="$ST/self-compact.$SLUG.last"   # the line that was actually sent, for hooks that need to tell it from a human message
 DEFAULT_CONT="self-compact done: you compacted your own session; nobody is waiting on you. Read the handover note and the focus file, then continue from the NEXT step written there without asking whether to start."
 CONT="${1:-$DEFAULT_CONT}"
 say(){ printf '[%s] %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
 fail(){ say "$1"; printf 'self-compact: %s\n' "$1" >&2; exit "$2"; }
 
+# The continuation line goes through a file, so the LATEST launch decides what is sent. Measured: a first copy
+# launched with an early line waited 5 minutes for the turn to end; a second launch with the current line hit the
+# lock and exited; the stale line was sent. Now the second launch drops its line here and the running copy reads
+# the file right before sending.
+[ -n "${1:-}" ] && printf '%s' "$1" > "$LINEF"
 # double-launch lock: only a live process whose own command line is this script counts
 if [ -f "$PIDF" ]; then
   q=$(tr -cd '0-9' < "$PIDF")
   if [ -n "$q" ] && [ "$q" != "$$" ] && kill -0 "$q" 2>/dev/null \
      && ps -o args= -p "$q" 2>/dev/null | grep -qE '(^|/)(bash|sh) [^ ]*self-compact\.sh( |$)|^[^ ]*self-compact\.sh( |$)'; then
-    fail "already running for $PROJECT (pid $q), this copy exits" 4
+    fail "already running for $PROJECT (pid $q), this copy exits${1:+; continuation line updated}" 4
   fi
 fi
 printf '%s\n' "$$" > "$PIDF"
-trap 'rm -f "$PIDF"' EXIT
+trap 'rm -f "$PIDF" "$LINEF"' EXIT
 
 command -v tmux >/dev/null 2>&1 || fail "tmux not found - self-compact needs the session to run inside tmux" 1
 S="${SELF_COMPACT_TMUX_SESSION:-}"
@@ -101,5 +109,7 @@ while [ $i -lt 240 ]; do sleep 5; i=$((i+1))                    # 20 min
 done
 [ "${N1:-0}" -gt "$N0" ] || fail "no compact boundary within 20 min, continuation line NOT sent" 3
 sleep 5
+[ -s "$LINEF" ] && CONT="$(cat "$LINEF")"
+printf '%s' "$CONT" > "$LASTF"
 send "$CONT" || fail "tmux send-keys failed after the compact" 1
 say "compact done, continuation line sent"
