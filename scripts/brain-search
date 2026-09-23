@@ -1,0 +1,30 @@
+#!/bin/sh
+# brain-search "<query>" [k] - run AUTO-RECALL by hand. Same roots as the prompt hook: the vault
+# (decisions, knowledge, memory), this project's own memory directory, and any shared docs roots
+# (BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS with their scopes). Read-only; writes nothing.
+#
+# It is a thin wrapper over hooks/_auto_retrieve.sh: it builds the hook's JSON payload from the
+# arguments and pipes it in, so the output is exactly the block a prompt would have produced -
+# brain_recall.py (BM25 fused with the dense daemon when it is up) rendered by brain_recall_print.py.
+#
+# Two things differ from the automatic path, on purpose. BRAIN_RECALL_FORCE=1 lifts the short-prompt
+# gate (a one-word manual query like a rule name or a branch name is a statement of intent, not the
+# "go on" the gate exists for), and the per-session repeat filter does not apply (no session id).
+#
+# This is the search the unsearched-absence gate (hooks/unsearched-absence-stop.sh) asks for: when
+# you are about to say "no record of <name>", run `brain-search "<name>"` first - the gate looks for
+# this command's name in the turn. Six or more words give better hits; add "trap", "lesson" or
+# "mistake" when you are hunting for what went wrong before.
+#
+# Env: BRAIN_ROOT (~/brain), CLAUDE_CONFIG_DIR (~/.claude) - brain-kit.env is read by the hook itself.
+[ $# -ge 1 ] || { echo 'usage: brain-search "<query; 6+ words give better hits>" [k]' >&2; exit 2; }
+CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+[ -f "$CFG/brain-kit.env" ] && . "$CFG/brain-kit.env"
+BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
+HOOK="$BRAIN_ROOT/hooks/_auto_retrieve.sh"
+[ -f "$HOOK" ] || { echo "brain-search: $HOOK not found (is brain-kit installed at $BRAIN_ROOT?)" >&2; exit 1; }
+Q="$1"; K="${2:-}"
+case "$K" in ''|*[!0-9]*) K="" ;; esac
+[ -n "$K" ] && export BRAIN_RECALL_K="$K"
+export BRAIN_RECALL_FORCE=1
+python3 -c 'import json,sys; print(json.dumps({"prompt": sys.argv[1]}))' "$Q" | sh "$HOOK"

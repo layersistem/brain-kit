@@ -1,0 +1,11 @@
+[Unit]
+Description=brain-kit index sweeper, every 2 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Unit=brain-index-sweep.service
+
+[Install]
+WantedBy=timers.target

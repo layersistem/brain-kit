@@ -1,0 +1,9 @@
+# brain-kit: background vector sweeper (scripts/brain_index_sweep.sh). Installed by setup.sh into
+# ~/.config/systemd/user/ with %h/brain replaced by your BRAIN_ROOT; the timer next to it fires every 2 min.
+[Unit]
+Description=brain-kit index sweeper (embeds notes the write hook only chunked)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash %h/brain/scripts/brain_index_sweep.sh
+Nice=10

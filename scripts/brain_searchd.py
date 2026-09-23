@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """brain_searchd - warm BGE-M3 dense-recall daemon (the dense half of hybrid recall).
 
-HTTP 127.0.0.1:8799   GET /search?q=<text>&k=5&scope=<project-slug>   GET /health
+HTTP 127.0.0.1:8799   GET /search?q=<text>&k=5&scope=<project-slug>   GET /health   GET /count?name=<note basename>
 Source: <vault>/.index/brain.db, the SQLite index brain_index.py maintains (`chunks.embedding`,
 kept fresh by the embed hook). Reloads automatically when the file's mtime changes - a plain
 read-only connection, so there is no half-written-line failure mode to guard against. Cosine
@@ -9,6 +9,10 @@ only - no reranker (measured: slower and worse on this corpus). CPU on purpose: 
 resident at ~2-3 GB and a warm query takes ~80 ms.
 Scope: `vault/` and `memory/` entries are visible to everyone; `imem/<slug>/` (per-project memory)
 only to the instance whose slug matches. If the daemon is down, brain_recall.py falls back to BM25.
+/count (23 Sep 2026): the usage counter's remote path. A session on a second machine that reads the vault
+over a network share sets BRAIN_RECALL_REMOTE=1 and its Read hook calls this instead of writing
+recall_counts.json itself - one writer for that file, on the machine that owns the vault
+(scripts/brain_usage_count.py, bump()). Name only; no path, no content.
 
 Env:  BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_EMBED_MODEL (BAAI/bge-m3) . BRAIN_SEARCHD_PORT (8799)
       BRAIN_EMB_MAX_TOKENS (192) / BRAIN_Q_MAX_CHARS (1500) - query length caps, see the note below
@@ -22,6 +26,7 @@ np.seterr(all="ignore")
 import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import brain_wiki as bw
+import brain_usage_count as buc   # /count: the usage counter's single-writer endpoint
 
 BRAIN_ROOT = pathlib.Path(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/brain")))
 VAULT = pathlib.Path(os.environ.get("BRAIN_DIR", str(BRAIN_ROOT / "vault")))
@@ -144,6 +149,11 @@ class H(BaseHTTPRequestHandler):
             # the first one's notes (found 2026-09-03 in an isolated-install test).
             return self._send({"ok": True, "entries": len(_S["entries"]), "index_mtime": _S["mtime"],
                                "model": EMB_MODEL, "vault": str(VAULT.resolve())})
+        if u.path == "/count":
+            try:
+                return self._send({"ok": buc.bump(p.get("name", [""])[0])})
+            except Exception as ex:
+                return self._send({"ok": False, "err": type(ex).__name__})
         q = (p.get("q", [""])[0]).strip(); k = int(p.get("k", ["5"])[0]); scope = p.get("scope", [""])[0]
         try:
             r = search(q, k, scope) if q else []

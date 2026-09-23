@@ -1,0 +1,12 @@
+# brain-kit: hourly export of the repos' issues and PRs into the vault (scripts/desk_ledger.py).
+# Installed by setup.sh when gh is present and you listed repos; %h/brain is replaced by your BRAIN_ROOT.
+# gh is called plain: whatever account `gh auth` holds is what it reads with. No token is passed in.
+[Unit]
+Description=brain-kit desk ledger (issues and PRs -> knowledge/desk-ledger-*.md)
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Nice=10
+ExecStart=/usr/bin/env python3 %h/brain/scripts/desk_ledger.py
+TimeoutStartSec=1800

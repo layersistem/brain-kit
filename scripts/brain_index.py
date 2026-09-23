@@ -91,7 +91,7 @@ def sync(full=False, embed=False):
     vecs = {(r, c, t): v for r, c, t, v in con.execute("SELECT rel, chunk_id, embed_text, embedding FROM chunks WHERE embedding IS NOT NULL")}
     if not vecs:
         vecs = old_vectors()
-    seen, changed = set(), 0
+    seen, changed, n_emb = set(), 0, 0   # n_emb: vectors written by THIS pass (the sweeper logs a run only when > 0)
     for root, tag, f, rel in md_files():
         seen.add(rel); text = f.read_text(encoding="utf-8", errors="ignore")
         if have.get(rel) == be.sha(text):
@@ -126,14 +126,14 @@ def sync(full=False, embed=False):
         new = list(zip(missing, model.encode([t for _, t in missing], normalize_embeddings=True, batch_size=16)))
         for (rid, _), v in new:
             con.execute("UPDATE chunks SET embedding=? WHERE id=?", (struct.pack(f"{len(v)}f", *v), rid))
-        print(dedup_report(con, new), flush=True); missing = []
+        print(dedup_report(con, new), flush=True); n_emb = len(new); missing = []
     con.execute("INSERT INTO chunks_fts(chunks_fts) VALUES ('rebuild')")
     n, avgdl = con.execute("SELECT count(*), avg(length(ctx_tok) - length(replace(ctx_tok,' ',''))+1) FROM chunks").fetchone()
     con.execute("INSERT OR REPLACE INTO meta VALUES ('avgdl',?)", (str(avgdl or 0),))
     con.execute("INSERT OR REPLACE INTO meta VALUES ('synced_at',?)", (time.strftime("%Y-%m-%d %H:%M:%S"),))
     con.commit(); con.close()
     print(f"brain.db: {len(seen)} files ({changed} changed, {len(gone)} removed) - {n} chunks - missing embeddings: {len(missing)}"
-          + (" (run with --embed to fill in)" if missing else "") + f" - {time.time()-t0:.1f}s")
+          + (" (run with --embed to fill in)" if missing else "") + (f" - embedded: {n_emb}" if n_emb else "") + f" - {time.time()-t0:.1f}s")
 
 
 def dedup_report(con, new, thr=0.90, top=3):

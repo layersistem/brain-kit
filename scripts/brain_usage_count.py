@@ -12,17 +12,27 @@ Measured over 1529 prompt/read pairs on the author's install: notes sitting at t
 for 71.7% of all injections and were opened 5.4% of the time, while notes below the cap were opened 8.3%
 of the time. The reinforcement was pushing unread notes up. The multiplier is unchanged; what feeds it is.
 
+Remote mode (BRAIN_RECALL_REMOTE=1): the counter file is not touched; the increment goes to the dense
+daemon as `GET /count?name=<basename>` (brain_searchd.py calls bump() below, under the same flock, on the
+machine that owns the vault). For a second machine that reads the vault over a network share: two writers
+on one JSON file over SMB race, and the stale reader overwrites the other side's increments. One writer,
+the daemon's host, closes that. The tunnel or URL is BRAIN_SEARCHD_URL, as for search.
+
 Prints nothing (a PostToolUse stdout lands in the model's context) and always exits 0. flock plus an atomic
 rename, because several sessions on one machine share the file. Standard library only.
 
-Env: BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_MEMORY (<root>/memory) . BRAIN_MEMORY2
+Env: BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_MEMORY (<root>/memory) . BRAIN_MEMORY2 .
+     BRAIN_RECALL_REMOTE (0) . BRAIN_SEARCHD_URL (http://127.0.0.1:8799)
 """
 import fcntl
 import json
 import os
+import re
 import sys
 import tempfile
 import time
+import urllib.parse
+import urllib.request
 
 BRAIN_ROOT = os.path.expanduser(os.environ.get("BRAIN_ROOT", "~/brain"))
 VAULT = os.path.abspath(os.path.expanduser(os.environ.get("BRAIN_DIR") or os.path.join(BRAIN_ROOT, "vault")))
@@ -32,6 +42,11 @@ LOCK = os.path.join(VAULT, ".index", ".recall_counts.lock")
 MEMORY = os.path.abspath(os.path.expanduser(os.environ.get("BRAIN_MEMORY") or os.path.join(BRAIN_ROOT, "memory")))
 MEMORY2 = os.environ.get("BRAIN_MEMORY2") or ""
 MEMORY2 = os.path.abspath(os.path.expanduser(MEMORY2)) if MEMORY2 else ""
+REMOTE = os.environ.get("BRAIN_RECALL_REMOTE") == "1"
+URL = os.environ.get("BRAIN_SEARCHD_URL", "http://127.0.0.1:8799").rstrip("/")
+# What a counted name may look like: a basename, letters in any script, no path separators. The /count
+# endpoint takes this string from the network, so it is validated here rather than trusted there.
+NAME_RX = re.compile(r"^[^/\\\x00-\x1f]{1,200}$")
 
 
 def counted(fp):
@@ -48,17 +63,11 @@ def counted(fp):
                 or "_drafts" in rel or "_archive" in rel)
 
 
-def main():
-    try:
-        o = json.load(sys.stdin)
-    except Exception:
-        return
-    if (o.get("tool_name") or "") != "Read":
-        return
-    fp = ((o.get("tool_input") or {}).get("file_path")) or ""
-    if not counted(fp):
-        return
-    b = os.path.basename(os.path.abspath(os.path.expanduser(fp)))
+def bump(b):
+    """recall_counts.json[b].c += 1 under flock, written through an atomic rename. Also the body of the
+    daemon's /count endpoint. Returns False for a name that is not a plausible note basename."""
+    if not b or not NAME_RX.match(b) or b == "MEMORY.md" or not b.lower().endswith(".md"):
+        return False
     d = os.path.dirname(COUNTS)
     os.makedirs(d, exist_ok=True)
     with open(LOCK, "a+") as lk:
@@ -83,6 +92,24 @@ def main():
             os.replace(tmp, COUNTS)
         finally:
             fcntl.flock(lk, fcntl.LOCK_UN)
+    return True
+
+
+def main():
+    try:
+        o = json.load(sys.stdin)
+    except Exception:
+        return
+    if (o.get("tool_name") or "") != "Read":
+        return
+    fp = ((o.get("tool_input") or {}).get("file_path")) or ""
+    if not counted(fp):
+        return
+    b = os.path.basename(os.path.abspath(os.path.expanduser(fp)))
+    if REMOTE:
+        urllib.request.urlopen(URL + "/count?" + urllib.parse.urlencode({"name": b}), timeout=2).read()
+        return
+    bump(b)
 
 
 if __name__ == "__main__":

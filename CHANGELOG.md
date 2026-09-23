@@ -4,6 +4,94 @@ What changed in each release, newest first. Versions are [semantic](https://semv
 release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `VERSION` next to your
 install is what it compares against.
 
+## [1.1.1] - 2026-09-23
+
+A release about the moments the kit was silent when it should have spoken, and loud when it should have kept
+quiet. Four of the five changes were found the same way: a session that did the wrong thing, a transcript
+that showed why. The write hook cost 14 s per note because it loaded a 2 GB model every time; the context
+warning came so late on a narrowed window that auto-compaction won the race; the number printed on the first
+turn after a compaction was the pre-compaction one, which with self-compact would have ordered a second
+compaction on the spot; and an agent said "I would need the device" about five rules whose issues and PRs
+it had closed itself the month before, because nobody had searched for their names. The vault format is
+untouched. Two of the additions are opt-in and the installer now asks before installing them.
+
+### Changed
+- **The write hook no longer loads the embedding model.** Measured over 24 hours of transcripts: 1453 runs
+  of `brain-embed-after-write.sh`, the ones with a changed note averaging 14.4 s (max 50 s) against 0.6 s for
+  unchanged ones - the whole difference was BGE-M3 loading from scratch on every edit, 330 minutes a day on
+  the tool path. The hook now runs `brain_index.py update` without `--embed` (chunks and BM25 rows, about
+  1 s; BM25 recall sees the note at once) and leaves the vectors to `scripts/brain_index_sweep.sh`, which
+  the hook starts in the background and a 2-minute timer runs anyway. Dense recall lags a write by about
+  15 s instead of the write costing 15 s. `BRAIN_EMBED_SYNC=1` restores the inline embed.
+- **Context thresholds are two tiers at 50% and 65%.** The single 80% warning was measured against a
+  narrowed `CLAUDE_CODE_AUTO_COMPACT_WINDOW` and came one tool result before auto-compaction. WARNING now
+  says "compact at the next clean boundary, prepare the handoff note"; HARD says "compact now". The window
+  is `BRAIN_CTX_WINDOW`, else `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (from the environment or the project's
+  `.claude/settings.json`), else the model default. `BRAIN_CTX_WARN` / `BRAIN_CTX_HARD` and
+  `<project>/.claude/ctx-thresholds` still override. If you tuned your work around the 80% line, set
+  `BRAIN_CTX_WARN` back.
+- **No threshold order on the first turn after a compaction.** When the transcript's last event after the
+  newest `usage` line is a compact boundary, the only number available is the pre-compaction one - the one
+  that crossed the threshold. The hook now prints "first turn after compact, no measurement yet", gives no
+  order, and clears its per-session delta file. Printing the stale number would have looped self-compact.
+- **`brain_index.py` reports the vectors it wrote** (`embedded: N` on its summary line) so the sweeper can
+  log a run that did something and stay quiet otherwise.
+- **`scripts/update.sh`** also carries `scripts/brain-search`, `scripts/systemd/*` and `patterns/*`, and
+  restores `scripts/self-compact.sh`'s executable bit to what it was before the update: whoever answered
+  "no" to self-compact stays at no.
+
+### Added
+- **`scripts/self-compact.sh` + `docs/self-compact.md` + `docs/SELF_COMPACT_BLOCK.md`** - the agent compacts
+  its own session, opt-in. At the hard threshold the context hook says "self-compact now"; the agent writes
+  the handover note and the focus summary, starts the script as the last command of its turn, and ends the
+  turn. The script waits for the turn to end (the pane shows "esc to interrupt" while busy), sends `/compact`
+  with `tmux send-keys`, counts compact boundaries in the transcript from the JSON fields (a session's own
+  tool output can contain the string), and types the continuation line when a new one appears. Every step is
+  logged with a timestamp, starting with "started"; 30 minutes for the turn, 20 for the boundary;
+  `SKIP_COMPACT=1` when the compact was typed by hand; a second copy for the same project exits with
+  "already running", matched on the script's own process and never on the shell that launched it.
+- **`scripts/brain_index_sweep.sh` + `scripts/systemd/brain-index-sweep.{service,timer}`** - the background
+  embedder described above. Same mkdir lock as the hook, a lock older than 30 minutes is treated as a crash
+  leftover, `BRAIN_SWEEP_THREADS` (4) caps torch, one log line per run that changed something or failed.
+  `setup.sh` installs and enables the timer where `systemd --user` answers, prints the cron line elsewhere,
+  and `--no-timers` skips it.
+- **`hooks/unsearched-absence-stop.sh`** (`Stop`, `full` profile) - blocks a turn whose answer says a named
+  thing is missing, unknown or waited for ("no record of `x-y-z`", "I would need the device", "waiting for")
+  when nothing in the turn searched for that name (`brain-search`, `grep`, `rg`, a Grep or Glob call,
+  `gh ... --search`). At most two blocks per turn, then it passes with a "brake" line in
+  `brain-kit-state/absence-gate.log`. Fenced code in the answer is ignored, names are kebab-case with two or
+  more hyphens, the English claim phrases are built in, and `<project>/.claude/absence-patterns` or
+  `BRAIN_ABSENCE_RX_FILE` replaces them (`patterns/absence-claims.en.txt` is the built-in list,
+  `patterns/absence-claims.tr.txt` a Turkish one). Under 70 ms on the turns it inspects. `BRAIN_ABSENCE_GATE=0`
+  turns it off.
+- **`scripts/brain-search`** - recall by hand: `brain-search "<query>" [k]` runs the same hook the prompt runs
+  and prints the same block, with the short-prompt gate lifted so a one-word name query works. It is the
+  search the absence gate asks for.
+- **`scripts/desk_ledger.py` + `scripts/systemd/brain-desk-ledger.{service,timer}`** - hourly export of your
+  repos' issues and PRs into `knowledge/desk-ledger-<owner>-<repo>.md` (exact titles and branch names, state
+  with date, author, and the kebab-case identifiers mentioned in bodies and comments - the text itself is never
+  copied), plus `moc/MOC-desk-ledger.md`. Sections are packed to 3500 characters because the index splits on
+  `##` and reads the first 4000 of each. Repos from `--repo`, `BRAIN_DESK_REPOS` or `<BRAIN_ROOT>/desk-ledger.repos`;
+  `setup.sh` installs the timer only when `gh` is present and you list repos, and skips silently otherwise.
+- **Installer prompts and flags.** `setup.sh` asks two questions and installs neither feature on an empty
+  answer: narrow the context window (writes `CLAUDE_CODE_AUTO_COMPACT_WINDOW` into the project's
+  `.claude/settings.json`; suggested 500000), and install self-compact (tmux session name, default the current
+  one). Non-interactive: `--context-window=<N|no>`, `--self-compact=<session|no>`, `--yes-defaults`,
+  `--project=DIR`, `--desk-repos=...`, `--no-timers`; stdin not a terminal and no flag means no. Re-running the
+  installer with "no" keeps an earlier "yes": not installing is not uninstalling.
+- **Usage counter, remote mode.** `BRAIN_RECALL_REMOTE=1` sends the Read hook's increment to the dense daemon's
+  new `GET /count?name=` endpoint instead of writing `recall_counts.json` - one writer for a vault that a second
+  machine reads over a network share, where two writers race and the stale one wins. `brain_usage_count.bump()`
+  is the shared body; the name is validated before it touches the file.
+
+### Fixed
+- **`scripts/update.sh` stopped part-way through whenever the release changed `update.sh` itself.** bash reads
+  a script as it runs it, and the updater copies the new `scripts/update.sh` over the one that is running; from
+  that line on it was executing the new file at the old byte offset, so the chmod, the backup summary, the
+  `VERSION` write and the closing message never ran (exit 0, `VERSION` still the old number - measured on
+  both 1.0.0 -> 1.1.0 shaped updates). The body now sits in one brace group, which bash parses in full
+  before running the first command.
+
 ## [1.1.0] - 2026-09-23
 
 A measurement release. 1529 prompt/read pairs from four real sessions over one week were matched up - which notes

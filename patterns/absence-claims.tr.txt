@@ -1,0 +1,21 @@
+# brain-kit: claim phrases for hooks/unsearched-absence-stop.sh - TURKISH set, optional.
+# This is the only file in the kit that carries Turkish: the gate's claim phrases for a Turkish-speaking
+# agent. Same format as absence-claims.en.txt (one extended regex per line, joined with "|"). To use it:
+# copy to <project>/.claude/absence-patterns, or set BRAIN_ABSENCE_RX_FILE=<brain-root>/patterns/absence-claims.tr.txt.
+# It replaces the English list; to keep both, concatenate the two files into one.
+elimde .*yok
+elimizde .*yok
+cihaz(ım|im)? yok
+kayıt yok
+kayit yok
+kaydı yok
+kaydi yok
+bulunmuyor
+geçmiyor
+gecmiyor
+hiç .* yok
+hic .* yok
+bekliyorum
+adresini ver
+erişimim yok
+erisimim yok

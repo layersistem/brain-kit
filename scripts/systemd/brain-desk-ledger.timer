@@ -1,0 +1,11 @@
+[Unit]
+Description=brain-kit desk ledger, hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=120
+Unit=brain-desk-ledger.service
+
+[Install]
+WantedBy=timers.target

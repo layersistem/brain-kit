@@ -12,13 +12,17 @@
 # started; that keeps the common case at one `case` statement and no child process. Prints nothing: a
 # PostToolUse stdout lands in the model's context, and a counter has nothing to say there.
 #
-# Config: BRAIN_ROOT, BRAIN_DIR, BRAIN_MEMORY, BRAIN_MEMORY2 (via <claude-dir>/brain-kit.env).
+# Second machine: with BRAIN_RECALL_REMOTE=1 the Python side sends the increment to the dense daemon
+# (GET /count on BRAIN_SEARCHD_URL) instead of writing the counter file over a network share - one writer.
+#
+# Config: BRAIN_ROOT, BRAIN_DIR, BRAIN_MEMORY, BRAIN_MEMORY2, BRAIN_RECALL_REMOTE, BRAIN_SEARCHD_URL
+#         (via <claude-dir>/brain-kit.env).
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
-export BRAIN_ROOT BRAIN_DIR BRAIN_MEMORY
+export BRAIN_ROOT BRAIN_DIR BRAIN_MEMORY BRAIN_RECALL_REMOTE BRAIN_SEARCHD_URL
 export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${SESSION_ROOT:-}" | tr '/ _' '---')/memory}"
 IN=$(cat)
 case "$IN" in

@@ -48,7 +48,26 @@ cd <the brain-kit checkout> && ./setup.sh     # idempotent: existing hook entrie
 
 Re-run `setup.sh` whenever the CHANGELOG mentions a new hook, a new skill or a settings change. If
 there is no checkout on the machine, clone the repo first - the updater can work from a temporary
-clone, but `setup.sh` needs a real one.
+clone, but `setup.sh` needs a real one. On a re-run the installer asks its two opt-in questions again
+(context window, self-compact); answering nothing keeps whatever the earlier install chose, and the
+updater itself never touches either choice.
+
+### Coming from 1.1.0
+
+Three steps the updater leaves to you, plus one thing to know:
+
+1. **Re-run `setup.sh`.** 1.1.1 adds `hooks/unsearched-absence-stop.sh` on `Stop` (full profile), installs
+   the index-sweeper timer, and asks the two opt-in questions (context window, self-compact). Both default to
+   no; an empty answer or a non-interactive run installs neither. Without the re-run the new hook is not
+   wired and the vectors of every note written from now on are filled only by the sweeper when you start it
+   by hand - the write hook no longer embeds inline.
+2. **The context warning moved from 80% to 50%, and a hard line at 65% now has a default.** If your sessions
+   were tuned around the old line, set `BRAIN_CTX_WARN` (and `BRAIN_CTX_HARD`) in `brain-kit.env` or in
+   `<project>/.claude/ctx-thresholds`; the file wins without a restart.
+3. **Restart the dense daemon** if you run it: it gained `GET /count`, and `brain_usage_count.py` is imported
+   at startup.
+
+Nothing in the vault changes. The desk ledger is opt-in and does nothing until you list repos.
 
 ### Coming from 1.0.x
 

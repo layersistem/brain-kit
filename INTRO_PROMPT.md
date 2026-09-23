@@ -25,8 +25,15 @@ what they mean (full table: README "What gets injected, and when"):
 - **DUE** (`due-inject.sh`) - `@due YYYY-MM-DD[ HH:MM] text` lines from your focus file or your own
   decision records: overdue, today, tomorrow; the coming week once a day. Put promises there; when
   done, change the line to `@due✓`.
-- **context** (`context-inject.sh`, Claude Code only) - how full the window is. Past the warning
-  threshold, write the handoff record before compaction, not after.
+- **context** (`context-inject.sh`, Claude Code only) - how full the window is. WARNING (50%):
+  compact at the next clean boundary, prepare the handoff record now. HARD (65%): compact now - and
+  when self-compact is installed, "self-compact now": write the handoff record and the focus summary,
+  start `scripts/self-compact.sh` as the LAST command of the turn, call nothing else, end the turn
+  (`docs/self-compact.md`). The first turn after a compaction prints "no measurement yet" and no order.
+- **absence gate** (`unsearched-absence-stop.sh`, end of turn) - if your answer says a named thing has
+  no record, is unknown or is being waited for, and you never searched for that name this turn, the
+  turn is blocked with the two searches to run: `brain-search "<name>"` and `gh issue list --search`.
+  Search by the name you resolved during the work, not by the words of the prompt.
 - **AUTO-RECALL** - notes closest to your prompt, tagged STRONG (both engines agree) or FAIR
   (title only). "no matching note" means the vault has nothing on it: say you don't know, don't
   invent.
@@ -49,11 +56,14 @@ Pick your track:
 
 ```bash
 cd <the brain-kit checkout>
-./setup.sh                 # add --no-embed to skip torch and the model download
+./setup.sh --project=<the user's project dir>   # add --no-embed to skip torch and the model download
 ```
 
-The installer prints six steps. Read them. If a step fails, report the exact error line and
-stop - do not continue on a broken install.
+The installer prints eight steps. Read them. If a step fails, report the exact error line and
+stop - do not continue on a broken install. It asks two questions - narrow the context window,
+install self-compact - and installs neither on an empty answer; relay both to the user instead of
+answering for them. Running without a terminal (or with `--yes-defaults`) answers no to both;
+`--context-window=<N|no>` and `--self-compact=<tmux session|no>` set them from the command line.
 
 ### A2. Verify the install (do not skip)
 
@@ -63,7 +73,7 @@ python3 -c "import json;h=json.load(open('${CLAUDE_CONFIG_DIR:-$HOME/.claude}/se
 python3 "$BRAIN_ROOT/scripts/brain_bm25.py" "example decision" 3
 ```
 
-Expect hook entries for `UserPromptSubmit`, `PostToolUse`, `PreCompact` and `SessionStart`, and
+Expect hook entries for `UserPromptSubmit`, `PostToolUse`, `PreCompact`, `SessionStart` and `Stop`, and
 JSON from the second command. `[]` means the vault is empty, which on a truly fresh install is
 possible - the seeded example decision record should make it non-empty.
 
@@ -105,7 +115,7 @@ at the moment of each decision).
 
 ```bash
 cd <the brain-kit checkout>
-./setup.sh
+./setup.sh --project=<the user's project dir>
 ```
 
 Then choose one of two shapes and tell the user which you picked:

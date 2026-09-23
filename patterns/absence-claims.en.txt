@@ -1,0 +1,16 @@
+# brain-kit: claim phrases for hooks/unsearched-absence-stop.sh (English, the built-in default).
+# One extended regex per line, matched case-insensitively against the turn's final answer; lines are
+# joined with "|". Blank lines and "#" comments are skipped. Copy this file to
+# <project>/.claude/absence-patterns (or point BRAIN_ABSENCE_RX_FILE at a copy) and edit it to your
+# own phrasing; the file REPLACES the built-in list, it does not extend it.
+(there is|there's|i have|i've got|we have|i see|i found|found) (no|nothing|not a single) (record|note|trace|entry|issue|pr|pull request|mention|match|result)
+no (record|note|trace|entry|issue|pr|pull request|mention|match|result)s? (of|for|on|about)
+(not|never) (found|recorded|documented|written down|mentioned|seen)
+(doesn't|does not|don't|do not) (exist|appear|show up|seem to exist)
+(is|are|was|were) (not|no longer|nowhere) (in|on) (the )?(vault|brain|notes|record|records|repo|tree|codebase|index)
+i (don't|do not|can't|cannot) (have|find|see|locate|access) (it|that|this|the|a|any)
+(no|without) (access|device|hardware|credentials|key|token) (to|for)
+(i need|i would need|we need|need) (the|a|an) (device|hardware|box|credentials|address|access)
+(waiting|i'll wait|i will wait|i am waiting|i'm waiting) (for|on|until)
+(nothing|no) (came|comes|turned|turns) (back|up)
+(unknown|not known|no idea|no information|no data) (to me|about|on)

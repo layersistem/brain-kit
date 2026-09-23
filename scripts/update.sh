@@ -8,9 +8,19 @@
 #   --to       install this exact tag instead of the newest one (downgrades allowed, deliberately)
 #   --dry-run  show what would change and stop
 #
-# What it touches: $BRAIN_ROOT/hooks, $BRAIN_ROOT/scripts, $BRAIN_ROOT/VERSION. Never the vault, never
-# your settings.json, never a skill you have edited. Anything you changed by hand is copied into
-# $BRAIN_ROOT/backups/<stamp>/ before it is overwritten, and the path of every backup is printed.
+# What it touches: $BRAIN_ROOT/hooks, $BRAIN_ROOT/scripts, $BRAIN_ROOT/patterns, $BRAIN_ROOT/VERSION. Never the
+# vault, never your settings.json (global or per project), never a CLAUDE.md, never a skill you have edited.
+# Anything you changed by hand is copied into $BRAIN_ROOT/backups/<stamp>/ before it is overwritten, and the
+# path of every backup is printed. The two opt-ins setup.sh asks about (context window, self-compact) are
+# not touched either: the window lives in the project's settings.json, and self-compact's on/off state is
+# its executable bit plus BRAIN_SELF_COMPACT in brain-kit.env - both restored to what they were.
+#
+# The whole body sits in one brace group. bash reads a script as it runs it, and this script replaces
+# itself (scripts/update.sh is in the release) part-way through: without the group, every line after
+# that copy - the chmod, the opt-in restore, the VERSION write, the closing message - was read from the
+# NEW file at the old byte offset and silently never ran (measured 23 Sep 2026: VERSION stayed at the old
+# number, no "brain-kit is now" line, exit 0). A brace group is parsed in full before the first command.
+{
 set -euo pipefail
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 [ -f "$CFG/brain-kit.env" ] && . "$CFG/brain-kit.env" 2>/dev/null || true
@@ -72,7 +82,7 @@ fi
 CHANGED=""; MODIFIED=""
 # the list comes from the release, not from the current directory - a glob here would expand
 # against wherever the user happened to run this from and quietly find nothing.
-FILES=$(cd "$WORK/new" && ls -1 hooks/*.sh scripts/*.py scripts/*.sh 2>/dev/null || true)
+FILES=$(cd "$WORK/new" && ls -1 hooks/*.sh scripts/*.py scripts/*.sh scripts/brain-search scripts/systemd/* patterns/* 2>/dev/null || true)
 for rel in $FILES; do
   inst="$BRAIN_ROOT/$rel"
   if [ ! -e "$inst" ] || ! cmp -s "$inst" "$WORK/new/$rel"; then CHANGED="$CHANGED $rel"; fi
@@ -92,7 +102,7 @@ echo "files this would replace:"; for f in $CHANGED; do echo "   $f"; done
 if [ -n "$MODIFIED" ]; then
   echo "changed by you since install - these get backed up first:"; for f in $MODIFIED; do echo "   $f"; done
 fi
-echo "your vault, settings.json and skills are not touched."
+echo "your vault, settings.json, CLAUDE.md, skills and the setup.sh opt-ins are not touched."
 [ "$DRY" = "1" ] && exit 0
 [ -n "$CHANGED" ] || exit 0
 
@@ -103,6 +113,9 @@ if [ "$YES" != "1" ]; then
   case "$ans" in y|Y|yes|YES) ;; *) echo "nothing was changed."; exit 0 ;; esac
 fi
 STAMP="$BRAIN_ROOT/backups/$(date +%Y%m%d-%H%M%S)-v$LOCAL"
+# self-compact is opt-in: whether it is on is the executable bit of scripts/self-compact.sh (set by setup.sh
+# on a yes, cleared on a no). Remember it now; the chmod below must not switch it on for someone who said no.
+SC_WAS_X=0; [ -x "$BRAIN_ROOT/scripts/self-compact.sh" ] && SC_WAS_X=1
 for rel in $MODIFIED; do
   case " $CHANGED " in *" $rel "*) ;; *) continue ;; esac     # only what is about to be overwritten
   inst="$BRAIN_ROOT/$rel"; [ -e "$inst" ] || continue
@@ -111,8 +124,11 @@ done
 for rel in $CHANGED; do
   mkdir -p "$BRAIN_ROOT/$(dirname "$rel")"; cp -f "$WORK/new/$rel" "$BRAIN_ROOT/$rel"
 done
-chmod +x "$BRAIN_ROOT"/hooks/*.sh "$BRAIN_ROOT"/scripts/*.sh 2>/dev/null || true
+chmod +x "$BRAIN_ROOT"/hooks/*.sh "$BRAIN_ROOT"/scripts/*.sh "$BRAIN_ROOT/scripts/brain-search" 2>/dev/null || true
+[ "$SC_WAS_X" = "1" ] || chmod -x "$BRAIN_ROOT/scripts/self-compact.sh" 2>/dev/null || true   # keep the install's choice
 printf '%s\n' "$NEW" > "$BRAIN_ROOT/VERSION"
 echo
 echo "brain-kit is now $NEW. Restart the session so the hooks reload."
 echo "Full release notes: CHANGELOG.md, section [$NEW], in the checkout you installed from."
+exit 0
+}
