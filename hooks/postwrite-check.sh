@@ -1,11 +1,18 @@
 #!/bin/bash
 . "$(dirname "$0")/_dryrun.sh"   # dry-run layer: HOOK_DRY_RUN=1 -> report instead of block
-# PostToolUse (Write|Edit) - vault hygiene, three checks only:
-#   (a) 0-byte *.md stubs are deleted (an empty note is a ghost node in a graph view)
-#   (b) [[wikilinks]] IN THE FILE JUST WRITTEN that point at a note which does not exist are reported back
-#   (c) a note written with no [[links]] at all is reported back (an orphan lands disconnected in the graph)
-# All three are about the vault staying navigable; nothing else here is enforced.
+# PostToolUse (Write|Edit) - vault hygiene, three checks only, all on the file just written and all report-only:
+#   (a) the note just written is 0 bytes (an empty note is a ghost node in a graph view)
+#   (b) [[wikilinks]] IN THE FILE JUST WRITTEN that point at a note which does not exist
+#   (c) the note just written has no [[links]] at all (an orphan lands disconnected in the graph)
+# All three are about the vault staying navigable; nothing else here is enforced, and nothing is deleted.
 # Returns decision:block with a reason, so the agent fixes it instead of moving on.
+#
+# 1.2.0: (a) used to delete every 0-byte *.md in the whole vault on each write (a placeholder in another folder was
+# removed in a test); it now only reports the file just written. Link targets are looked up in one list of note names
+# built once per call; the old code ran one `find` over the vault per link (4.0 s per write at 1,000 notes, 19.7 s at
+# 3,000, 45 s at 5,000). [[note#heading]], [[folder/note]] and [[note.md]] resolve to the note, as they do in Obsidian.
+# Hidden folders (.trash, .obsidian, sync tools' version folders) are not notes: their files are neither link targets
+# nor checked when written.
 #
 # Why (b) scans only the written file (6 Sep 2026): the earlier vault-wide scan printed the same stale
 # list on every write - an alarm nobody could clear, so it was ignored and the rule rotted. The vault-wide
@@ -21,7 +28,7 @@ ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 # Identity and scope derive from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd:
 # a `cd` into another project inside a session must not change who you are or whose memory you read.
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
-[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 for d in ${BRAIN_ISOLATE_DIRS:-}; do
@@ -31,29 +38,23 @@ INPUT=$(cat)
 FP=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 [ -z "$FP" ] && exit 0
 case "$FP" in "$VAULT"/*) ;; *) exit 0 ;; esac
+case "${FP#"$VAULT"/}" in .*|*/.*) exit 0 ;; esac
 
-deleted=""
-while IFS= read -r f; do
-  [ -n "$f" ] && rm -f "$f" && deleted="$deleted $(basename "$f" .md)"
-done < <(find "$VAULT" -name "*.md" -type f -size 0 2>/dev/null)
-
+# One list of the vault's notes, built once per call (portable find: no -printf, which BSD find lacks).
+FILES=$(find "$VAULT" -mindepth 1 -name '.*' -prune -o -name '*.md' -type f -print 2>/dev/null)
+NAMES=$(printf '%s\n' "$FILES" | sed 's#.*/##; s/\.md$//' | LC_ALL=C sort -u)
 _strip_code() { awk '/^[[:space:]]*```/{f=!f;next} !f' "$1" 2>/dev/null | sed 's/`[^`]*`//g'; }
-_ghosts_of() {  # $1 = file to scan; prints link names with no matching note
-  _strip_code "$1" | grep -hoE "\[\[[^]]+\]\]" 2>/dev/null | grep -vE '^\[\[:[a-z]+:\]\]$' \
-    | sed -E 's/\[\[([^]|]+).*/\1/' | sort -u | while read -r n; do
-        n="${n#"${n%%[![:space:]]*}"}"; n="${n%"${n##*[![:space:]]}"}"
-        [ -z "$n" ] && continue
-        find "$VAULT" -name "$n.md" -type f 2>/dev/null | grep -q . || echo "$n"
-      done | tr '\n' ' '
-}
+# Link names: [[note|alias]] and [[note#heading]] -> note; [[folder/note]] -> note; a trailing .md is dropped.
+_links() { grep -hoE "\[\[[^]]+\]\]" 2>/dev/null | grep -vE '^\[\[:[a-z]+:\]\]$' \
+  | sed -E 's/\[\[([^]|#]+).*/\1/; s#.*/##; s/\.md$//; s/^[[:space:]]+//; s/[[:space:]]+$//' | grep -v '^$' | LC_ALL=C sort -u; }
+
+empty=""
+case "$FP" in *.md) [ -f "$FP" ] && [ ! -s "$FP" ] && empty=$(basename "$FP") ;; esac
 ghosts=""
-case "$FP" in *.md) [ -f "$FP" ] && ghosts=$(_ghosts_of "$FP") ;; esac
-ghosts_all=$(grep -rhoE "\[\[[^]]+\]\]" "$VAULT" --include="*.md" 2>/dev/null \
-  | grep -vE '^\[\[:[a-z]+:\]\]$' | sed -E 's/\[\[([^]|]+).*/\1/' | sort -u | while read -r n; do
-      n="${n#"${n%%[![:space:]]*}"}"; n="${n%"${n##*[![:space:]]}"}"
-      [ -z "$n" ] && continue
-      find "$VAULT" -name "$n.md" -type f 2>/dev/null | grep -q . || echo x
-    done | grep -c x)
+case "$FP" in *.md) [ -s "$FP" ] && ghosts=$(_strip_code "$FP" | _links | LC_ALL=C comm -23 - <(printf '%s\n' "$NAMES") | tr '\n' ' ') ;; esac
+ghosts_all=0
+[ -n "$FILES" ] && ghosts_all=$(printf '%s\n' "$FILES" | tr '\n' '\000' | xargs -0 grep -hoE "\[\[[^]]+\]\]" 2>/dev/null \
+  | _links | LC_ALL=C comm -23 - <(printf '%s\n' "$NAMES") | wc -l | tr -d ' ')
 
 orphan=""
 exempt=0
@@ -62,11 +63,12 @@ for d in ${BRAIN_ORPHAN_EXEMPT:-_drafts _archive refs focus}; do
 done
 case "$FP" in */CLAUDE.md|*/MEMORY.md|*/README.md) exempt=1 ;; esac  # instruction files are not notes
 if [ "$exempt" -eq 0 ]; then
-  case "$FP" in *.md) [ -f "$FP" ] && ! grep -q '\[\[' "$FP" && orphan=$(basename "$FP") ;; esac
+  case "$FP" in *.md) [ -s "$FP" ] && ! grep -q '\[\[' "$FP" && orphan=$(basename "$FP") ;; esac
 fi
 
 msg=""
-[ -n "$deleted" ] && msg="Empty 0-byte notes were deleted:$deleted. "
+[ -n "$empty" ] && msg="The note you just wrote is empty (0 bytes): $empty. An empty note is a ghost node in the graph; \
+fill it or delete it yourself (nothing was deleted). "
 [ -n "$ghosts" ] && msg="${msg}Ghost [[links]] in the file you just wrote - no such note in the vault, \
 so they create empty nodes. Fix: make the reference plain text (or backticks, if it is an example), or create the note. Ghosts: $ghosts "
 [ -n "$orphan" ] && msg="${msg}Orphan note: $orphan has no [[links]] at all, so it lands disconnected \

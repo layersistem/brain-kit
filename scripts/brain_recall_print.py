@@ -6,8 +6,9 @@ stdin: the JSON list produced by brain_recall.py. stdout: the text block. Everyt
   RECALL_PROMPT_TEXT   the prompt itself (hashed for the docs-topic marker; also tokenised for the repeat filter)
   RECALL_INSTANCE      instance name, if the install has one (marker file name)
   RECALL_SESSION_ID    this session's id, from the hook payload - scopes the "already shown" list
+  RECALL_TRANSCRIPT    this session's transcript path, from the hook payload - a compact there resets that list
   BRAIN_ROOT, BRAIN_DIR, BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS, BRAIN_MEMORY2, BRAIN_DENSE_MIN as in the hook
-  BRAIN_RECALL_REPEAT_FILTER  1 (default); 0 prints every hit every time, as before 23 Sep 2026
+  BRAIN_RECALL_REPEAT_FILTER  0 (default since 1.2.0): every hit is printed every time; 1 turns the repeat filter on
 
 Why a separate file (7 Sep 2026): this used to live inside the hook as a single-quoted `python3 -c '...'` block.
 One apostrophe in a comment broke the quoting, the hook errored, and because it is a global UserPromptSubmit hook
@@ -21,6 +22,13 @@ import sys, json, os, re, time, hashlib, subprocess
 # for four of the 95 notes that were actually opened. A handover-style note (hub, handoff, closing, compact)
 # that has never been opened is the same case: 171 lines, 3.5%. Both are dropped on the second showing, so a
 # note still gets its one chance per session. Shared-docs hits are never filtered - they are the trust anchor.
+# 1.2.0, three changes. (1) The filter is off unless BRAIN_RECALL_REPEAT_FILTER=1: the first version did not know
+# about compaction, and on the author's install a session that kept one id through 25 compactions lost notes the
+# model no longer had in context (full recall blocks on prompts of 6+ words fell from 80% to 43%). (2) It is off
+# without a session id: scripts/brain-search has none, so every manual search shared one state file and a repeated
+# search came back empty (the first call printed hits, the next 5 of 5 printed nothing). (3) When it is on, the list
+# is reset whenever a compact boundary shows up in the transcript since the last prompt, so "already shown" means
+# "shown since the last compact". The state (seen2_<instance>_<session>.json) is not written while the filter is off.
 _TR = str.maketrans("çğıöşüâîûÇĞİÖŞÜ", "cgiosuaiuCGIOSU")   # de-accent, same map as brain_bm25
 _WORD = re.compile(r"[a-z0-9]+")
 HUB_RX = re.compile(r"hub|handoff|handover|closing|compact")  # names of notes that summarise instead of deciding
@@ -43,12 +51,51 @@ def marker_path():
     return os.path.join(state_dir(), "wiki_topic." + (os.environ.get("RECALL_INSTANCE") or "default"))
 
 
+def _sid():
+    return re.sub(r"[^A-Za-z0-9_-]", "", os.environ.get("RECALL_SESSION_ID", "") or "")[:64]
+
+
+def _filter_on():
+    return os.environ.get("BRAIN_RECALL_REPEAT_FILTER", "0") == "1" and bool(_sid())
+
+
 def _seen_file():
     """The per-session "already shown" list. Keyed by instance and session id so two sessions of the same
     instance, and two instances sharing a machine, never filter each other's lines."""
     inst = re.sub(r"[^A-Za-z0-9_-]", "", os.environ.get("RECALL_INSTANCE", "") or "")[:32] or "default"
-    sid = re.sub(r"[^A-Za-z0-9_-]", "", os.environ.get("RECALL_SESSION_ID", "") or "")[:64] or "nosid"
-    return os.path.join(state_dir(), "seen_%s_%s.json" % (inst, sid))
+    return os.path.join(state_dir(), "seen2_%s_%s.json" % (inst, _sid()))
+
+
+_COMPACT_MARK = b'"subtype":"compact_boundary"'
+
+
+def _compacted(st):
+    """Has the session compacted since the last prompt? The state keeps the transcript path and the byte offset
+    read so far, and only the new bytes are scanned. A missing, different or shorter transcript counts as a reset."""
+    tp = os.environ.get("RECALL_TRANSCRIPT", "")
+    try:
+        size = os.path.getsize(tp) if tp else -1
+    except OSError:
+        size = -1
+    old_tp, off = st.get("tp"), int(st.get("off", 0) or 0)
+    st["tp"], st["off"] = tp, max(size, 0)
+    if size < 0 or old_tp != tp or size < off:
+        return old_tp is not None
+    with open(tp, "rb") as fh:
+        fh.seek(max(off - len(_COMPACT_MARK), 0))
+        return _COMPACT_MARK in fh.read(size - off + len(_COMPACT_MARK))
+
+
+def _load_seen():
+    st = _load_json(_seen_file(), {})
+    if not isinstance(st.get("notes"), dict):
+        st = {"notes": {}}
+    try:
+        if _compacted(st):
+            st["notes"] = {}
+    except Exception:
+        st["notes"] = {}
+    return st
 
 
 def _load_json(p, default):
@@ -66,7 +113,7 @@ def _sweep_seen():
         cut = time.time() - 2 * 86400
         d = state_dir()
         for f in os.listdir(d):
-            if f.startswith("seen_") and f.endswith(".json") and os.path.getmtime(os.path.join(d, f)) < cut:
+            if f.startswith(("seen_", "seen2_")) and f.endswith(".json") and os.path.getmtime(os.path.join(d, f)) < cut:
                 os.remove(os.path.join(d, f))
     except Exception:
         pass
@@ -79,7 +126,12 @@ def main():
         r = []
     if not r:
         if int(os.environ.get("RECALL_PROMPT_WORDS", "0") or 0) >= 6:
-            print("AUTO-RECALL: no matching note - treat this as NOT KNOWN: say so, label any guess as a hypothesis, do not invent; ask if it matters.")
+            # 1.2.0: this line used to say "treat this as NOT KNOWN". No match for the sentence is not the absence of a
+            # record: a project scope, a wording in another language or a note split into sections all lose the match.
+            bs = os.path.join(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/brain")), "scripts", "brain-search")
+            print("AUTO-RECALL: no note matched this sentence - no match is not the same as no record. Search by the "
+                  "concrete name (rule, file, PR, device): `%s \"<name>\"`, and open what it finds before any "
+                  "'not recorded / does not exist' verdict." % bs)
         return
     DM = float(os.environ.get("BRAIN_DENSE_MIN", "0.62") or 0.62)
 
@@ -107,9 +159,10 @@ def main():
     # Repeat filter (see the module header). A note survives its first showing in a session unconditionally;
     # from the second on it is dropped when it is FAIR and shares no word with the prompt, or when it reads
     # like a handover note and has never been opened. Usage counts come from hooks/recall-usage-count.sh.
-    seenf = _seen_file()
-    seen = _load_json(seenf, {})           # written back at the end whether or not the filter is on
-    if os.environ.get("BRAIN_RECALL_REPEAT_FILTER", "1") == "1":
+    on = _filter_on()                       # off by default and without a session id; state only while on
+    st = _load_seen() if on else {"notes": {}}
+    seen = st["notes"]
+    if on:
         use = _load_json(os.path.join(vault, ".index", "recall_counts.json"), {})
         ptoks = toks(os.environ.get("RECALL_PROMPT_TEXT", ""))
 
@@ -208,16 +261,19 @@ def main():
     # counter now lives in hooks/recall-usage-count.sh (PostToolUse on Read) and counts notes the model
     # actually opened; brain_bm25's multiplier is unchanged, only its input is. What is written here is the
     # per-session "already shown" list the repeat filter above reads - in the state dir, not in the vault.
-    try:
-        for x in rest:
-            nm = x.get("note", "")
-            if nm:
-                seen[nm] = int(seen.get(nm, 0) or 0) + 1
-        os.makedirs(state_dir(), exist_ok=True)
-        with open(seenf, "w") as fh:
-            json.dump(seen, fh, ensure_ascii=False)
-    except Exception:
-        pass
+    if on:
+        try:
+            for x in rest:
+                nm = x.get("note", "")
+                if nm:
+                    seen[nm] = int(seen.get(nm, 0) or 0) + 1
+            os.makedirs(state_dir(), exist_ok=True)
+            tmp = _seen_file() + ".tmp"
+            with open(tmp, "w") as fh:
+                json.dump(st, fh, ensure_ascii=False)
+            os.replace(tmp, _seen_file())
+        except Exception:
+            pass
     _sweep_seen()
 
 

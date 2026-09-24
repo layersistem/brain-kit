@@ -8,7 +8,8 @@
 #   --to       install this exact tag instead of the newest one (downgrades allowed, deliberately)
 #   --dry-run  show what would change and stop
 #
-# What it touches: $BRAIN_ROOT/hooks, $BRAIN_ROOT/scripts, $BRAIN_ROOT/patterns, $BRAIN_ROOT/VERSION. Never the
+# What it touches: $BRAIN_ROOT/hooks, $BRAIN_ROOT/scripts, $BRAIN_ROOT/patterns, $BRAIN_ROOT/docs (1.2.0: the hooks
+# point at <root>/docs), $BRAIN_ROOT/VERSION. Never the
 # vault, never your settings.json (global or per project), never a CLAUDE.md, never a skill you have edited.
 # Anything you changed by hand is copied into $BRAIN_ROOT/backups/<stamp>/ before it is overwritten, and the
 # path of every backup is printed. The two opt-ins setup.sh asks about (context window, self-compact) are
@@ -23,7 +24,7 @@
 {
 set -euo pipefail
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-[ -f "$CFG/brain-kit.env" ] && . "$CFG/brain-kit.env" 2>/dev/null || true
+[ -f "$CFG/brain-kit.env" ] && { set -a; . "$CFG/brain-kit.env" 2>/dev/null; set +a; } || true
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 REMOTE="${BRAIN_UPDATE_REMOTE:-https://github.com/layersistem/brain-kit}"
 YES=0; DRY=0; WANT=""
@@ -82,7 +83,7 @@ fi
 CHANGED=""; MODIFIED=""
 # the list comes from the release, not from the current directory - a glob here would expand
 # against wherever the user happened to run this from and quietly find nothing.
-FILES=$(cd "$WORK/new" && ls -1 hooks/*.sh scripts/*.py scripts/*.sh scripts/brain-search scripts/systemd/* patterns/* 2>/dev/null || true)
+FILES=$(cd "$WORK/new" && ls -1 hooks/*.sh scripts/*.py scripts/*.sh scripts/brain-search scripts/systemd/* patterns/* docs/*.md 2>/dev/null || true)
 for rel in $FILES; do
   inst="$BRAIN_ROOT/$rel"
   if [ ! -e "$inst" ] || ! cmp -s "$inst" "$WORK/new/$rel"; then CHANGED="$CHANGED $rel"; fi

@@ -34,6 +34,7 @@ empty = every author.
 Usage: desk_ledger.py [--repo owner/name ...] [--author login ...] [--no-comments] [--dry-run]
 Env:   BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_INSTANCE (main) . BRAIN_DESK_REPOS . BRAIN_DESK_AUTHORS .
        CLAUDE_CONFIG_DIR (~/.claude) - state and log live under its brain-kit-state/
+       Since 1.2.0 the same variables are also read from <CLAUDE_CONFIG_DIR>/brain-kit.env, as the hooks do.
 """
 import argparse
 import datetime as dt
@@ -43,6 +44,50 @@ import re
 import subprocess
 import sys
 
+
+def _expand(v):
+    """Shell-style value inside double quotes: a backslash before a backslash, a double quote, a dollar sign or a
+    backtick is dropped, and $NAME / ${NAME} are taken from the environment."""
+    out, i = [], 0
+    while i < len(v):
+        c = v[i]
+        if c == "\\" and i + 1 < len(v) and v[i + 1] in '\\"$`':
+            out.append(v[i + 1]); i += 2; continue
+        if c == "$":
+            m = re.match(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))", v[i:])
+            if m:
+                out.append(os.environ.get(m.group(1) or m.group(2), "")); i += m.end(); continue
+        out.append(c); i += 1
+    return "".join(out)
+
+
+def _read_env_file():
+    """1.2.0: the settings in <config>/brain-kit.env (BRAIN_ROOT, BRAIN_DIR, and whatever you added). The hooks source
+    that file; this script runs from a timer with no shell to do it, so a custom root or vault was invisible here and
+    the ledger was written to ~/brain/vault. Lines of the form NAME=value, NAME="value" and NAME="${NAME:-value}" are
+    read, with an optional `export` in front; anything else in the file is skipped, never executed. A variable that is
+    already in the environment wins, as it does for the hooks."""
+    path = os.path.join(os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR", "~/.claude")), "brain-kit.env")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+    except OSError:
+        return
+    for ln in lines:
+        m = re.match(r"\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$", ln)
+        if not m or m.group(1) in os.environ:
+            continue
+        name, v = m.group(1), m.group(2).strip()
+        quote = v[0] if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'" else ""
+        if quote:
+            v = v[1:-1]
+        d = re.fullmatch(r"\$\{" + name + r":?-(.*)\}", v, re.S)
+        if d:
+            v = d.group(1)
+        os.environ[name] = v if quote == "'" else _expand(v)
+
+
+_read_env_file()
 BRAIN_ROOT = os.path.expanduser(os.environ.get("BRAIN_ROOT", "~/brain"))
 VAULT = os.path.abspath(os.path.expanduser(os.environ.get("BRAIN_DIR") or os.path.join(BRAIN_ROOT, "vault")))
 CFG = os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR", "~/.claude"))

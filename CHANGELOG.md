@@ -2,7 +2,124 @@
 
 What changed in each release, newest first. Versions are [semantic](https://semver.org/) and every
 release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `VERSION` next to your
-install is what it compares against.
+install is what it compares against. Every tag also has a GitHub Release that carries the same section as
+this file.
+
+## [1.2.0] - 2026-09-24
+
+An audit release. The kit was installed from scratch on Ubuntu 24.04 in a container and every hook was run
+against the result, and most of what turned up was the kit being wrong in ways a user would not see: recall
+re-scanned the whole vault on every prompt because the hooks never exported `BRAIN_INDEX` (5.8-6.8 s per
+prompt on a 2,000-note vault), re-running the installer - the documented upgrade step - reset the vault path
+and dropped the lines added to `brain-kit.env` by hand, the installer put a compressed-prose skill into every
+project on the machine without a word in any document, and the 1.1.1 absence gate never fired on Ubuntu
+because its name filter used an awk feature mawk does not have. The rest came from the author's own install,
+which the kit is taken from: the recall repeat filter dropped notes a compaction had already taken out of the
+model's context, a focus file past about 10,000 characters reached the model as a 2 KB preview with its
+truncation warning cut off, and the post-compact line asked for confirmation right after the agent had
+compacted itself in order to carry on. The vault format is untouched; no new hook needs wiring, but the
+installer should run again (UPGRADE.md, "Coming from 1.1.1").
+
+Measured for this release: clean install and upgrade on ubuntu:24.04: install rc 0 (4 s, `--no-embed`), upgrade 1.1.1 -> 1.2.0 rc 0, with all 3 checked `brain-kit.env` values kept on a same-version re-run and on the upgrade (1.1.1 kept 0 of 3); recall on a 2,000-note vault median 254 ms (min 236, max 269, n=5; the prompt hook timed end to end on a 2,002-note vault in the container, BM25 only; 1.1.1 in the same harness: 8,327 ms); the longest hook output 8,458 characters (`_focus_inject.sh` on a 40,705-character focus file, warning on line 1; 1.1.1: 12,420 characters, warning on the last line); every hook and script parsed by bash 3.2 (`docker run --rm -i bash:3.2 bash -n < file`)
+25 files, 0 errors; gitleaks 0 findings in the git history and 0 in the working tree. macOS: not installed or run on a Mac for this release; what was checked is that every shell file parses under bash 3.2 (the `bash:3.2` container above) and that the BSD-only and GNU-only calls listed under Fixed are gone from the diff. A clean install on a Mac is the first measurement owed to the next release..
+
+### Changed
+- **caveman is opt-in.** `setup.sh` used to copy `skills/caveman` into `<agent-config-dir>/skills` on every
+  install; its own text makes it mandatory in every session, so every project on the machine started
+  answering in compressed prose, and no document said so. It is now a question that defaults to no
+  (`--caveman=yes|no`). A copy from an earlier install is never removed; the installer says where it is.
+- **The installer merges `brain-kit.env` instead of rewriting it.** It reads the existing file first and takes
+  the values an earlier install wrote as this run's defaults (a flag, an answer or an exported variable still
+  wins); the lines it owns are updated in place, every other line stays, and the old file is kept as
+  `brain-kit.env.bak.<epoch>`. Measured before: a re-run put `BRAIN_DIR` back to the default, and two lines
+  added to the file were gone. A BM25-only install stays BM25-only on a re-run; `BRAIN_EMBED=1 ./setup.sh`
+  switches it.
+- **The context window comes from the model.** Every model except Haiku used to count as 1M, so on a 200k
+  model the 50% and 65% lines could never fire (a 153k context printed "15% of 1000k"). The window is now
+  200k, or 1M when a model id ending in `[1m]` is in `ANTHROPIC_MODEL` or a settings file's `model` key, or when
+  a context above 200k has been seen; `CLAUDE_CODE_AUTO_COMPACT_WINDOW` is clipped to it and
+  `BRAIN_CTX_WINDOW` is taken as given. The installer suggests `auto` instead of 500000
+  (`--context-window=<N|auto>`). A 1M session started with `--model <id>[1m]` on the command line is not
+  visible to the hook until it passes 200k: set `BRAIN_CTX_WINDOW=1000000` for it.
+- **The recall repeat filter is off by default** (`BRAIN_RECALL_REPEAT_FILTER=1` turns it on). The 1.1.x filter
+  did not know about compaction: on the author's install a session that kept one id through 25 compactions
+  lost notes the model no longer had (full recall blocks on prompts of 6+ words fell from 80% to 43%). When on,
+  it now starts over at every compact boundary in the transcript (the prompt hook passes `transcript_path`),
+  and it is always off without a session id - `brain-search` has none, and in 1.1.1 a repeated manual search
+  printed hits once and then nothing, 5 times out of 5.
+- **"No match" no longer means "not known".** On a real question with no hit, recall used to say "treat this
+  as NOT KNOWN". A missing match is not a missing record - a project scope, a wording in another language or a
+  note split into sections all lose it - so the line now says so and gives the `brain-search` command to run
+  by the concrete name.
+- **The focus hook's output stays within 8,500 characters, and a truncation warning is its first line.**
+  Claude Code hands the model only a 2 KB preview of a hook output past about 10,000 characters; the old cap
+  was 12,000 bytes and its warning was the last line (measured: a 12,432-character output, the warning at
+  character 12,318; on the author's install 76 of 76 full showings over three days were cut). Tasks and git come
+  first in the budget (1,500 characters), a cut focus ends with the path to Read, and a SUMMARY or NOW line
+  longer than 1,500 characters gets a warning line. `BRAIN_FOCUS_MAX` is in characters now.
+- **`postwrite-check.sh` reports and never deletes.** It removed every 0-byte `.md` in the whole vault on each
+  write (a placeholder in another folder went in a test); it now reports only the note just written. Link
+  targets come from one list of note names built once per call instead of one `find` per link (measured before:
+  4.0 s per write at 1,000 notes, 19.7 s at 3,000, 45 s at 5,000; after: 57-62 ms at 1,000 notes, 97-112 ms at 3,000, 127-152 ms at 5,000; n=3 each, the hook timed on Ubuntu 24.04).
+  `[[note#heading]]`, `[[folder/note]]` and `[[note.md]]` resolve to the note, and hidden folders are skipped.
+- **The correction detector is quieter.** `" no "`, `"stop"` and `"i said"` left the pattern list: 3 of 3
+  ordinary prompts set it off in a test, one of them as the hard "pattern analysis" line. That line no longer
+  asks for confirmation, and a prompt that is the continuation line self-compact typed is not read as a
+  correction.
+- **After a compaction with self-compact installed, the pointer line no longer asks to confirm** - it tells the
+  agent to carry on from the handoff record and the focus file. It also lists the memory files and CLAUDE.md
+  files changed in the last 60 minutes, because after a compaction Claude Code can load an older copy of them
+  (anthropics/claude-code#92949).
+- **The write hook waits at most 3 s for the index lock**, not 30 (measured before: 29.1 s of waiting, then a
+  skip); past that it starts the sweeper and says the write was deferred. The sweeper holds that lock only
+  for its `update` step (about a second) and computes the vectors after releasing it, with a second lock so
+  the timer and the hook never load two copies of the model (one note's round measured 12.1 s and 2.4 GB).
+  The vector step is the new `brain_index.py embed`: a round budget (`BRAIN_EMBED_BUDGET`, 110 s, under the
+  2-minute timer; not a number = 110 and a warning), a commit every 16 chunks. A manual
+  `brain_index.py build|update --embed` still fills everything in one go.
+- **Consolidation's headless call runs without tools.** The default is now `claude -p --tools ""
+  --strict-mcp-config` with the prompt on stdin and the claude.ai connectors off: the prompt is built from
+  notes other sessions wrote, and an instruction buried in one of them must not be able to run a command;
+  on argv a 543,000-character prompt failed with "Argument list too long" on the author's install. A CLI named in
+  `BRAIN_CONSOLIDATE_CMD` still gets the prompt as its last argument.
+
+### Fixed
+- **Every hook reads `brain-kit.env` with `set -a`,** so the settings in it reach the Python side:
+  `BRAIN_INDEX=sqlite` never did, and recall re-scanned every file on every prompt (measured before: 5.8-6.8 s
+  per prompt on 2,000 notes; after: median 254 ms, n=5, on the same 2,002-note vault). Recall's docs pass (`wiki_pull`) no longer runs a
+  second BM25 + dense search when no docs root is configured or on disk.
+- **The absence gate works on Ubuntu.** Its name filter used the interval `{3,}` in awk, which mawk (Ubuntu's
+  and Debian's default awk) does not support: the name list came out empty and 6 of 6 test turns passed
+  silently. Fenced code spanning several lines is dropped before the claim is looked for, a Read of a file
+  whose path carries the name counts as a search, `\b` (which POSIX ERE does not define) is spelled out, and the block
+  message gives `brain-search`'s full path - it is not on PATH (rc 127 in the test).
+- **`time-inject.sh`** tried BSD `date -r` only: on Linux every prompt got a broken session line and an error
+  on stderr. It now falls back to `date -d @epoch`, and a session older than 24 hours shows its start date.
+- **`observe-mutations.sh` masks `Authorization: Bearer <token>`, `-p<password>` and `sshpass -p`**, which
+  reached the observation file in a test, and uses no GNU-only sed flag.
+- **The desk ledger reads `brain-kit.env`.** It runs from a timer with no shell to source the file, so a custom
+  root or vault was invisible to it. Plain assignments and `NAME="${NAME:-value}"` lines are read, nothing in
+  the file is executed, and an exported variable wins.
+- **macOS.** There is no `setsid` there: the write hook started the sweeper with it, and the self-compact
+  command in `docs/SELF_COMPACT_BLOCK.md` failed with "setsid: command not found". Both fall back to `nohup`,
+  and on macOS the installer loads a launchd agent that runs the sweeper every 2 minutes (1.1.1 printed a cron
+  line there, and without it new notes got no vectors). `postwrite-check.sh` no longer uses GNU `find -printf`.
+- **Three traces of the author's own setup** left the shipped files: a pattern in `salience-inject.sh` and a
+  local archive path and an internal skill name in the caveman skill.
+
+### Documentation
+- README: the disk figure is the measured one - about 13 GB (the venv 5.8 GB, 3.2 GB of it CUDA; the Hugging
+  Face cache 4.3 GB; pip's cache 2.9 GB; 3.35 GB of memory at the peak of the install) - with the way to keep
+  the 3.2 GB of `nvidia-*` and 0.9 GB of `triton` packages off a machine without an NVIDIA GPU (the CPU build
+  of torch, installed into the venv first). Requirements name `python3-venv` and bash instead of "a POSIX
+  shell"; `--minimal` is described as what it installs; every network call is listed (it said two - the
+  model download and the update check - and left out pip, the desk ledger's `gh` calls and the consolidation
+  path's `claude -p`); the clone line has the real address.
+- `INTRO_PROMPT.md` has the model ask the installer's three questions itself and pass them as flags: a model
+  runs the installer without a terminal, where the installer asks nothing.
+- `setup.sh` copies `docs/` to `$BRAIN_ROOT/docs` and `scripts/update.sh` keeps it current; the context hook
+  points at `$BRAIN_ROOT/docs/self-compact.md` instead of a path relative to a checkout.
+- UPGRADE.md: "Coming from 1.1.1".
 
 ## [1.1.1] - 2026-09-23
 

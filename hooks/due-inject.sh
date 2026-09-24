@@ -12,7 +12,7 @@
 # Config: BRAIN_ROOT/BRAIN_DIR/BRAIN_INSTANCE as in _focus_inject.sh; day-state in <config>/brain-kit-state.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
-[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 INPUT=$(cat)

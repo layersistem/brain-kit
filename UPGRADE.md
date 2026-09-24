@@ -38,9 +38,10 @@ bash "$BRAIN_ROOT/scripts/update.sh"          # asks before writing; --yes only 
 ```
 
 It installs the **tag**, not the tip of `main`, so you get the tree that was released and tested, not
-whatever landed an hour ago. It writes only `$BRAIN_ROOT/hooks`, `$BRAIN_ROOT/scripts` and
-`$BRAIN_ROOT/VERSION`. The vault, `settings.json` and installed skills are left alone - which also
-means a release that adds a *new* hook needs the installer to wire it:
+whatever landed an hour ago. It writes only `$BRAIN_ROOT/hooks`, `$BRAIN_ROOT/scripts`,
+`$BRAIN_ROOT/patterns`, `$BRAIN_ROOT/docs` (from 1.2.0 on) and `$BRAIN_ROOT/VERSION`. The vault,
+`settings.json` and installed skills are left alone - which also means a release that adds a *new*
+hook needs the installer to wire it:
 
 ```bash
 cd <the brain-kit checkout> && ./setup.sh     # idempotent: existing hook entries and skills are kept
@@ -48,9 +49,35 @@ cd <the brain-kit checkout> && ./setup.sh     # idempotent: existing hook entrie
 
 Re-run `setup.sh` whenever the CHANGELOG mentions a new hook, a new skill or a settings change. If
 there is no checkout on the machine, clone the repo first - the updater can work from a temporary
-clone, but `setup.sh` needs a real one. On a re-run the installer asks its two opt-in questions again
-(context window, self-compact); answering nothing keeps whatever the earlier install chose, and the
-updater itself never touches either choice.
+clone, but `setup.sh` needs a real one. On a re-run the installer asks its opt-in questions again
+(context window, self-compact, caveman); answering nothing keeps whatever the earlier install chose, and
+the updater itself never touches those choices. From 1.2.0 on the re-run also takes its defaults from
+the existing `brain-kit.env` and merges into it: the lines it owns are updated, every line you added
+stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`.
+
+### Coming from 1.1.1
+
+The updater you run is the installed 1.1.1 copy: it replaces the hooks and scripts, but it does not
+know about the new `docs/` folder. Then:
+
+1. **Re-run `setup.sh` from a checkout of the 1.2.0 tag.** The 1.2.0 installer merges into
+   `brain-kit.env` instead of rewriting it, so your `BRAIN_DIR` and the lines you added stay (the 1.1.1
+   installer would still reset them - do not re-run that one). The re-run also copies `docs/` to
+   `$BRAIN_ROOT/docs`, where the hooks now point, and on macOS loads a launchd agent for the index
+   sweeper (`~/Library/LaunchAgents/local.brain-kit.index-sweep.plist`). A BM25-only install stays
+   BM25-only; `BRAIN_EMBED=1 ./setup.sh` switches it to the full one.
+2. **Tell the user what changed behaviour:**
+   - caveman is no longer installed by default. A copy from an earlier install stays in
+     `<agent-config-dir>/skills/caveman`; deleting that folder turns it off.
+   - the recall repeat filter is off by default; `BRAIN_RECALL_REPEAT_FILTER=1` turns it on, and it now
+     starts over at every compaction.
+   - the context hook takes the window from the model (200k, or 1M for a model id ending in `[1m]`) and
+     clips a configured window to it. A 1M session started with `--model <id>[1m]` on the command line is
+     not visible to the hook: set `BRAIN_CTX_WINDOW=1000000` for it.
+   - the focus hook's whole output stays within 8,500 characters (`BRAIN_FOCUS_MAX`, in characters now,
+     not bytes), and a truncation warning is its first line.
+   - `postwrite-check.sh` no longer deletes empty notes; it reports the one you just wrote.
+3. **Restart the sessions** so the new hook code loads. The dense daemon did not change.
 
 ### Coming from 1.1.0
 

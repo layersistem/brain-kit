@@ -6,7 +6,7 @@
 # explains is flagged "[NO-DR]" in the proposal - work that happened but was never written down.
 # Zero model calls, append-only, secrets masked, <=160 chars per line.
 INPUT=$(cat)
-ENVF="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$ENVF" ] && . "$ENVF"
+ENVF="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$ENVF" ] && { set -a; . "$ENVF"; set +a; }
 # Identity derives from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd.
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 VAULT="${BRAIN_DIR:-${BRAIN_ROOT:-$HOME/brain}/vault}"
@@ -31,8 +31,16 @@ case "$TOOL" in
     CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')
     HEAD="${CMD%%<<*}"
     printf '%s' "$HEAD" | grep -qE 'git[[:space:]]+(commit|push|checkout|reset)|docker[[:space:]]+(compose|exec|cp|restart|rm)|rsync|scp[[:space:]]|ssh[[:space:]].*(git|docker|python3|sed -i|>)|rm[[:space:]]+-rf?|mv[[:space:]]|gh[[:space:]]+(issue|pr)[[:space:]]+(create|edit|comment|close)' || exit 0
-    # mask anything that looks like a token or password
-    HEAD=$(printf '%s' "$HEAD" | tr '\n' ' ' | sed -E 's/(TOKEN|SECRET|PASSWORD|PASS|KEY|Authorization)[=: ]+[^ ]+/\1=***/Ig; s/(sk-|ghp_|hvs\.|xox[bp]-)[A-Za-z0-9_-]+/\1***/g')
+    # mask anything that looks like a token or password. 1.2.0: "Authorization: Bearer <token>" kept the token (only the
+    # word "Bearer" was masked), a password glued to -p (mysql -pS3cret, sshpass -p S3cret) was not masked at all, and
+    # the case-insensitive `I` flag exists only in GNU sed - BSD sed rejects it and the log line came out empty on
+    # macOS. Case is now spelled out in bracket classes, which every sed reads the same way.
+    HEAD=$(printf '%s' "$HEAD" | tr '\n' ' ' | sed -E \
+      -e 's/(sshpass +-p) +[^ ]+/\1 ***/g' \
+      -e "s/(^|[ \"'])-p[^ \"']+/\\1-p***/g" \
+      -e 's/([Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss]([Ww][Oo][Rr][Dd])?|[Kk][Ee][Yy]|[Aa][Uu][Tt][Hh][Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn])[=: ]+([Bb][Ee][Aa][Rr][Ee][Rr] +)?[^ ]+/\1=***/g' \
+      -e 's/[Bb][Ee][Aa][Rr][Ee][Rr] +[^ ]+/Bearer ***/g' \
+      -e 's/(sk-|ghp_|hvs\.|xox[bp]-)[A-Za-z0-9_-]+/\1***/g')
     LINE="Bash . ${HEAD:0:150}" ;;
   *) exit 0 ;;
 esac

@@ -62,7 +62,10 @@ Compaction is lossy and model-written. Two things make it survivable:
 
 After a compaction: re-read the skills that were loaded (compaction drops their bodies),
 summarise the state in one message, and confirm before diving back in. Auto-resuming from a
-half-restored context is how sessions break things.
+half-restored context is how sessions break things. The exception is self-compact
+([self-compact.md](self-compact.md)): there the agent compacted itself in order to carry on, it
+wrote the handoff record and the focus summary first, and the post-compact hook tells it to
+continue from them instead of asking (1.2.0).
 
 A related mid-turn rule: when something interposes after an answer is already written - a
 blocking stop hook, a tool result, an error, a user interrupt - do not rebuild the answer from
@@ -99,8 +102,10 @@ Keep the focus file small. It is re-injected on every prompt, so it is the most 
 in the vault per byte: current state, the pointer to today's hub record, open items - and
 nothing that a decision record already holds. We measured a focus file that had grown into a
 59 KB diary line costing 96 KB of injected context on every prompt, for every instance that
-reads it. The hook caps injection at 12 KB and warns; the fix is to move the history into a
-decision record, not to raise the cap.
+reads it. The hook caps its whole output at 8,500 characters and, when the focus does not fit,
+says so in the first line (Claude Code hands the model only a 2 KB preview of a hook output past
+about 10,000 characters, so a warning at the end would never be seen); the fix is to move the
+history into a decision record, not to raise the cap.
 
 ## 8. Things we use but do not ship
 

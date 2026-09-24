@@ -25,7 +25,10 @@ ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 # Identity and scope derive from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd:
 # a `cd` into another project inside a session must not change who you are or whose memory you read.
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
-[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+# 1.2.0: the file is read with `set -a`, so every setting in it reaches the Python side. Before, the file only set
+# shell variables and BRAIN_INDEX=sqlite never got past this hook: brain_bm25 re-scanned the whole vault on every
+# prompt (measured on a 2000-note vault: 5.8-6.8 s per prompt, against 0.24 s with the variable exported).
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 export BRAIN_ROOT BRAIN_DIR
 for d in ${BRAIN_ISOLATE_DIRS:-}; do
@@ -41,18 +44,22 @@ export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${S
 export BRAIN_WIKI_DIR BRAIN_WIKI_DIRS BRAIN_WIKI_SCOPE_RX BRAIN_WIKI_SCOPE_RXS   # docs roots + scopes from brain-kit.env - the renderer resolves docs hits to real paths
 IN=$(cat)
 # 23 Sep 2026: the session id is read alongside the prompt, because the renderer keeps a per-session
-# "already shown you this note" list (scripts/brain_recall_print.py). Still one python call: line 1 is the
-# session id, everything from line 2 on is the prompt (which may itself span lines).
+# "already shown you this note" list (scripts/brain_recall_print.py). 1.2.0: the transcript path too - that
+# list is reset at every compact, which the renderer sees in the transcript. Still one python call: line 1 is
+# the session id, line 2 the transcript path, everything from line 3 on is the prompt (which may span lines).
 OUT=$(printf '%s' "$IN" | python3 -c 'import sys,json
 try:
     o = json.load(sys.stdin)
     print(o.get("session_id","") or "")
+    print((o.get("transcript_path","") or "").replace("\n", ""))
     print(o.get("prompt","") or "")
 except Exception:
     print("")
+    print("")
     print("")' 2>/dev/null)
 RECALL_SESSION_ID=$(printf '%s\n' "$OUT" | sed -n 1p); export RECALL_SESSION_ID
-PROMPT=$(printf '%s\n' "$OUT" | sed -n '2,$p')
+RECALL_TRANSCRIPT=$(printf '%s\n' "$OUT" | sed -n 2p); export RECALL_TRANSCRIPT
+PROMPT=$(printf '%s\n' "$OUT" | sed -n '3,$p')
 [ -z "$PROMPT" ] && exit 0
 # Metacognition (17 Aug 2026): confidence tag per note (STRONG/FAIR) and a count in the header; when nothing matched a
 # real question (>= 6 words) the renderer says so out loud instead of staying silent.

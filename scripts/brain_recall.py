@@ -213,6 +213,8 @@ def wiki_pull(q, out, k=40):
     its own SOURCE block. Case that motivated it: the right doc existed, recall showed only notes, a note
     carrying an inference was repeated as fact and cost a long correction. BM25 first (index, ~7 ms), dense
     second. Disable with BRAIN_RECALL_WIKI_PULL=0."""
+    if not any(p.is_dir() for p, _, _ in bw.ROOTS):  # no docs root configured or on disk: nothing to pull, and no
+        return out                                    # second BM25 + dense pass over the vault for it (1.2.0)
     if os.environ.get("BRAIN_RECALL_WIKI_PULL", "1") != "1" or any(bw.is_wiki(x.get("root")) for x in out):
         return out
     if int(os.environ.get("RECALL_PROMPT_WORDS", "9") or 9) < 4:  # no docs-pull for one-word / chat prompts (an unrelated doc is worse than none)

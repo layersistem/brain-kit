@@ -56,16 +56,20 @@ skips step 2, waits for the boundary and sends the continuation line.
 `context-inject.sh` changes its hard-threshold line when self-compact is installed (the script is
 present and executable under `$BRAIN_ROOT/scripts/` and `BRAIN_SELF_COMPACT` is not `0`):
 
-> HARD: past 325k - hard threshold reached, self-compact now: write the handover note + focus summary,
-> then launch self-compact as the LAST command of the turn (docs/self-compact.md), then call no other
-> tool and end the turn
+> HARD: past 130k - hard threshold reached, self-compact now: write the handover note + focus summary,
+> then launch self-compact as the LAST command of the turn (<brain-root>/docs/self-compact.md), then call
+> no other tool and end the turn
 
 The block `setup.sh` appends to the project's `CLAUDE.md` when you opt in (`docs/SELF_COMPACT_BLOCK.md`)
 spells the same order out, with the exact command:
 
 ```bash
-(setsid nohup "$BRAIN_ROOT/scripts/self-compact.sh" "<the first thing to do after the compact, one line>" >/dev/null 2>&1 &)
+(S=$(command -v setsid); $S nohup "$BRAIN_ROOT/scripts/self-compact.sh" "<the first thing to do after the compact, one line>" >/dev/null 2>&1 &)
 ```
+
+`setsid` detaches the script from the agent's process group where it exists (Linux); macOS has no `setsid`,
+so there `$S` is empty and `nohup` alone starts it (1.2.0; the 1.1.x command failed on macOS with
+"setsid: command not found" and self-compact never started).
 
 The "last command, then no other tool" part matters: the script waits for the turn to end before it
 sends `/compact`, so anything the model does after launching it only delays the compact, and a tool

@@ -13,7 +13,7 @@
 # Config: BRAIN_UPDATE_CHECK (1), BRAIN_UPDATE_REMOTE (the https form of the origin setup.sh ran from),
 #         BRAIN_UPDATE_TIMEOUT (2 seconds).
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-[ -f "$CFG/brain-kit.env" ] && . "$CFG/brain-kit.env" 2>/dev/null
+[ -f "$CFG/brain-kit.env" ] && { set -a; . "$CFG/brain-kit.env" 2>/dev/null; set +a; }
 [ "${BRAIN_UPDATE_CHECK:-1}" = "0" ] && exit 0
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 REMOTE="${BRAIN_UPDATE_REMOTE:-https://github.com/layersistem/brain-kit}"

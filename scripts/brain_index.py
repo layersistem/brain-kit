@@ -15,13 +15,15 @@ FTS5 only narrows the candidate set). brain_searchd.py and brain_search.py read 
 column directly for the dense side. Any failure here should never break recall: `update` is
 called by the write hook so an unchanged file costs one hash comparison, not a re-embed.
 
-Usage: brain_index.py build [--embed] | update [--embed] | stats
+Usage: brain_index.py build [--embed] | update [--embed] | embed | stats
   build   - full rebuild (drops the existing DB first)
   update  - incremental: only files whose sha changed since the last run are touched
-  --embed - also encode any chunk missing a vector (needs the embed extras, see requirements.txt)
+  --embed - also encode every chunk missing a vector, no time limit (needs the embed extras, see requirements.txt)
+  embed   - the background sweeper's vector step (1.2.0): encodes missing vectors under a round budget
+            (BRAIN_EMBED_BUDGET seconds, default 110) and commits every batch of 16; the rest waits for the next round
   stats   - print row counts and file size
 """
-import os, sys, json, struct, sqlite3, pathlib, time
+import os, sys, json, math, struct, sqlite3, pathlib, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import brain_bm25 as bm
 import brain_embed as be
@@ -111,8 +113,7 @@ def sync(full=False, embed=False):
     # The shared docs roots (BRAIN_WIKI_DIR, BRAIN_WIKI_DIRS) are embedded too since 6 Sep 2026: it used to be BM25-only, which
     # meant dense recall never saw it and its hits came back labelled as if they were vault notes. Set
     # BRAIN_WIKI_EMBED=0 to keep a very large docs tree out of the encoder (it stays searchable by BM25).
-    wiki_filter = "" if os.environ.get("BRAIN_WIKI_EMBED", "1") != "0" else " AND f.root NOT LIKE 'wiki%'"
-    missing = con.execute("SELECT c.id, c.embed_text FROM chunks c JOIN files f ON f.rel=c.rel WHERE c.embedding IS NULL" + wiki_filter).fetchall()
+    missing = missing_vectors(con)
     if missing and not embed and be.EMB_FILE.exists():  # migration window: an old jsonl on disk can still supply a vector
         jv = old_vectors(); fill = [(rid, t) for rid, t in missing if any(k[2] == t for k in jv)]
         for rid, t in fill:
@@ -121,11 +122,7 @@ def sync(full=False, embed=False):
             if v is not None:
                 con.execute("UPDATE chunks SET embedding=? WHERE id=?", (v, rid)); missing = [m for m in missing if m[0] != rid]
     if missing and embed:
-        from sentence_transformers import SentenceTransformer
-        model = SentenceTransformer(be.MODEL_NAME, device="cpu")
-        new = list(zip(missing, model.encode([t for _, t in missing], normalize_embeddings=True, batch_size=16)))
-        for (rid, _), v in new:
-            con.execute("UPDATE chunks SET embedding=? WHERE id=?", (struct.pack(f"{len(v)}f", *v), rid))
+        new, _ = fill_vectors(con, missing)   # no budget, one commit below: a manual --embed fills everything
         print(dedup_report(con, new), flush=True); n_emb = len(new); missing = []
     con.execute("INSERT INTO chunks_fts(chunks_fts) VALUES ('rebuild')")
     n, avgdl = con.execute("SELECT count(*), avg(length(ctx_tok) - length(replace(ctx_tok,' ',''))+1) FROM chunks").fetchone()
@@ -136,15 +133,83 @@ def sync(full=False, embed=False):
           + (" (run with --embed to fill in)" if missing else "") + (f" - embedded: {n_emb}" if n_emb else "") + f" - {time.time()-t0:.1f}s")
 
 
+def missing_vectors(con):
+    """(id, embed_text) of every chunk without a vector. The shared docs roots are included unless BRAIN_WIKI_EMBED=0."""
+    wiki_filter = "" if os.environ.get("BRAIN_WIKI_EMBED", "1") != "0" else " AND f.root NOT LIKE 'wiki%'"
+    return con.execute("SELECT c.id, c.embed_text FROM chunks c JOIN files f ON f.rel=c.rel WHERE c.embedding IS NULL" + wiki_filter).fetchall()
+
+
+def sweep_budget():
+    """Seconds one sweeper round may spend on vectors, and a warning. A value that is not a finite number falls back to
+    110 with a warning instead of failing the round: float() accepts "nan" and "inf", and with either the budget check
+    would never fire, so the limit would silently switch off."""
+    v = os.environ.get("BRAIN_EMBED_BUDGET", "110")
+    try:
+        b = float(v)
+    except ValueError:
+        b = math.nan
+    return (b, "") if math.isfinite(b) else (110.0, f"WARNING BRAIN_EMBED_BUDGET is not a number ({v[:20]!r}), using 110 s")
+
+
+def fill_vectors(con, missing, budget=None, commit_each=False):
+    """Encode `missing` [(id, embed_text)] in batches of 16 and write each batch as it comes. The UPDATE matches the id
+    AND the text, so a chunk the write hook rewrote in the meantime gets no stale vector (it stays missing for the next
+    round). commit_each commits every batch and stops at a database lock (the sweeper's `embed` step, which runs outside
+    the hook's lock); budget (seconds, counted from before the model load) ends the round and leaves the rest for the
+    next one. `build/update --embed` pass neither: everything is encoded and committed once, at the end of sync().
+    Returns ([((id, text), vector), ...], reason the round stopped early or "")."""
+    from sentence_transformers import SentenceTransformer
+    t0, new, why = time.time(), [], ""
+    model = SentenceTransformer(be.MODEL_NAME, device="cpu")
+    for i in range(0, len(missing), 16):
+        part = missing[i:i + 16]
+        vecs = model.encode([t for _, t in part], normalize_embeddings=True, batch_size=16)
+        rows = [(struct.pack(f"{len(v)}f", *v), rid, t) for (rid, t), v in zip(part, vecs)]
+        if commit_each:
+            try:
+                con.executemany("UPDATE chunks SET embedding=? WHERE id=? AND embed_text=?", rows); con.commit()
+            except sqlite3.OperationalError as ex:   # the database stayed locked past the timeout: next round
+                con.rollback(); why = f"database busy: {ex}"; break
+        else:
+            con.executemany("UPDATE chunks SET embedding=? WHERE id=? AND embed_text=?", rows)
+        new += list(zip(part, vecs))
+        if budget is not None and time.time() - t0 > budget:
+            why = f"round budget {budget:g} s"; break
+    return new, why
+
+
+def embed_only():
+    """`brain_index.py embed`: the sweeper's vector step, run after it has released the lock the write hook shares.
+    Prints one line the sweeper logs; 'brain.db embed: missing 0' when there was nothing to do. The warning, if any,
+    goes first so the sweeper's quiet-round pattern does not swallow it."""
+    t0, (budget, warn) = time.time(), sweep_budget()
+    if not DB.exists():
+        print("brain.db embed: no index yet (run brain_index.py build)", flush=True); return
+    con = sqlite3.connect(DB, timeout=30)
+    missing, rep = missing_vectors(con), " missing 0"
+    if missing:
+        new, why = fill_vectors(con, missing, budget, commit_each=True)
+        left = len(missing) - len(new)
+        rep = f" {len(new)} embedded" + (f" - {left} left for the next round ({why})" if left else "")
+        if new and len(missing) <= 500:   # a bulk fill (first build, a large import) skips the similarity scan
+            rep += dedup_report(con, new)
+    con.close()
+    print(f"brain.db embed:{' ' + warn + ';' if warn else ''}{rep} - {time.time()-t0:.1f}s", flush=True)
+
+
 def dedup_report(con, new, thr=0.90, top=3):
     """brain_embed's old dedup_report, ported to the DB: warn when a freshly-embedded chunk is a
     near-duplicate (>= thr cosine) of an existing chunk in a DIFFERENT file - the usual sign of a
     note copy-pasted instead of linked, or the same lesson written down twice under different names."""
     import numpy as np
     rows = con.execute("SELECT id, rel, heading, embedding FROM chunks WHERE embedding IS NOT NULL").fetchall()
+    if not rows:
+        return ""
     ids = {r[0]: (r[1], r[2]) for r in rows}; mat = np.vstack([np.frombuffer(r[3], dtype="float32") for r in rows]); rel_of = np.array([r[1] for r in rows])
     hits, seen = [], set()
     for (rid, _), v in new:
+        if rid not in ids:   # 1.2.0: the vector step runs outside the lock; a chunk rewritten meanwhile is skipped
+            continue
         rel = ids[rid][0]; sims = mat @ np.asarray(v, dtype="float32"); sims[rel_of == rel] = -1
         j = int(sims.argmax())
         if sims[j] >= thr and (rel, rows[j][1]) not in seen:
@@ -167,6 +232,8 @@ if __name__ == "__main__":
         sync(full=True, embed="--embed" in a)
     elif cmd == "update":
         sync(full=False, embed="--embed" in a)
+    elif cmd == "embed":
+        embed_only()
     elif cmd == "stats":
         stats()
     else:

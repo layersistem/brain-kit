@@ -9,7 +9,9 @@
 #
 # Two things differ from the automatic path, on purpose. BRAIN_RECALL_FORCE=1 lifts the short-prompt
 # gate (a one-word manual query like a rule name or a branch name is a statement of intent, not the
-# "go on" the gate exists for), and the per-session repeat filter does not apply (no session id).
+# "go on" the gate exists for), and the per-session repeat filter does not apply (no session id). Since
+# 1.2.0 the renderer enforces that: before, every manual search shared one state file, and a search
+# repeated in a test printed hits once and then nothing, five times out of five.
 #
 # This is the search the unsearched-absence gate (hooks/unsearched-absence-stop.sh) asks for: when
 # you are about to say "no record of <name>", run `brain-search "<name>"` first - the gate looks for
@@ -19,7 +21,7 @@
 # Env: BRAIN_ROOT (~/brain), CLAUDE_CONFIG_DIR (~/.claude) - brain-kit.env is read by the hook itself.
 [ $# -ge 1 ] || { echo 'usage: brain-search "<query; 6+ words give better hits>" [k]' >&2; exit 2; }
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-[ -f "$CFG/brain-kit.env" ] && . "$CFG/brain-kit.env"
+[ -f "$CFG/brain-kit.env" ] && { set -a; . "$CFG/brain-kit.env"; set +a; }
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 HOOK="$BRAIN_ROOT/hooks/_auto_retrieve.sh"
 [ -f "$HOOK" ] || { echo "brain-search: $HOOK not found (is brain-kit installed at $BRAIN_ROOT?)" >&2; exit 1; }

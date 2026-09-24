@@ -17,7 +17,12 @@ if [ -n "$SID" ]; then
   START=$(grep -l "\"sessionId\":\"$SID\"" "$CFG"/sessions/*.json 2>/dev/null | head -1 \
     | xargs -I{} python3 -c 'import sys,json;print(int(json.load(open("{}")).get("startedAt",0)//1000))' 2>/dev/null)
   if [ -n "$START" ] && [ "$START" -gt 0 ] 2>/dev/null; then
-    E=$((NOW-START)); LINE="$LINE · session +$((E/3600))h $(( (E%3600)/60 ))m (started $(date -r "$START" '+%H:%M'))"
+    # 1.2.0: `date -r <epoch>` is BSD/macOS only - GNU date reads the argument as a FILE, so on Linux every prompt
+    # printed "(started )" and left "No such file or directory" on stderr. GNU `date -d @<epoch>` is the fallback.
+    # A session older than a day also prints the start date: "started 14:05" says nothing once 14:05 has come round again.
+    E=$((NOW-START)); FMT='+%H:%M'; [ "$E" -ge 86400 ] && FMT='+%F %H:%M'
+    SS=$(date -r "$START" "$FMT" 2>/dev/null || date -d "@$START" "$FMT" 2>/dev/null)
+    LINE="$LINE · session +$((E/3600))h $(( (E%3600)/60 ))m (started ${SS:-?})"
   fi
   ST="$CFG/brain-kit-state"; mkdir -p "$ST"; LAST_F="$ST/last_prompt_$SID"
   if [ -f "$LAST_F" ]; then

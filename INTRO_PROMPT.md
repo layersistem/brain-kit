@@ -13,9 +13,10 @@ Two engines, neither of which calls an API:
 - **Index/Embed** - `brain_index.py`, backed by `brain_embed.py`'s BGE-M3 model (local CPU), runs
   whenever a note is written and keeps `.index/brain.db` current for both engines.
 
-Nothing leaves this machine. **BGE-M3 is a requirement of the full kit** (~2 GB model, downloaded
-once by the first embed run); `--no-embed` is a degraded BM25-only mode for machines that cannot
-carry it - see README "Requirements".
+Nothing leaves this machine. **BGE-M3 is a requirement of the full kit** (the model is downloaded
+once by the first embed run; with torch and the caches the full install takes about 13 GB of disk);
+`--no-embed` is a degraded BM25-only mode for machines that cannot carry it - see README
+"Requirements".
 
 Once installed, a few short lines land at the top of every prompt. Nothing to set up - just know
 what they mean (full table: README "What gets injected, and when"):
@@ -35,7 +36,8 @@ what they mean (full table: README "What gets injected, and when"):
   turn is blocked with the two searches to run: `brain-search "<name>"` and `gh issue list --search`.
   Search by the name you resolved during the work, not by the words of the prompt.
 - **AUTO-RECALL** - notes closest to your prompt, tagged STRONG (both engines agree) or FAIR
-  (title only). "no matching note" means the vault has nothing on it: say you don't know, don't
+  (title only). "no note matched this sentence" is not proof that nothing is recorded: search by the
+  concrete name with `brain-search` first; if that finds nothing either, say you don't know - don't
   invent.
 - **SALIENCE** (`salience-inject.sh`) - fires only when the user corrects you; tag this turn's
   decision record `weight: lesson`.
@@ -54,16 +56,24 @@ Pick your track:
 
 ### A1. Install
 
+Before you run it, ask the user the installer's three questions yourself - you run it without a
+terminal, so the installer asks nothing and an absent flag takes the default:
+
+1. Context window: `auto` (the default: the hooks use the model's own window) or a number of tokens
+   to narrow it -> `--context-window=<N|auto>`.
+2. Self-compact (needs tmux; the agent compacts itself at the hard threshold): a tmux session name,
+   or no (the default) -> `--self-compact=<tmux session|no>`.
+3. The caveman skill (compressed chat replies in every session of every project): yes or no (the
+   default) -> `--caveman=<yes|no>`.
+
 ```bash
 cd <the brain-kit checkout>
-./setup.sh --project=<the user's project dir>   # add --no-embed to skip torch and the model download
+./setup.sh --project=<the user's project dir> --context-window=<N|auto> --self-compact=<session|no> --caveman=<yes|no>
+# add --no-embed to skip torch and the model download
 ```
 
 The installer prints eight steps. Read them. If a step fails, report the exact error line and
-stop - do not continue on a broken install. It asks two questions - narrow the context window,
-install self-compact - and installs neither on an empty answer; relay both to the user instead of
-answering for them. Running without a terminal (or with `--yes-defaults`) answers no to both;
-`--context-window=<N|no>` and `--self-compact=<tmux session|no>` set them from the command line.
+stop - do not continue on a broken install.
 
 ### A2. Verify the install (do not skip)
 
@@ -115,13 +125,15 @@ at the moment of each decision).
 
 ```bash
 cd <the brain-kit checkout>
-./setup.sh --project=<the user's project dir>
+./setup.sh --project=<the user's project dir> --context-window=<N|auto> --self-compact=<session|no> --caveman=<yes|no>
 ```
 
-Then choose one of two shapes and tell the user which you picked:
+Ask the user the three questions from A1 first and pass the answers as those flags. Then choose one
+of two shapes and tell the user which you picked:
 
 - **Point the vault at the existing notes.** Best when there is already a notes folder or an
-  Obsidian vault. Set `BRAIN_DIR` to it in `<agent-config-dir>/brain-kit.env`, then create the
+  Obsidian vault. Set `BRAIN_DIR` to it in `<agent-config-dir>/brain-kit.env` (a later `setup.sh`
+  run keeps it), then create the
   subfolders brain-kit expects inside it: `decision/ knowledge/ memory/ moc/ focus/ _drafts/`.
   Existing files stay where they are - retrieval walks the whole tree.
 - **Keep the new vault and link the old notes in.** Best when the existing notes belong to

@@ -14,7 +14,14 @@
 # least one kebab-case name (two or more hyphens, eight or more characters, at least two alphabetic parts),
 # then every such name must appear in the input of a search-shaped tool call earlier in the same turn:
 # brain-search / brain_recall / brain_bm25 / brain_search / grep / rg / a Grep or Glob tool / gh ... --search /
-# gh issue|pr list / desk-ledger. Otherwise: block, with the name and the two commands to run.
+# gh issue|pr list / desk-ledger, or a Read of a file whose path carries the name (1.2.0: opening the note or the
+# file named after the thing is a search too). Otherwise: block, with the name and the two commands to run.
+#
+# 1.2.0 fixes, all found by running the gate on Ubuntu 24.04: the name filter used the interval `{3,}` in awk, which
+# mawk (Ubuntu's and Debian's default awk) does not support - the name list always came out empty and the gate never
+# fired (6 test turns of 6 passed silently). Fenced code blocks spanning several lines are now dropped before the
+# claim is looked for (only one-line fences were), and the block message gives brain-search's full path, because
+# scripts/ is not on PATH.
 #
 # Brake: at most BRAIN_ABSENCE_MAX_BLOCKS (2) blocks per turn; after that the gate passes and writes a
 # "brake" line to the log, so a claim the model keeps making after searching never locks the session.
@@ -30,7 +37,7 @@
 # 730 ms), the turn segment is kept in a temp file rather than a multi-MB shell variable, and the instance
 # name is resolved only when a log line is written.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
-[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 [ "${BRAIN_ABSENCE_GATE:-1}" = "0" ] && exit 0
 INPUT=$(cat)
 read -r SID TP CWD <<EOF
@@ -51,9 +58,9 @@ tail -c 4000000 "$TP" | tail -n +2 | awk '
 LAST=$(jq -rc 'select(.type=="assistant") | .message.content[]? | select(.type=="text") | .text' "$TURN" 2>/dev/null | tail -c 6000)
 [ -z "$LAST" ] && exit 0
 
-# Claim phrases. Fenced code blocks are dropped first, so a hook or pattern file quoted in the answer
-# does not trigger the gate on its own description.
-TEXT=$(printf '%s' "$LAST" | sed 's/```[^`]*```//g')
+# Claim phrases. Fenced code blocks are dropped first, so a hook or pattern file or a log excerpt quoted in the answer
+# does not trigger the gate: one-line fences by sed, fences spanning several lines by the awk toggle.
+TEXT=$(printf '%s\n' "$LAST" | sed 's/```[^`]*```//g' | awk '/^[ \t]*```/ { f = !f; next } !f')
 RX_FILE="${BRAIN_ABSENCE_RX_FILE:-$CWD/.claude/absence-patterns}"
 if [ -n "$RX_FILE" ] && [ -f "$RX_FILE" ]; then
   CLAIM=$(grep -v '^[[:space:]]*#' "$RX_FILE" | grep -v '^[[:space:]]*$' | paste -sd '|' -)
@@ -63,21 +70,25 @@ printf '%s' "$TEXT" | grep -qiE "$CLAIM" || exit 0
 
 # Named things: kebab-case, two or more hyphens, eight or more characters, at least two alphabetic parts of
 # three or more letters (so a date or a timestamp like build-20260917-142159 does not count). A file
-# extension is stripped. At most six names are checked.
+# extension is stripped. At most six names are checked. The awk pattern spells the repetition out
+# ([a-z][a-z][a-z]+): mawk has no interval expressions.
 NAMES=$(printf '%s' "$TEXT" \
   | grep -oE '[a-z0-9]+(-[a-z0-9]+){2,}(\.[a-z]{2,4})?' \
   | sed -E 's/\.[a-z]{2,4}$//' \
   | awk 'length($0) >= 8 {
       n = split($0, p, "-"); c = 0
-      for (i = 1; i <= n; i++) if (p[i] ~ /^[a-z]{3,}$/) c++
+      for (i = 1; i <= n; i++) if (p[i] ~ /^[a-z][a-z][a-z]+$/) c++
       if (c >= 2) print
     }' | sort -u | head -6)
 [ -z "$NAMES" ] && exit 0
 
-# Searches run in this turn: Bash / Grep / Glob tool_use inputs that look like a search.
-SEARCHED=$(jq -rc 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use")
+# Searches run in this turn: Bash / Grep / Glob tool_use inputs that look like a search, and every Read input (its
+# path is what counts). Word boundaries are spelled out as character classes: POSIX ERE does not define `\b`.
+SEARCHED=$( { jq -rc 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use")
   | select(.name=="Bash" or .name=="Grep" or .name=="Glob") | .input | tostring' "$TURN" 2>/dev/null \
-  | grep -aiE 'brain-search|brain_bm25|brain_recall|brain_search|_auto_retrieve|\bgrep\b|\brg\b|ripgrep|--search|gh (issue|pr|search)|desk-ledger|"pattern"|"glob"')
+  | grep -aiE 'brain-search|brain_bm25|brain_recall|brain_search|_auto_retrieve|(^|[^a-z0-9_-])(grep|rg)([^a-z0-9_-]|$)|ripgrep|--search|gh (issue|pr|search)|desk-ledger|"pattern"|"glob"'
+  jq -rc 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use")
+  | select(.name=="Read") | .input | tostring' "$TURN" 2>/dev/null; } )
 MISSING=""
 for name in $NAMES; do
   printf '%s' "$SEARCHED" | grep -qF "$name" || { MISSING="$name"; break; }
@@ -132,7 +143,8 @@ if [ "$COUNT" -ge "$MAX" ] 2>/dev/null; then
 fi
 printf '%s %s\n' "$TURN_KEY" "$((COUNT+1))" > "$CF"
 printf '%s|%s|%s|block\n' "$TS" "$INST" "$MISSING" >> "$L" 2>/dev/null
-R="UNSEARCHED ABSENCE: this answer says '$MISSING' is missing, unknown or waited for, but nothing in this turn searched for that name. Run \`brain-search \"$MISSING\"\` (the vault, your memory, the shared docs) and \`gh issue list --search \"$MISSING\"\` / \`gh pr list --search \"$MISSING\"\` where a repo is involved, then answer with the delta only."
+BS="${BRAIN_ROOT:-$HOME/brain}/scripts/brain-search"
+R="UNSEARCHED ABSENCE: this answer says '$MISSING' is missing, unknown or waited for, but nothing in this turn searched for that name. Run \`\"$BS\" \"$MISSING\"\` (the vault, your memory, the shared docs) and \`gh issue list --search \"$MISSING\"\` / \`gh pr list --search \"$MISSING\"\` where a repo is involved, then answer with the delta only."
 R="$R Why: a name resolved during the work (a rule, a plugin, a branch, a file) is searched AGAIN by that name - searching with the prompt's words is not enough. Work you closed yourself lives in the vault as knowledge/desk-ledger-*.md when the ledger is installed."
 dry_guard "unsearched-absence-stop" "absence claim about an unsearched name"
 jq -n --arg r "$R" '{decision:"block",reason:$r}'

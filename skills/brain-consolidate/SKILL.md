@@ -52,8 +52,10 @@ skill turns that cleanup into a reviewable proposal.
 - "Related" is not "superseded". Only a newer decision that genuinely invalidates an older one.
 - Kill switch `<BRAIN_ROOT>/.brain-loop.disabled` and the daily call cap in `distill_lock.py`
   both apply to scheduled runs.
-- The headless path (`--llm`) shells out to `BRAIN_CONSOLIDATE_CMD` (default `claude -p`). If
-  that CLI is not on PATH, use an in-session subagent instead - the prompt file is the same.
+- The headless path (`--llm`) shells out to `claude -p --tools "" --strict-mcp-config` with the
+  prompt on stdin (no tools, no MCP servers: the prompt is built from notes other sessions wrote),
+  or to the CLI `BRAIN_CONSOLIDATE_CMD` names (prompt as its last argument). If that CLI is not on
+  PATH, use an in-session subagent instead - the prompt file is the same.
 - Two runs on the same day overwrite `consolidation_<until>.md`; archive the earlier report with a
   time/status suffix first. The latest run is the one that counts.
   Archived reports for the same window are fed back into the next prompt as "EARLIER RUNS", so a

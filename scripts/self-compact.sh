@@ -13,7 +13,8 @@
 #   4. sends the continuation line - argument 1, or a default - so the fresh context starts working
 #
 # Usage, from inside the session, after the handover note is written:
-#   (setsid nohup "$BRAIN_ROOT/scripts/self-compact.sh" "<first thing to do after the compact>" >/dev/null 2>&1 &)
+#   (S=$(command -v setsid); $S nohup "$BRAIN_ROOT/scripts/self-compact.sh" "<first thing to do after the compact>" >/dev/null 2>&1 &)
+#   (macOS has no setsid: $S is then empty and nohup alone starts it)
 #
 # Needs tmux: the session must run inside a tmux session, because "send keys to the pane" is the only
 # channel a process outside the model has into a running Claude Code session. The session name comes from
@@ -38,7 +39,7 @@
 # by this launch's argument, if one was given).
 set -u
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-[ -f "$CFG/brain-kit.env" ] && . "$CFG/brain-kit.env" 2>/dev/null
+[ -f "$CFG/brain-kit.env" ] && { set -a; . "$CFG/brain-kit.env" 2>/dev/null; set +a; }
 PROJECT="${SELF_COMPACT_PROJECT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 PROJECT="${PROJECT%/}"
 SLUG=$(printf '%s' "$PROJECT" | tr -c 'A-Za-z0-9' '-')

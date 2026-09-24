@@ -8,7 +8,8 @@ headless CLI. Either way the output is a PROPOSAL - a human decides what gets ap
 
 Usage: brain_consolidate.py [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--llm]
        brain_consolidate.py --verify <report.md>
-Env:   BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_CONSOLIDATE_CMD (default: claude -p)
+Env:   BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_CONSOLIDATE_CMD (default: claude -p --tools ""
+       --strict-mcp-config, prompt on stdin; a CLI named here gets the prompt as its last argument)
 Kill switch: <root>/.brain-loop.disabled
 """
 import sys, os, re, subprocess, datetime, pathlib, argparse
@@ -103,13 +104,26 @@ def verify(report):
     return not fails, fails
 
 
+# Default headless call (1.2.0): no tools and no MCP servers, prompt on stdin. The prompt is built from notes and
+# memory files that other sessions wrote, so an instruction buried in one of them must not be able to run a command:
+# --tools "" turns the built-in tools off, --strict-mcp-config (with no --mcp-config) the configured MCP servers, and
+# ENABLE_CLAUDEAI_MCP_SERVERS=false the claude.ai connectors. The report is read from stdout only. stdin, not argv:
+# a 543,000-character prompt failed with "Argument list too long" (E2BIG) on the author's install.
+HEADLESS_CMD = ["claude", "-p", "--tools", "", "--strict-mcp-config"]
+
+
 def headless(prompt):
-    """Optional --llm path. Uses whatever CLI BRAIN_CONSOLIDATE_CMD names; no model is hardcoded."""
+    """Optional --llm path. No model is hardcoded. BRAIN_CONSOLIDATE_CMD names another CLI; that one gets the prompt
+    as its last argument, as before 1.2.0 (not every CLI reads stdin)."""
     if not budget_left():
         log_event("abort", reason="daily-call-cap"); sys.exit(3)
     note_call()
-    cmd = os.environ.get("BRAIN_CONSOLIDATE_CMD", "claude -p").split() + [prompt]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    custom = os.environ.get("BRAIN_CONSOLIDATE_CMD", "").split()
+    if custom:
+        r = subprocess.run(custom + [prompt], capture_output=True, text=True, timeout=600)
+    else:
+        r = subprocess.run(HEADLESS_CMD, input=prompt, capture_output=True, text=True, timeout=600,
+                           env=dict(os.environ, ENABLE_CLAUDEAI_MCP_SERVERS="false"))
     if r.returncode != 0:
         raise RuntimeError("consolidation CLI rc=%s %s" % (r.returncode, (r.stderr or "")[:200]))
     return r.stdout

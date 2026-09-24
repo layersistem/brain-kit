@@ -8,7 +8,8 @@ not wait for anyone. In this order:
 1. Write the handover note (`<vault>/decision/DR-<date>-handoff-<slug>.md`) and refresh the focus
    file's SUMMARY.
 2. As the LAST command of the turn, run
-   `(setsid nohup "<brain-root>/scripts/self-compact.sh" "<the first thing to do after the compact, one line>" >/dev/null 2>&1 &)`
+   `(S=$(command -v setsid); $S nohup "<brain-root>/scripts/self-compact.sh" "<the first thing to do after the compact, one line>" >/dev/null 2>&1 &)`
+   (macOS has no `setsid`: `$S` is then empty and `nohup` alone starts it)
 3. Call no other tool after it. End the turn.
 
 The script waits for the turn to end, sends `/compact` to the tmux session, waits for the compact

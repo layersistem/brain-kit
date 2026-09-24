@@ -10,7 +10,7 @@ ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 # Identity and scope derive from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd:
 # a `cd` into another project inside a session must not change who you are or whose memory you read.
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
-[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 INPUT=$(cat)

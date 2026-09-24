@@ -10,7 +10,7 @@
 #
 #   bash scripts/context_budget.sh [instance]     # instance: $1, else BRAIN_INSTANCE, else .brain-instance, else main
 ROOT="${BRAIN_ROOT:-$HOME/brain}"; VAULT="${BRAIN_DIR:-$ROOT/vault}"; CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-[ -f "$CFG/brain-kit.env" ] && . "$CFG/brain-kit.env"
+[ -f "$CFG/brain-kit.env" ] && { set -a; . "$CFG/brain-kit.env"; set +a; }
 I="${1:-${BRAIN_INSTANCE:-}}"
 [ -z "$I" ] && [ -f "$PWD/.brain-instance" ] && I=$(head -1 "$PWD/.brain-instance" | tr -d '[:space:]')
 [ -z "$I" ] && I=main

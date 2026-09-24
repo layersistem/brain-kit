@@ -1,13 +1,14 @@
 ---
 name: caveman
 description: >
-  Mandatory base skill, every session. Two surfaces. CHAT: ultra-compressed caveman
+  Opt-in base skill (brain-kit installs it only on request: setup.sh --caveman=yes); once
+  installed it applies to every session. Two surfaces. CHAT: ultra-compressed caveman
   (about 75% fewer tokens, full technical accuracy; levels lite/full/ultra).
   DELIVERABLE: text a third human reads (mail, doc, report, wiki, release note, UI copy,
   issue body) written as natural full-sentence prose with AI-writing tells removed
   (humanizer folded in). Trigger: /caveman, "caveman mode", "be brief", "less tokens",
   or any deliverable writing. Merged 1 Sep 2026: humanizer absorbed,
-  wenyan levels dropped. Original kept in ~/.claude/skills-archive/.
+  wenyan levels dropped.
 ---
 
 # Caveman: chat compression + deliverable prose, one base skill
@@ -69,8 +70,7 @@ Code, commits, PRs: write normal. Level persists until changed or session end.
 Applies to any text a third human reads as a finished product: email, article, wiki or
 customer doc, press text, report, UI copy, release note, issue/PR body, vendor feedback.
 Caveman fragments are wrong here, and AI tells are wrong here. Write natural full-sentence
-prose in the document's language. Domain skills win where they conflict (for example
-`tr-basin-bulteni` on attribution devices in Turkish press text).
+prose in the document's language. Domain skills win where they conflict.
 
 ### Method
 1. Draft. 2. Ask "what makes this obviously AI-generated?" and list the remaining tells.
@@ -127,4 +127,4 @@ for a deliverable longer than a page or when a tell is unclear. Never auto-load 
 Merged 1 Sep 2026: caveman (original) plus humanizer (Wikipedia "Signs of
 AI writing", WikiProject AI Cleanup) folded into one mandatory base skill. Dropped: the three
 wenyan levels, humanizer's voice-calibration and "personality" sections, all but one example
-per class. Original file: `~/.claude/skills-archive/caveman-SKILL-orig-20260901.md`.
+per class.
