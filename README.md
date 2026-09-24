@@ -23,7 +23,8 @@ all, and the semantic layer runs BGE-M3 on your CPU.
 
 - Python >= 3.10 with its `venv` module (on Debian and Ubuntu that is the separate `python3-venv`
   package: `sudo apt install python3-venv`), `jq`, and bash - the hooks and scripts are bash scripts;
-  macOS's own `/bin/bash` 3.2 is enough. macOS and Linux tested.
+  macOS's own `/bin/bash` 3.2 is enough. macOS and Linux tested; on Windows the kit runs inside WSL (the
+  Linux path), not natively.
 - **BGE-M3 (`BAAI/bge-m3`) is required for the full kit.** `setup.sh` installs
   `sentence-transformers` + `torch` into `<BRAIN_ROOT>/.venv` and the first embed run downloads
   the model (once, from Hugging Face; offline afterwards). It powers the embed hook, the

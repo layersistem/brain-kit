@@ -5,6 +5,11 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [Unreleased]
+
+### Documentation
+- README: Windows is supported through WSL only (the Linux path); the kit does not run natively there.
+
 ## [1.2.0] - 2026-09-24
 
 An audit release. The kit was installed from scratch on Ubuntu 24.04 in a container and every hook was run
