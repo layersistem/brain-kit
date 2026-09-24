@@ -2,7 +2,7 @@
 
 ## What this kit touches
 
-The kit installs hooks that run inside your Claude Code session with your user's permissions, a local index over your own notes, an optional dense recall daemon, and optional timers. The daemon listens on 127.0.0.1 only. The kit's own network use is limited to three things: the embedding model is fetched from Hugging Face on first use and cached, the daily update notice runs one `git ls-remote --tags` against the repository you cloned, and the optional desk ledger reads your repositories through `gh`. Nothing about you or your vault is sent anywhere.
+The kit installs hooks that run inside your Claude Code session with your user's permissions, a local index over your own notes, an optional dense recall daemon, and optional timers. The daemon listens on 127.0.0.1 only. The kit's own network use, all of it: `setup.sh` installs its Python packages from PyPI and the first embed run downloads the embedding model from Hugging Face (once; `--no-embed` skips both); the daily update notice runs one `git ls-remote --tags` against the repository you cloned, and `scripts/update.sh` fetches tags only when you run it; the optional desk ledger reads your repositories through `gh`; and the optional `--llm` consolidation path runs `claude -p`, which sends a prompt built from your notes to the model provider your Claude Code uses. Nothing else leaves the machine, and the kit itself sends nothing about you or your vault anywhere.
 
 Anything that lets text from outside your machine reach the model's context without being bounded, that reads or writes outside the vault and the kit's own state directory, that exposes the daemon beyond the loopback interface, or that runs with more privilege than the session has, is a security bug here.
 
