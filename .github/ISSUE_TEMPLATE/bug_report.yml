@@ -1,0 +1,45 @@
+name: Bug report
+description: Something the kit did wrong, with the evidence to reproduce it
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search the existing issues for the script or hook name and for the exact error string first. Redact personal data from anything you paste; the vault is yours.
+  - type: input
+    id: version
+    attributes:
+      label: Kit version
+      description: The VERSION file next to your install, or the output of scripts/update.sh --dry-run.
+      placeholder: "1.1.1"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, shell and Claude Code version
+      placeholder: "macOS 15.6, bash 3.2.57, Claude Code 2.1.280"
+    validations:
+      required: true
+  - type: input
+    id: component
+    attributes:
+      label: Hook or script involved
+      placeholder: "hooks/context-inject.sh"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what the kit did, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: The decisive line from a transcript, a hook's output or a log, with personal data removed. One exact line beats a screenshot.
+      render: text
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you already tried

@@ -1,0 +1,30 @@
+name: Feature request
+description: A change to what the kit does, with the problem it solves
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What happens today and what it costs you (tokens, time, a wrong answer). A measured example helps more than a general case.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What the kit should do instead, and which hook or script it belongs in if you know.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you considered instead
+  - type: checkboxes
+    id: lines
+    attributes:
+      label: Design lines
+      description: The kit does not merge a change that crosses these. If yours does, say why it should.
+      options:
+        - label: It does not put unbounded text from outside the machine into the model's context.
+        - label: It does not change the vault format.
