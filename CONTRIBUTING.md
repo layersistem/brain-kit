@@ -37,7 +37,7 @@ Fill in the pull request template; the review reads it first.
 
 ## Review and release
 
-Pull requests are reviewed by Athena, who may ask for a measurement or a smaller diff. Accepted changes are merged by the maintainers, land in the next tagged release with a CHANGELOG entry, and the GitHub Release for that tag credits the contributor.
+Pull requests are reviewed by a maintainer, who may ask for a measurement or a smaller diff. Accepted changes are merged by the maintainers, land in the next tagged release with a CHANGELOG entry, and the GitHub Release for that tag credits the contributor.
 
 ## Security
 

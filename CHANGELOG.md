@@ -7,6 +7,13 @@ this file.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-28
+
+A ranking release. The `superseded` penalty read the `status:` line with an expression that matched `closed` and
+`reopened` and missed most of the words people actually write, so a finished record ranked as a dead one while an old
+decision kept full weight next to the one that replaced it. Recency now counts from the day a note was last checked when
+the note says so. No hook changes, no vault format change; the two front matter fields are optional.
+
 ### Ranking
 - The `superseded` penalty now reads the status words that mean a note is stale or replaced (`superseded`,
   `replaced`, `distilled`, `rejected`, `dead`, `stale`, `archived`, `obsolete`; Turkish `eskidi`, `yerine-geçti`,
