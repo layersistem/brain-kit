@@ -77,9 +77,13 @@ def _meta(text):
         m = re.search(r"(?mi)^%s:[ \t]*(.+)$" % key, fm)
         if m:
             hint = m.group(1).strip(); break
-    md = re.search(r"(?mi)^date:[ \t]*(\d{4}-\d{2}-\d{2})", fm)
+    # `last_verified:` (the day the note was last checked) wins over `date:` (the day it was written).
+    md = (re.search(r"(?mi)^last_verified:[ \t]*(\d{4}-\d{2}-\d{2})", fm)
+          or re.search(r"(?mi)^date:[ \t]*(\d{4}-\d{2}-\d{2})", fm))
     sl = re.search(r"(?mi)^status:[ \t]*(.+)$", fm)
-    sup = bool((sl and re.search(r"supersed|rejected|closed|reopened|dead|replaced|obsolete",
+    # The penalty is for notes that are stale or replaced. `closed` and `reopened` no longer count:
+    # a finished piece of work is not a dead decision. Turkish equivalents: eskidi, yerine-geçti, iptal.
+    sup = bool((sl and re.search(r"supersed|replaced|distilled|rejected|dead|stale|archiv|obsolete|yerine|eskidi|iptal",
                                  sl.group(1).lower())) or re.search(r"(?mi)^superseded[- ]?by:", fm))
     mw = re.search(r"(?mi)^weight:[ \t]*(\w+)", fm)
     return hint, (md.group(1) if md else ""), sup, (W_MAP.get(mw.group(1).lower(), 1.0) if mw else 1.0)
