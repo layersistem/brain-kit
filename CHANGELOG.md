@@ -7,7 +7,20 @@ this file.
 
 ## [Unreleased]
 
+### Ranking
+- The `superseded` penalty now reads the status words that mean a note is stale or replaced (`superseded`,
+  `replaced`, `distilled`, `rejected`, `dead`, `stale`, `archived`, `obsolete`; Turkish `eskidi`, `yerine-geçti`,
+  `iptal`) and no longer `closed` or `reopened`: a finished, closed record kept full weight only when its author
+  happened to write one of the words the old expression knew, and a closed record is not a dead decision. A
+  `superseded-by:` line keeps its effect. On the author's vault the status line carried 79 different values and 171
+  records had none; the penalty reached a few dozen of them. (#2)
+- Recency reads `last_verified:` before `date:`. A knowledge note you checked again last week ranks by that day, not
+  by the day it was written. Notes without the field behave as before. (#2)
+
 ### Documentation
+- README: the two optional front matter fields, `last_verified:` and `basis:` (measured, read from code, unchecked),
+  and a four-value status vocabulary for decision records (`open`, `done`, `stale`, `superseded`). The vault format
+  does not change. (#2)
 - README: Windows is supported through WSL only (the Linux path); the kit does not run natively there.
 
 ## [1.2.0] - 2026-09-24
