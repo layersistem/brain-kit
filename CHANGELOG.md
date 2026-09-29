@@ -7,6 +7,14 @@ this file.
 
 ## [Unreleased]
 
+### Fixed
+- `scripts/desk_ledger.py` now writes `last_verified: <run day>` and `basis: measured` into every ledger note and into
+  a newly created MOC note. Until now a ledger note carried only `date:`, so the 1.2.1 ranking, which counts age from
+  `last_verified:`, treated the one kind of note the kit generates as never verified. The hourly run still leaves an
+  unchanged note alone (the change check ignores both date lines); a note whose stamp is not today's is rewritten once,
+  so `last_verified` moves at most once a day. Measured on a 171-note vault: 12 notes without the field, all 12 from the
+  ledger. (#5)
+
 ## [1.2.1] - 2026-09-28
 
 A ranking release. The `superseded` penalty read the `status:` line with an expression that matched `closed` and
