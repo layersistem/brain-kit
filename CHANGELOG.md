@@ -7,6 +7,12 @@ this file.
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-09-29
+
+Two small fixes for the person installing or running the kit day to day: the desk ledger now stamps the notes it
+generates the way the 1.2.1 ranking expects, and the installer tells a Mac without Homebrew where to get Python and
+`jq`. No hook changes, no vault format change.
+
 ### Fixed
 - `scripts/desk_ledger.py` now writes `last_verified: <run day>` and `basis: measured` into every ledger note and into
   a newly created MOC note. Until now a ledger note carried only `date:`, so the 1.2.1 ranking, which counts age from
