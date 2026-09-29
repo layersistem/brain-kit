@@ -119,8 +119,20 @@ for c in python3.13 python3.12 python3.11 python3.10 python3; do
   m=$("$c" -c 'import sys;print(sys.version_info[1] if sys.version_info[0]==3 else 0)' 2>/dev/null)
   if [ "${m:-0}" -ge 10 ] 2>/dev/null; then PYBIN="$c"; break; fi
 done
-[ -n "$PYBIN" ] || die "Python >= 3.10 not found (try: brew install python@3.12)"
-command -v jq >/dev/null 2>&1 || die "jq not found (brew install jq) - the write hooks need it"
+if [ -z "$PYBIN" ]; then
+  if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+    die "Python >= 3.10 not found. macOS ships 3.9, which is too old: install a current Python from https://www.python.org/downloads/macos/ (the .pkg puts python3.12 on PATH), or with Homebrew if you use it: brew install python@3.12"
+  else
+    die "Python >= 3.10 not found. Debian/Ubuntu: sudo apt install python3 python3-venv; other distributions: the python3 (3.10 or newer) package of your package manager"
+  fi
+fi
+if ! command -v jq >/dev/null 2>&1; then
+  if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+    die "jq not found - the write hooks need it. Homebrew: brew install jq; without Homebrew: the macOS binary from https://jqlang.github.io/jq/download/"
+  else
+    die "jq not found - the write hooks need it. Debian/Ubuntu: sudo apt install jq"
+  fi
+fi
 [ -d "$KIT/scripts" ] && [ -d "$KIT/hooks" ] || die "incomplete checkout: scripts/ or hooks/ missing"
 say "(1/8) directories"
 mkdir -p "$VAULT"/{decision,knowledge,memory,moc,focus,_drafts,.index} \

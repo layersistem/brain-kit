@@ -14,6 +14,11 @@ this file.
   unchanged note alone (the change check ignores both date lines); a note whose stamp is not today's is rewritten once,
   so `last_verified` moves at most once a day. Measured on a 171-note vault: 12 notes without the field, all 12 from the
   ledger. (#5)
+- `setup.sh` on a Mac without Homebrew stopped with `Python >= 3.10 not found (try: brew install python@3.12)`, a hint
+  the machine could not follow. The Python and `jq` messages now say where each comes from on macOS (python.org
+  installer, or Homebrew where present) and on Debian/Ubuntu (`apt`), and the README prerequisites carry the same
+  macOS sentence. The requirement itself is unchanged. Measured on macOS 27.0 with the stock Python 3.9.6: rc 1 in
+  0.2 s, nothing written; with a 3.12 interpreter on PATH the tree installs in 1.3 s. (#1)
 
 ## [1.2.1] - 2026-09-28
 
