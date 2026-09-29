@@ -23,8 +23,12 @@ all, and the semantic layer runs BGE-M3 on your CPU.
 
 - Python >= 3.10 with its `venv` module (on Debian and Ubuntu that is the separate `python3-venv`
   package: `sudo apt install python3-venv`), `jq`, and bash - the hooks and scripts are bash scripts;
-  macOS's own `/bin/bash` 3.2 is enough. macOS and Linux tested; on Windows the kit runs inside WSL (the
-  Linux path), not natively.
+  macOS's own `/bin/bash` 3.2 is enough. **macOS ships Python 3.9, which is too old:** install 3.10 or newer
+  from [python.org](https://www.python.org/downloads/macos/) (the `.pkg` installer puts `python3.12` on PATH) or,
+  if you use Homebrew, `brew install python@3.12`; `jq` comes from `brew install jq` or the
+  [jq download page](https://jqlang.github.io/jq/download/). Measured on a stock Mac (no Homebrew): the installer
+  stops at the Python check within 0.2 s and writes nothing; with a 3.12 interpreter first on PATH the same tree
+  installs cleanly in 1.3 s. macOS and Linux tested; on Windows the kit runs inside WSL (the Linux path), not natively.
 - **BGE-M3 (`BAAI/bge-m3`) is required for the full kit.** `setup.sh` installs
   `sentence-transformers` + `torch` into `<BRAIN_ROOT>/.venv` and the first embed run downloads
   the model (once, from Hugging Face; offline afterwards). It powers the embed hook, the
