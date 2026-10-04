@@ -5,7 +5,8 @@
 # carries a correction signal ("wrong", "you broke", "undo", "why did you", "I told you"), it prints one line
 # telling the model to give this turn's record `weight: lesson` + a Lesson section, and stamps the session state so
 # salience-postwrite.sh can warn if the next decision record is written without a weight. Reminder only; touches no file.
-# The pattern list is English by default; set BRAIN_SALIENCE_RX to your own language's markers (extended regex, lower-case).
+# The pattern list is English by default; set BRAIN_SALIENCE_RX to your own language's markers (extended regex, lower-case),
+# exported or in <claude-dir>/brain-kit.env.
 #
 # Machine text is not a correction (1.2.0). The continuation line scripts/self-compact.sh types into the window after a
 # compaction arrives here as a prompt, but it is the agent's own note to itself; "fix the failing test" in it is not the
@@ -13,6 +14,10 @@
 # prompt equal to that line is skipped.
 INPUT=$(cat)
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+# 1.2.3: the env file is read here too, so BRAIN_SALIENCE_RX / _NEG_RX / _BURST / _WINDOW written into it take effect
+# (until 1.2.2 this hook saw only exported variables, and a line in brain-kit.env changed nothing).
+ENV_FILE="$CFG/brain-kit.env"
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 _PROJ="${CLAUDE_PROJECT_DIR:-$PWD}"; _PROJ="${_PROJ%/}"
 LASTF="$CFG/brain-kit-state/self-compact.$(printf '%s' "$_PROJ" | tr -c 'A-Za-z0-9' '-').last"
 read -r SID PROMPT < <(printf '%s' "$INPUT" | python3 -c 'import sys,json

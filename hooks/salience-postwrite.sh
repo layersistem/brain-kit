@@ -3,6 +3,8 @@
 # and a decision record is then written WITHOUT a `weight:` line, say so. The amygdala tagged the moment; the hippocampus
 # should not file it as routine. Warning only; touches no file.
 INPUT=$(cat)
+ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"   # 1.2.3: same settings source as every other hook
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 read -r SID FP < <(printf '%s' "$INPUT" | python3 -c 'import sys,json
 try:
     o=json.load(sys.stdin); print(o.get("session_id",""), (o.get("tool_input") or {}).get("file_path",""))

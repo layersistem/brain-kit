@@ -7,6 +7,8 @@
 # compaction it does not know how much wall-clock time passed. Injecting beats instructing:
 # the model has no clock inside; a "figure out the time" instruction produces a guess.
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+ENV_FILE="$CFG/brain-kit.env"   # 1.2.3: same settings source as every other hook (TZ set there applies to the clock)
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 INPUT=$(cat)
 SID=$(printf '%s' "$INPUT" | python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("session_id",""))

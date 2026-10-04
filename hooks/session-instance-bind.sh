@@ -24,6 +24,10 @@
 # resume finds it). Dead pid files are pruned. A line is printed only when the
 # identity CHANGES; a quiet turn prints nothing. Nothing here is secret.
 IN=$(cat 2>/dev/null || true)
+# 1.2.3: BRAIN_TITLE_MAP is read from <claude-dir>/brain-kit.env as well as from the environment; until 1.2.2
+# only an exported value reached this hook, and a map written into the env file was never consulted.
+ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 py() { printf '%s' "$IN" | python3 -c "import sys,json;print(json.load(sys.stdin).get('$1',''))" 2>/dev/null; }
 SID=$(py session_id); CWD=$(py cwd); TP=$(py transcript_path); EV=$(py hook_event_name)
 [ -n "$CWD" ] || CWD="${CLAUDE_PROJECT_DIR:-$PWD}"
