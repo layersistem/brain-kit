@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # brain-kit installer - persistent memory + consolidation for Claude Code and other agent CLIs.
-# Usage: ./setup.sh [--minimal] [--no-embed] [--project=DIR] [--context-window=<N|auto>] [--self-compact=<session|no>]
+# Usage: ./setup.sh [--minimal|--full] [--no-embed] [--project=DIR] [--context-window=<N|auto>] [--self-compact=<session|no>]
 #                   [--caveman=<yes|no>] [--desk-repos="owner/a owner/b"] [--no-timers] [--yes-defaults]
-#   --minimal          14 of the 18 hook entries: no postwrite check, no mutation log, no Stop gates; no consolidation skill
+#   --minimal          14 of the 18 hook entries: no postwrite check, no mutation log, no Stop gates; no consolidation skill.
+#                      Recorded as BRAIN_PROFILE in brain-kit.env, so a re-run keeps it; --full switches back.
 #   --no-embed         BM25 recall only: no torch, no model download, embedding hook and sweeper stay idle
 #   --project=DIR      the project whose .claude/settings.json and CLAUDE.md the opt-ins touch (default:
 #                      CLAUDE_PROJECT_DIR, else the current directory)
@@ -22,9 +23,10 @@
 #      defaults from the existing <config>/brain-kit.env and keeps every line you added to that file.
 set -euo pipefail
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROFILE=full; EMBED=""; PROJECT=""; CTXWIN=""; SELFC=""; CAVE=""; DESK=""; TIMERS=1; YESDEF=0
+PROFILE=""; EMBED=""; PROJECT=""; CTXWIN=""; SELFC=""; CAVE=""; DESK=""; TIMERS=1; YESDEF=0
 for a in "$@"; do case "$a" in
   --minimal) PROFILE=minimal ;;
+  --full) PROFILE=full ;;
   --no-embed) EMBED=0 ;;
   --project=*) PROJECT="${a#*=}" ;;
   --context-window=*) CTXWIN="${a#*=}" ;;
@@ -33,7 +35,7 @@ for a in "$@"; do case "$a" in
   --desk-repos=*) DESK="${a#*=}" ;;
   --no-timers) TIMERS=0 ;;
   --yes-defaults) YESDEF=1 ;;
-  -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
   *) echo "unknown flag: $a" >&2; exit 2 ;;
 esac; done
 say(){ printf '\n== %s\n' "$1"; }
@@ -43,7 +45,7 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 # Upgrade keeps your settings (1.2.0): the values an earlier install wrote to <config>/brain-kit.env are this run's
 # defaults. The file is read in a subshell with those variables unset, so its own values come through rather than the
 # ones its "${VAR:-...}" form would take from this shell. A flag, an answer or an exported variable still wins.
-OWNED="BRAIN_ROOT BRAIN_DIR BRAIN_EMBED BRAIN_INDEX BRAIN_UPDATE_CHECK BRAIN_UPDATE_REMOTE BRAIN_SELF_COMPACT"
+OWNED="BRAIN_ROOT BRAIN_DIR BRAIN_EMBED BRAIN_INDEX BRAIN_UPDATE_CHECK BRAIN_UPDATE_REMOTE BRAIN_SELF_COMPACT BRAIN_PROFILE"
 prior_env(){ # $1 = env file -> PREV_<name> for each variable above (empty when the file or the line is missing)
   for v in $OWNED; do eval "PREV_$v=''"; done
   [ -f "$1" ] || return 0
@@ -60,6 +62,18 @@ if [ "$ASK" = "1" ]; then
   read -r -p "project dir (its .claude/settings.json and CLAUDE.md take the opt-ins) [$PROJECT]: " _c || true; [ -n "${_c:-}" ] && PROJECT="$_c"
 fi
 [ "$CLAUDE_DIR" = "$CLAUDE_DIR0" ] || prior_env "$CLAUDE_DIR/brain-kit.env"   # another config dir: its own file decides
+# The profile is kept across re-runs (1.2.3): --minimal or --full decides; without either, an exported BRAIN_PROFILE, then
+# the earlier install's choice, then full. Until 1.2.2 the choice was not recorded, so the documented upgrade step
+# ("run setup.sh again") turned a minimal install into a full one and wired the four full-only entries, two of them Stop
+# gates. An install from 1.2.2 or earlier has no BRAIN_PROFILE line; it counts as minimal when the kit's prompt hook is
+# wired in settings.json and none of the four full-only entries is.
+if [ -z "$PROFILE" ] && [ -z "${BRAIN_PROFILE:-}" ] && [ -z "${PREV_BRAIN_PROFILE:-}" ] && [ -f "$CLAUDE_DIR/settings.json" ] \
+   && grep -q "_auto_retrieve\.sh" "$CLAUDE_DIR/settings.json" \
+   && ! grep -qE "(postwrite-check|observe-mutations|identical-answer-stop|unsearched-absence-stop)\.sh" "$CLAUDE_DIR/settings.json"; then
+  PREV_BRAIN_PROFILE=minimal
+fi
+[ -n "$PROFILE" ] || PROFILE="${BRAIN_PROFILE:-${PREV_BRAIN_PROFILE:-full}}"
+case "$PROFILE" in full|minimal) ;; *) die "BRAIN_PROFILE takes 'full' or 'minimal' (got '$PROFILE')" ;; esac
 PROJECT="${PROJECT%/}"
 # The context-window opt-in (23 Sep 2026; 1.2.0: the suggestion is "auto"). "auto" writes nothing: the hooks use the
 # model's own window (200k, or 1M for a "[1m]" model), and context-inject.sh clips a configured window to it. A number
@@ -179,7 +193,8 @@ NEWL=$(printf '%s="${%s:-%s}"\n' \
   BRAIN_INDEX BRAIN_INDEX "$(q "${PREV_BRAIN_INDEX:-sqlite}")" \
   BRAIN_UPDATE_CHECK BRAIN_UPDATE_CHECK "$(q "${PREV_BRAIN_UPDATE_CHECK:-1}")" \
   BRAIN_UPDATE_REMOTE BRAIN_UPDATE_REMOTE "$(q "${PREV_BRAIN_UPDATE_REMOTE:-$ORIGIN}")" \
-  BRAIN_SELF_COMPACT BRAIN_SELF_COMPACT "$SC_ON")
+  BRAIN_SELF_COMPACT BRAIN_SELF_COMPACT "$SC_ON" \
+  BRAIN_PROFILE BRAIN_PROFILE "$PROFILE")
 SRC=/dev/null
 [ -f "$ENVF" ] && { cp -p "$ENVF" "$ENVF.bak.$(date +%s)"; SRC="$ENVF"; }
 { [ "$SRC" = /dev/null ] && echo "# written by brain-kit setup.sh - every hook sources this. An exported variable still wins; lines you add are kept on re-runs."

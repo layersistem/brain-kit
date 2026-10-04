@@ -57,7 +57,8 @@ BRAIN_ROOT=~/brain python3 ~/brain/scripts/brain_bm25.py "example decision" 3
 
 Restart your agent session afterwards so the hooks load. `--minimal` wires 14 of the 18 hook entries:
 everything except the vault hygiene check (`postwrite-check.sh`), the observation stream
-(`observe-mutations.sh`) and the two Stop gates, and it skips the consolidation skill. The
+(`observe-mutations.sh`) and the two Stop gates, and it skips the consolidation skill. The choice is
+written to `brain-kit.env` as `BRAIN_PROFILE`, so a later `./setup.sh` keeps it; `--full` switches back. The
 `five-gates` skill installs in both profiles, caveman in either only when you choose it. Then run the dense-recall daemon as a service
 (recommended, `docs/DENSE_RECALL.md`) - recall is hybrid the moment it is up, BM25-only until then.
 
@@ -302,6 +303,7 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_ROOT` | `~/brain` | install root: vault, scripts, hooks, venv |
 | `BRAIN_DIR` | `$BRAIN_ROOT/vault` | the vault itself - point it at notes you already have |
 | `BRAIN_INSTANCE` | `main` | this session's name (else `.brain-instance`) |
+| `BRAIN_PROFILE` | `full` | written by `setup.sh` (`minimal` after `--minimal`) and read only by it: a re-run wires the same profile |
 | `BRAIN_TITLE_MAP` | empty | `web|frontend=web;api=api` - map a client-recorded session title (`agent-name` / `custom-title` in the transcript) to an instance; consulted after the bound session and the ticket, before the folder walk-up (`docs/MULTI_INSTANCE.md` §6) |
 | `BRAIN_MEMORY` / `BRAIN_MEMORY2` | `$BRAIN_ROOT/memory`, none | extra roots indexed as timeless memory |
 | `BRAIN_WIKI_DIR` | none | optional shared docs root (a product wiki, a repo's docs), read-only, indexed alongside - BM25 and dense; recall prints the real file path so the model can Read it. With a docs root set, recall output follows a trust order: docs hits in a SOURCE block (with a `code:` line of file paths the doc mentions), notes in a RECORD block - the source for decisions and history, to be opened before any "nothing is written" verdict; how the system behaves is still checked against the code |
