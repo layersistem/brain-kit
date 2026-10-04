@@ -9,12 +9,14 @@
 #   --dry-run  show what would change and stop
 #
 # What it touches: $BRAIN_ROOT/hooks, $BRAIN_ROOT/scripts, $BRAIN_ROOT/patterns, $BRAIN_ROOT/docs (1.2.0: the hooks
-# point at <root>/docs), $BRAIN_ROOT/VERSION. Never the
-# vault, never your settings.json (global or per project), never a CLAUDE.md, never a skill you have edited.
-# Anything you changed by hand is copied into $BRAIN_ROOT/backups/<stamp>/ before it is overwritten, and the
-# path of every backup is printed. The two opt-ins setup.sh asks about (context window, self-compact) are
-# not touched either: the window lives in the project's settings.json, and self-compact's on/off state is
-# its executable bit plus BRAIN_SELF_COMPACT in brain-kit.env - both restored to what they were.
+# point at <root>/docs), $BRAIN_ROOT/VERSION, and (1.2.3) the skills setup.sh installs - caveman, five-gates,
+# brain-consolidate - where one is already in <config>/skills. Never the vault, never your settings.json (global or
+# per project), never a CLAUDE.md, never a skill of your own, and it adds no skill you did not install.
+# Anything you changed by hand is copied into $BRAIN_ROOT/backups/<stamp>/ before it is overwritten (an edited
+# kit skill: its whole folder is moved there), and the path of every backup is printed.
+# The two opt-ins setup.sh asks about (context window, self-compact) are not touched either: the window lives
+# in the project's settings.json, and self-compact's on/off state is its executable bit plus BRAIN_SELF_COMPACT
+# in brain-kit.env - both restored to what they were.
 #
 # The whole body sits in one brace group. bash reads a script as it runs it, and this script replaces
 # itself (scripts/update.sh is in the release) part-way through: without the group, every line after
@@ -32,7 +34,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --yes|-y) YES=1 ;;
   --dry-run) DRY=1 ;;
   --to) shift; WANT="${1:-}" ;;
-  -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
   *) echo "unknown flag: $1" >&2; exit 2 ;;
 esac; shift; done
 die(){ printf 'update failed: %s\n' "$1" >&2; exit 1; }
@@ -93,6 +95,29 @@ for rel in $FILES; do
   fi
 done
 [ -n "$OLD" ] || MODIFIED="$CHANGED"   # cannot tell what you edited: back up everything being replaced
+# Skills (1.2.3). setup.sh copies a skill in once and never again, so until 1.2.2 an installed skill kept the text of
+# the release it came from for good. The updater now refreshes the skills setup.sh installs, by name and only where
+# the folder is already there: a skill never chosen is not added (caveman stays opt-in, brain-consolidate stays out
+# of a minimal install), a symlink is left alone, and any other folder in <config>/skills is never looked at. A kit
+# skill that matches no release's copy counts as edited by you and is moved into the backup. Every vX.Y.Z tag is
+# compared, not only the installed version's: setup.sh never refreshed a skill, so the copy on disk is often older
+# than the hooks next to it.
+SKD="$CFG/skills"; SKCH=""; SKMOD=""
+sk_released(){ # $1 = skill name -> 0 when the installed folder equals that skill in some release tag
+  local t
+  for t in $(git -C "$SRC" tag | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$'); do
+    rm -rf "$WORK/cmp"; mkdir -p "$WORK/cmp"
+    git -C "$SRC" archive "$t" "skills/$1" 2>/dev/null | tar -x -C "$WORK/cmp" 2>/dev/null || continue
+    diff -rq "$SKD/$1" "$WORK/cmp/skills/$1" >/dev/null 2>&1 && return 0
+  done
+  return 1
+}
+for sk in caveman five-gates brain-consolidate; do                       # the list in setup.sh, step 5
+  [ -d "$WORK/new/skills/$sk" ] && [ -d "$SKD/$sk" ] && [ ! -L "$SKD/$sk" ] || continue
+  diff -rq "$SKD/$sk" "$WORK/new/skills/$sk" >/dev/null 2>&1 && continue    # already the release's copy
+  SKCH="$SKCH $sk"
+  sk_released "$sk" || SKMOD="$SKMOD $sk"
+done
 
 echo
 echo "== brain-kit $LOCAL  ->  $NEW   ($BRAIN_ROOT)"
@@ -100,12 +125,14 @@ awk -v v="$NEW" '$0 ~ "^## \\[" v "\\]" { p=1; print; next } p && /^## \[/ { exi
   "$WORK/new/CHANGELOG.md" 2>/dev/null || true
 echo "files this would replace:"; for f in $CHANGED; do echo "   $f"; done
 [ -n "$CHANGED" ] || { echo "   (none - the installed files already match $TAG)"; }
-if [ -n "$MODIFIED" ]; then
+if [ -n "$SKCH" ]; then echo "skills this would refresh (in $SKD):"; for s in $SKCH; do echo "   skills/$s"; done; fi
+if [ -n "$MODIFIED$SKMOD" ]; then
   echo "changed by you since install - these get backed up first:"; for f in $MODIFIED; do echo "   $f"; done
+  for s in $SKMOD; do echo "   skills/$s (the whole folder, from $SKD)"; done
 fi
-echo "your vault, settings.json, CLAUDE.md, skills and the setup.sh opt-ins are not touched."
+echo "your vault, settings.json, CLAUDE.md, your own skills and the setup.sh opt-ins are not touched."
 [ "$DRY" = "1" ] && exit 0
-[ -n "$CHANGED" ] || exit 0
+[ -n "$CHANGED$SKCH" ] || exit 0
 
 # 4. consent, then write
 if [ "$YES" != "1" ]; then
@@ -124,6 +151,13 @@ for rel in $MODIFIED; do
 done
 for rel in $CHANGED; do
   mkdir -p "$BRAIN_ROOT/$(dirname "$rel")"; cp -f "$WORK/new/$rel" "$BRAIN_ROOT/$rel"
+done
+for sk in $SKCH; do
+  case " $SKMOD " in
+    *" $sk "*) mkdir -p "$STAMP/skills"; mv "$SKD/$sk" "$STAMP/skills/$sk"; echo "   backed up skills/$sk -> $STAMP/skills/$sk" ;;
+    *) mkdir -p "$WORK/replaced"; mv "$SKD/$sk" "$WORK/replaced/$sk" ;;   # the old release's own copy, nothing of yours
+  esac
+  cp -R "$WORK/new/skills/$sk" "$SKD/$sk"; echo "   refreshed skills/$sk"
 done
 chmod +x "$BRAIN_ROOT"/hooks/*.sh "$BRAIN_ROOT"/scripts/*.sh "$BRAIN_ROOT/scripts/brain-search" 2>/dev/null || true
 [ "$SC_WAS_X" = "1" ] || chmod -x "$BRAIN_ROOT/scripts/self-compact.sh" 2>/dev/null || true   # keep the install's choice

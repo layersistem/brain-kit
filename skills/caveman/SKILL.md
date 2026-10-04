@@ -120,8 +120,9 @@ quotes alone, unsourced claims alone. Preserve human signs: odd specific detail,
 asides and self-corrections, varied rhythm, first-person choices the writer can defend.
 
 ### Reference
-Full catalog with before/after examples: `~/.claude/skills/humanizer/SKILL.md`. Open it only
-for a deliverable longer than a page or when a tell is unclear. Never auto-load it.
+This part is the whole catalog: "Banned patterns and the fix" above, read together with "Do not
+flag". There is no second file to open. When a tell is unclear, check it against both lists
+before rewriting.
 
 ## Provenance
 Merged 1 Sep 2026: caveman (original) plus humanizer (Wikipedia "Signs of

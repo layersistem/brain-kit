@@ -16,7 +16,7 @@ Three intensity levels:
 
 Auto-clarity: caveman drops to normal prose for security warnings, irreversible-action confirmations, multi-step sequences where fragment ambiguity risks a misread, and when the user repeats a question. It resumes after the clear part.
 
-Part 2, deliverables: any text a third person reads as a finished product (email, article, wiki page, report, release note, UI copy, issue body) is not compressed. The skill switches to full-sentence prose and applies a distilled version of the humanizer catalog: 33 AI-writing tells grouped into content, language, style and rhetoric, each with its fix. Em and en dashes are a hard rule. A false-positive list keeps it from flattening legitimate prose. The full humanizer with before/after examples ships alongside as a reference and is opened only for long deliverables.
+Part 2, deliverables: any text a third person reads as a finished product (email, article, wiki page, report, release note, UI copy, issue body) is not compressed. The skill switches to full-sentence prose and applies a distilled version of the humanizer catalog: 33 AI-writing tells grouped into content, language, style and rhetoric, each with its fix. Em and en dashes are a hard rule. A false-positive list keeps it from flattening legitimate prose.
 
 ## How to invoke
 
@@ -49,6 +49,5 @@ Until 1 September 2026 this skill carried three classical-Chinese (wenyan) level
 ## See also
 
 - [`SKILL.md`](./SKILL.md): the LLM-facing instructions
-- [`../humanizer/SKILL.md`](../humanizer/SKILL.md): the full pattern catalog with examples
 
 Bundled with brain-kit as an optional skill: terse output leaves more of the context window for recall injections. Nothing in the memory engine depends on it. Delete the folder if you prefer normal prose.

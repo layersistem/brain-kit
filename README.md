@@ -366,8 +366,10 @@ bash "$BRAIN_ROOT/scripts/update.sh"     # --dry-run to look first, --to v1.0.0 
 
 It moves to the tag (not to the tip of the branch), prints that release's CHANGELOG section and the
 exact file list first, asks before writing, and copies anything you edited by hand into
-`$BRAIN_ROOT/backups/<stamp>/` before replacing it. Your vault, your `settings.json` and your skills
-are never touched; a release that adds a new hook needs `./setup.sh` re-run to wire it.
+`$BRAIN_ROOT/backups/<stamp>/` before replacing it. Your vault and your `settings.json` are never touched.
+Of the skills, it refreshes only the ones `setup.sh` installed and you still have (caveman, five-gates,
+brain-consolidate), backing up one you edited; skills of your own are left alone. A release that adds a new
+hook needs `./setup.sh` re-run to wire it.
 [`UPGRADE.md`](UPGRADE.md) is the same procedure written for the model that will carry it out. Turn
 the whole thing off with `BRAIN_UPDATE_CHECK=0` in `<agent-config-dir>/brain-kit.env`.
 
