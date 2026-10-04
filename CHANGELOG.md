@@ -5,7 +5,7 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
-## [Unreleased]
+## [1.2.3] - 2026-10-04
 
 Four fixes from an audit of 1.2.2: settings that the README said reach every hook missed four of them, a minimal
 install turned into a full one on the next installer run, installed skills were never updated, and two skill folders
