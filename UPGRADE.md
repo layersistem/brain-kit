@@ -39,9 +39,12 @@ bash "$BRAIN_ROOT/scripts/update.sh"          # asks before writing; --yes only 
 
 It installs the **tag**, not the tip of `main`, so you get the tree that was released and tested, not
 whatever landed an hour ago. It writes only `$BRAIN_ROOT/hooks`, `$BRAIN_ROOT/scripts`,
-`$BRAIN_ROOT/patterns`, `$BRAIN_ROOT/docs` (from 1.2.0 on) and `$BRAIN_ROOT/VERSION`. The vault,
-`settings.json` and installed skills are left alone - which also means a release that adds a *new*
-hook needs the installer to wire it:
+`$BRAIN_ROOT/patterns`, `$BRAIN_ROOT/docs` (from 1.2.0 on), `$BRAIN_ROOT/VERSION` and, from 1.2.3 on,
+the skills `setup.sh` installs (caveman, five-gates, brain-consolidate) where they are already in
+`<agent-config-dir>/skills`. It adds no skill that is not there, leaves a symlinked one alone and never
+looks at any other skill folder; a kit skill that matches no release's copy counts as edited and its
+folder is moved to `$BRAIN_ROOT/backups/<stamp>/skills/` first. The vault and `settings.json` are left
+alone - which also means a release that adds a *new* hook needs the installer to wire it:
 
 ```bash
 cd <the brain-kit checkout> && ./setup.sh     # idempotent: existing hook entries and skills are kept
@@ -53,7 +56,40 @@ clone, but `setup.sh` needs a real one. On a re-run the installer asks its opt-i
 (context window, self-compact, caveman); answering nothing keeps whatever the earlier install chose, and
 the updater itself never touches those choices. From 1.2.0 on the re-run also takes its defaults from
 the existing `brain-kit.env` and merges into it: the lines it owns are updated, every line you added
-stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`.
+stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 on the profile is one of
+those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
+`--full` switches it back. A re-run never removes a hook entry that is already wired.
+
+### Coming from 1.2.0, 1.2.1 or 1.2.2
+
+No new hook and no vault change, so `setup.sh` does not have to run again. Two steps and one thing to
+tell the user:
+
+1. **Run the updater a second time.** The first run is done by the installed copy, which does not know
+   about skills yet; it replaces the hooks and scripts and installs the new updater. The second run
+   refreshes the skills `setup.sh` put in `<agent-config-dir>/skills`, with the same consent and
+   `--dry-run` as before:
+
+```bash
+bash "$BRAIN_ROOT/scripts/update.sh" --to "v$(cat "$BRAIN_ROOT/VERSION")" --dry-run
+bash "$BRAIN_ROOT/scripts/update.sh" --to "v$(cat "$BRAIN_ROOT/VERSION")"
+```
+
+   caveman is refreshed only when it is installed, and its new text no longer points at a separate
+   humanizer file (the kit stopped shipping `skills/humanizer` and `skills/find-skills`; `setup.sh`
+   never installed either). A skill listed under "changed by you since install" is moved to the backup
+   folder before the new copy goes in: diff it and re-apply what still matters.
+2. **A `--minimal` install: re-run `setup.sh` with this release, never with an older one.** Until 1.2.2
+   the profile was not recorded, and a re-run without `--minimal` wired the four full-only entries,
+   two of them Stop gates. The 1.2.3 installer writes `BRAIN_PROFILE` and recognises an earlier
+   minimal install from `settings.json` (the kit's prompt hooks wired, none of `postwrite-check.sh`,
+   `observe-mutations.sh`, `identical-answer-stop.sh` or `unsearched-absence-stop.sh`). A full install
+   from which all four were removed by hand reads as minimal too; `--full` restores them.
+3. **Tell the user** that four hooks now read `brain-kit.env` like the other thirteen:
+   `salience-inject.sh`, `salience-postwrite.sh`, `session-instance-bind.sh` and `time-inject.sh`.
+   `BRAIN_SALIENCE_RX`, `_NEG_RX`, `_BURST`, `_WINDOW` and `BRAIN_TITLE_MAP` written into that file
+   had no effect until now. A value someone put there and forgot about takes effect after the restart,
+   so read the file once (`grep -E "SALIENCE|TITLE_MAP" <agent-config-dir>/brain-kit.env`).
 
 ### Coming from 1.1.1
 

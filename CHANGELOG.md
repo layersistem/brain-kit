@@ -7,6 +7,40 @@ this file.
 
 ## [Unreleased]
 
+Four fixes from an audit of 1.2.2: settings that the README said reach every hook missed four of them, a minimal
+install turned into a full one on the next installer run, installed skills were never updated, and two skill folders
+shipped that nothing used. No new hook to wire, no vault format
+change. Upgrading from 1.2.x takes a second updater run for the skills (UPGRADE.md, "Coming from 1.2.0, 1.2.1 or
+1.2.2").
+
+### Fixed
+- Four hooks did not read `brain-kit.env`: `salience-inject.sh`, `salience-postwrite.sh`, `session-instance-bind.sh`
+  and `time-inject.sh`. The README says every hook sources that file, but these four saw only exported variables, so
+  `BRAIN_SALIENCE_RX`, `BRAIN_SALIENCE_NEG_RX`, `BRAIN_SALIENCE_BURST`, `BRAIN_SALIENCE_WINDOW` and `BRAIN_TITLE_MAP`
+  written there changed nothing. They now source it the same way as the other thirteen, and an exported variable still
+  wins. Measured with a scratch config directory: a Turkish `BRAIN_SALIENCE_RX` in the file produced the salience line
+  with this release and no output with 1.2.2; a `BRAIN_TITLE_MAP` in the file bound the session by its title with this
+  release, and 1.2.2 bound nothing. The README configuration table now lists `BRAIN_SALIENCE_RX`.
+- `setup.sh --minimal` was forgotten on the next run. The profile was not recorded anywhere, so the documented upgrade
+  step (run the installer again) wired the four full-only entries into a minimal install, two of them Stop gates. The
+  installer now writes `BRAIN_PROFILE` into `brain-kit.env` with the other lines it owns and takes it as the default on
+  a re-run; `--full` switches back. An install from 1.2.2 or earlier has no such line and counts as minimal when
+  `settings.json` has the kit's prompt hooks and none of the four full-only entries. Measured in a scratch home: a
+  minimal install re-run without the flag kept 14 hook entries (1.2.2: 14, then 18), a 1.2.2 minimal install re-run
+  with this installer kept 14, and `--full` gave 18.
+- `scripts/update.sh` never refreshed an installed skill, and `setup.sh` leaves an existing skill alone, so a skill
+  kept the text of the release it was first installed from; a caveman copy from before 1.1.1 still carried wording
+  later releases had removed. The updater now refreshes the skills the installer puts in place (caveman, five-gates,
+  brain-consolidate), only where the folder already exists. It adds none, skips a symlink, and never looks at any
+  other skill folder. A kit skill that matches no release's copy counts as edited and its folder is moved to
+  `$BRAIN_ROOT/backups/<stamp>/skills/` before the new copy goes in; the dry run lists both groups. Measured on a
+  scratch 1.2.2 install with caveman: the update refreshed caveman as an unedited copy, moved an edited five-gates to
+  the backup, and left a symlinked skill and a skill of the user's own untouched.
+- `skills/humanizer` and `skills/find-skills` are gone from the repository. No installer, updater or document
+  referred to them, and no release ever installed them, but caveman's `SKILL.md` sent the model to
+  `~/.claude/skills/humanizer/SKILL.md`, a path the kit never created. Its reference section now points at its own
+  pattern list, and the caveman README no longer links the removed folder.
+
 ## [1.2.2] - 2026-09-29
 
 Two small fixes for the person installing or running the kit day to day: the desk ledger now stamps the notes it
