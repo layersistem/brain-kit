@@ -40,7 +40,8 @@ what they mean (full table: README "What gets injected, and when"):
   concrete name with `brain-search` first; if that finds nothing either, say you don't know - don't
   invent.
 - **SALIENCE** (`salience-inject.sh`) - fires only when the user corrects you; tag this turn's
-  decision record `weight: lesson`.
+  decision record `weight: lesson`. With `BRAIN_VERDICT=1` a VERDICT block follows: add the one ledger
+  row it asks for (which notes were in context, and whether one was in view and not followed).
 - **update notice** (`update-notice.sh`) - at session start, at most once a day: one line if a newer
   release is tagged. It downloads and changes nothing. Applying it is a separate step the user has to
   ask for - `scripts/update.sh`, procedure in [`UPGRADE.md`](UPGRADE.md).

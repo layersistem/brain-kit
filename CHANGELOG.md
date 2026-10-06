@@ -5,6 +5,40 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [Unreleased]
+
+A verdict ledger behind one new switch, `BRAIN_VERDICT`, off by default (issue #8). With the switch off nothing
+changes. To try it, add `BRAIN_VERDICT=1` to `<agent-config-dir>/brain-kit.env`; `scripts/update.sh` installs the one
+new script, and there is no new hook to wire.
+
+### Added
+- The kit had three signals for how much a note matters, and none said whether the note helped: `weight:` is the
+  author's guess, the usage boost counts how often a note was opened, and `salience-inject.sh` only asked for a
+  `weight: lesson` tag. With `BRAIN_VERDICT=1` the same hook, when it sees a correction, now also lists the notes recall
+  showed and the notes the model opened in the last three turns that had any, read from the session transcript, and
+  asks for one row in `knowledge/verdict-ledger.md` with one of four verdicts: `in-view` (the note was in context and
+  the mistake happened anyway), `no-record`, `not-surfaced` or `not-a-correction`. The hook prints; it never writes the
+  ledger. On the author's install a one-week trial (29 September to 5 October 2026) wrote 44 rows: 31 `in-view`, 2
+  `not-surfaced`, 0 `no-record`, 11 `not-a-correction`; sixteen notes failed in view twice or more. Building the list
+  took 0.16 s on a 26 MB transcript.
+- `scripts/brain_verdict.py report` derives two counters per note from the ledger and keeps them apart: rule load
+  (`in-view` rows) and misses (`not-surfaced` rows). Rule load ranks up to seven shelf candidates for a `RULES:` line
+  you write into the focus file by hand; a verdict outside the four values is listed as unrecognised and not counted.
+- Misses feed a capped boost in `brain_bm25.py` and in the SQLite path of `brain_index_search.py`: a query that shares
+  one content word with a `not-surfaced` row's prompt multiplies the named note's score by 1.075, two or more words by
+  1.15. It only raises, and `in-view` rows never enter ranking. The relevance gate reads the top note, so a query that
+  found nothing can now return the boosted note; measured on a fixture vault, one query went from no result to the
+  boosted note on top. The boost had two rows to work with in the trial week and is the least tested part.
+- `brain_recall_print.py` drops a FAIR handover-style note (the repeat filter's `HUB_RX`) that shares no word with the
+  prompt on its first showing as well. On the author's 23 September prompt and read pairs this cut 96 lines and lost
+  none of the 95 notes that were opened. It reuses the repeat filter's test and keeps no state.
+
+Measured with `BRAIN_VERDICT` unset, `0`, empty and `yes`: the hook, both BM25 paths, the renderer and the recall hook
+end to end gave byte-identical output to 1.2.3 on the same fixtures (correction, negated, ordinary and notification
+prompts, a burst of three, the self-compact line, an env-file setting, six queries per path, the repeat filter over two
+showings). A harness of 154 checks passed, and each of eight deliberate faults in the new code turned at least one
+check red.
+
 ## [1.2.3] - 2026-10-04
 
 Four fixes from an audit of 1.2.2: settings that the README said reach every hook missed four of them, a minimal
