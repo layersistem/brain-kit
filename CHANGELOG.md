@@ -5,7 +5,7 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
-## [Unreleased]
+## [1.3.0] - 2026-10-06
 
 A verdict ledger behind one new switch, `BRAIN_VERDICT`, off by default (issue #8). With the switch off nothing
 changes. To try it, add `BRAIN_VERDICT=1` to `<agent-config-dir>/brain-kit.env`; `scripts/update.sh` installs the one
