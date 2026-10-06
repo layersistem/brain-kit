@@ -9,6 +9,7 @@ stdin: the JSON list produced by brain_recall.py. stdout: the text block. Everyt
   RECALL_TRANSCRIPT    this session's transcript path, from the hook payload - a compact there resets that list
   BRAIN_ROOT, BRAIN_DIR, BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS, BRAIN_MEMORY2, BRAIN_DENSE_MIN as in the hook
   BRAIN_RECALL_REPEAT_FILTER  0 (default since 1.2.0): every hit is printed every time; 1 turns the repeat filter on
+  BRAIN_VERDICT  1 adds the handover diet below (scripts/brain_verdict.py; off by default)
 
 Why a separate file (7 Sep 2026): this used to live inside the hook as a single-quoted `python3 -c '...'` block.
 One apostrophe in a comment broke the quoting, the hook errored, and because it is a global UserPromptSubmit hook
@@ -40,6 +41,15 @@ def toks(text):
 
 def name_toks(name):
     return toks((name or "").replace("-", " ").replace("_", " "))
+
+
+def fair_unrelated(t, nm, ptoks):
+    """FAIR and not one word shared between the prompt and the note's name - the repeat filter's test, and the diet's."""
+    return t == "FAIR" and not (ptoks & name_toks(nm))
+
+
+def handover(nm):
+    return bool(HUB_RX.search((nm or "").translate(_TR).lower()))
 
 
 def state_dir():
@@ -170,13 +180,19 @@ def main():
             nm = x.get("note", "")
             if int(seen.get(nm, 0) or 0) < 1:
                 return False                      # first time this session: always print
-            if tier(x) == "FAIR" and not (ptoks & name_toks(nm)):
+            if fair_unrelated(tier(x), nm, ptoks):
                 return True
             e = use.get(os.path.basename(x.get("path", "")) or nm)
             c = e.get("c", 0) if isinstance(e, dict) else int(e or 0)
-            return bool(HUB_RX.search((nm or "").translate(_TR).lower())) and not c
+            return handover(nm) and not c
 
         rest = [x for x in rest if not _drop(x)]
+    # Diet (issue #8), only with BRAIN_VERDICT=1: a handover-style note that is FAIR and shares no word with the prompt is
+    # dropped on its first showing too, not only from the second on. Applied to the 23 September pairs on the author's
+    # install it cut 96 lines and lost none of the 95 notes that were opened. Stateless; shared docs are never touched.
+    if os.environ.get("BRAIN_VERDICT") == "1":
+        vt = toks(os.environ.get("RECALL_PROMPT_TEXT", ""))
+        rest = [x for x in rest if not (handover(x.get("note", "")) and fair_unrelated(tier(x), x.get("note", ""), vt))]
     if not docs and not rest:
         # Everything was filtered: print nothing at all. The "no matching note" line is not printed either -
         # notes did match, they were just shown a moment ago, and saying otherwise would be a lie the model

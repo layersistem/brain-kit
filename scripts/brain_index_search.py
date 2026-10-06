@@ -3,7 +3,7 @@
 
 Same output shape, same scoring formula as brain_bm25.py: FTS5 only narrows the candidate set
 (an OR-query over the tokens, capped at CAND rows); the actual score is brain_bm25's own BM25
-(k1/b, idf) times its entity/recency/superseded/weight/usage/age multipliers, computed from the
+(k1/b, idf) times its entity/recency/superseded/weight/usage/verdict/age multipliers, computed from the
 token strings brain_index.py already stored per chunk. That keeps this path rank-identical to
 the file-scan one it replaces - verify with a side-by-side run if you change either formula.
 
@@ -79,6 +79,8 @@ def search(query, k=5, k1=1.5, b=0.75):
         uc = bm._USE.get(os.path.basename(rel), 0)
         if uc:
             s *= 1 + 0.15 * min(1.0, math.log1p(uc) / math.log1p(5))
+        if bm._VERDICT:                                   # verdict boost, BRAIN_VERDICT=1 only (see brain_bm25)
+            s *= bm.verdict_mult(qset, note)
         if dord and tag != "memory" and hw <= 1.0:
             s *= max(bm.AGE_FLOOR, 1 - bm.AGE_W * (tod - dord) / 372)
         scored.append((s, {"root": tag, "note": note, "heading": h, "path": rel,  # the DB rel is already root-prefixed (wiki/sub/dir/note.md); flattening to a basename collided two same-named notes and never matched the dense daemon
