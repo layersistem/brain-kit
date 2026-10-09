@@ -2,7 +2,7 @@
 # brain-kit installer - persistent memory + consolidation for Claude Code and other agent CLIs.
 # Usage: ./setup.sh [--minimal|--full] [--no-embed] [--project=DIR] [--context-window=<N|auto>] [--self-compact=<session|no>]
 #                   [--caveman=<yes|no>] [--desk-repos="owner/a owner/b"] [--no-timers] [--yes-defaults]
-#   --minimal          14 of the 18 hook entries: no postwrite check, no mutation log, no Stop gates; no consolidation skill.
+#   --minimal          15 of the 19 hook entries: no postwrite check, no mutation log, no Stop gates; no consolidation skill.
 #                      Recorded as BRAIN_PROFILE in brain-kit.env, so a re-run keeps it; --full switches back.
 #   --no-embed         BM25 recall only: no torch, no model download, embedding hook and sweeper stay idle
 #   --project=DIR      the project whose .claude/settings.json and CLAUDE.md the opt-ins touch (default:
@@ -212,6 +212,7 @@ W=("UserPromptSubmit::::session-instance-bind.sh"   # first: every later hook re
    "UserPromptSubmit::::_focus_inject.sh" "UserPromptSubmit::::_auto_retrieve.sh"
    "UserPromptSubmit::::time-inject.sh" "UserPromptSubmit::::due-inject.sh"
    "UserPromptSubmit::::context-inject.sh" "UserPromptSubmit::::salience-inject.sh"
+   "PreToolUse::Write|Edit::decision-recall.sh"     # 1.4.0: recall at the moment a decision record is written
    "PostToolUse::Write|Edit::salience-postwrite.sh"
    "PostToolUse::Write|Edit::brain-embed-after-write.sh"
    "PostToolUse::Read::recall-usage-count.sh"       # ranking input: notes the model opened, not ones it was shown

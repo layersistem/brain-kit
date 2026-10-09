@@ -60,6 +60,22 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
+### Coming from 1.3.0
+
+1.4.0 adds one hook, so the installer has to run once more after the updater. Coming from an older release, work
+through its section below first, then come back here.
+
+1. **Re-run `setup.sh` from a checkout of the 1.4.0 tag.** It wires `hooks/decision-recall.sh` on `PreToolUse` for
+   `Write|Edit` in both profiles and keeps every entry already there: a full install goes from 18 entries to 19, a
+   minimal one from 14 to 15. The updater has already copied the hook and `scripts/brain_decision_recall.py`; without
+   the re-run they sit unused.
+2. **Tell the user** that writing or editing a file in `<vault>/decision/` now puts two short lists into the session
+   first: the closest notes, and the notes from `research/` or `digs/` among them. It never blocks the write and makes
+   no permission decision. `BRAIN_DECISION_RECALL=0` in `brain-kit.env`, or the file
+   `<agent-config-dir>/brain-decision-recall.disabled`, turns it off. If their research notes live in other folders,
+   name them in `BRAIN_DECISION_OBJECTION_DIRS`.
+3. **Restart the sessions** so the new hook loads.
+
 ### Coming from 1.2.0, 1.2.1 or 1.2.2
 
 No new hook and no vault change, so `setup.sh` does not have to run again. Two steps and one thing to

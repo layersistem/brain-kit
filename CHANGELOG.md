@@ -5,6 +5,45 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [1.4.0] - 2026-10-09
+
+Decision-time recall (issue #11): recall now also runs at the moment a decision record is written, not only when a
+prompt arrives. One new hook to wire, so an upgrade runs `setup.sh` once more (UPGRADE.md, "Coming from 1.3.0"). No
+vault format change.
+
+### Added
+- `hooks/decision-recall.sh` on `PreToolUse` for `Write|Edit`, in both profiles (a full install now has 19 entries, a
+  minimal one 15), with its logic in `scripts/brain_decision_recall.py`. When the target is `<vault>/decision/*.md`
+  it prints A TOPIC, up to four notes closest to the file name's slug and the first 300 characters being written (the
+  record itself left out), and B OBJECTION, up to four notes from `research/` or `digs/` in the same ranking. When no
+  research note ranks, a second query adds lesson words; when that finds nothing either, one line says that no match is
+  not the same as no record. Paths are compared after resolving symlinks, so a vault reached through a link or a mount
+  point still matches `BRAIN_DIR`. Every other Write or Edit ends after a string check in the hook.
+- The output is `hookSpecificOutput.additionalContext`, because a PreToolUse hook's plain stdout does not reach the
+  model. It carries no permission decision: one would change how the user's writes get approved, so the write goes
+  through the normal permission flow.
+- Switches: `BRAIN_DECISION_RECALL=0`, or the file `<agent-config-dir>/brain-decision-recall.disabled`, which needs no
+  restart. `BRAIN_DECISION_OBJECTION_DIRS` names the research folders (empty turns the objection view off) and
+  `BRAIN_DECISION_WIDEN` the words of the second query. `BRAIN_ISOLATE_DIRS` silences it like the other hooks. Each
+  firing adds one line to `<agent-config-dir>/brain-kit-state/decision-recall.log`.
+- Why: on the author's install a decision was written while a research note that argued against it sat in the vault.
+  Prompt recall found no strong match in the deciding turn and did not run at all in the tool turns that wrote the
+  record. A private version of this hook has run on that install since 2026-10-09; there, adding decision words to a
+  research note's `recall_hint` moved the note from outside the top 40 results to the first line of the objection view.
+  The README section "Decision-time recall" shows how.
+
+Measured on scratch installs, never on a live config. Setup, 27 checks: fresh full and minimal installs, a re-run
+without duplicate entries, an upgrade from a 1.3.0 install in both profiles keeping every earlier entry, and a user's
+own `PreToolUse` group with the same matcher kept. Behaviour on a small fixture vault with BM25 only, 69 checks: both
+views, the record left out of its own recall, the second query, the honest line, silence for every other target
+(another folder, a `decision-old/decision/` prefix, a `.txt` file, bad or empty input, both switches, an isolated
+project, a missing script, a broken recall module), symlinked vaults in both directions, and a research note that shares
+no word with the decision appearing under B once its `recall_hint` names the decision. Each of 18 deliberate faults in
+the new code turned at least one check red. In a headless Claude Code 2.1.295 session with only this hook loaded, the
+model named the B OBJECTION note after a Write and the write went through; with the off file present it reported no such
+context. A decision write took about 130 ms on the fixture vault, any other write about 5 ms. `bash -n` passes under
+bash 3.2 and dash.
+
 ## [1.3.0] - 2026-10-06
 
 A verdict ledger behind one new switch, `BRAIN_VERDICT`, off by default (issue #8). With the switch off nothing

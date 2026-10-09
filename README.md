@@ -55,7 +55,7 @@ git clone https://github.com/layersistem/brain-kit && cd brain-kit
 BRAIN_ROOT=~/brain python3 ~/brain/scripts/brain_bm25.py "example decision" 3
 ```
 
-Restart your agent session afterwards so the hooks load. `--minimal` wires 14 of the 18 hook entries:
+Restart your agent session afterwards so the hooks load. `--minimal` wires 15 of the 19 hook entries:
 everything except the vault hygiene check (`postwrite-check.sh`), the observation stream
 (`observe-mutations.sh`) and the two Stop gates, and it skips the consolidation skill. The choice is
 written to `brain-kit.env` as `BRAIN_PROFILE`, so a later `./setup.sh` keeps it; `--full` switches back. The
@@ -143,6 +143,10 @@ is found by name; it is installed only when `gh` is on PATH and you list repos (
       +--> [UserPromptSubmit] context-inject.sh ----> how full the context is, delta since last prompt,
                                                      warning at 50% of the window, hard order at 65%
                                                      (self-compact when installed; Claude Code only)
+  you are about to write a decision record (<vault>/decision/*.md)
+      +--> [PreToolUse] decision-recall.sh -------> brain_decision_recall.py: A TOPIC (closest notes) and
+                                                   B OBJECTION (the research notes among them), in context
+                                                   before the write lands; never blocks it
   you write a note
       +--> [PostToolUse] brain-embed-after-write.sh --> brain_index.py update --> .index/brain.db
       |                                                 (chunks + BM25 tokens, ~1 s, hash-incremental)
@@ -189,6 +193,8 @@ knowledge/  *.md                  distilled, durable know-how
 memory/     *.md                  timeless canon: working style, preferences, authority
 moc/        MOC-*.md              maps of content, the zoom-out view
 focus/      _FOCUS_<instance>.txt current focus, injected verbatim every prompt
+research/   *.md                  optional (digs/ works too): studies, post-mortems, counter-evidence -
+                                  what decision-time recall lists under B OBJECTION
 _drafts/                          snapshots and consolidation output - excluded from retrieval
 ```
 
@@ -261,6 +267,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Sleep consolidation | hippocampus -> cortex replay | `brain_consolidate.py` proposal | distil episodes into knowledge, mark superseded, surface contradictions - a human approves |
 | Belief tracking | orbitofrontal / anterior cingulate | the optional belief ledger, `docs/BELIEFS.md` | one falsifiable claim per belief, with its own status, separate from the episodic record of how you got there - so "is this still true" does not require re-reading history |
 | Implicit episodic trace | hippocampal indexing of what you did, not what you decided | `observe-mutations.sh` stream | every mutation leaves a one-line trace; consolidation matches traces to decisions and flags the unexplained ones |
+| Second thoughts at the moment of commitment | dorsolateral prefrontal cortex + anterior cingulate (conflict monitoring) | `decision-recall.sh` -> `scripts/brain_decision_recall.py` | a person about to commit to a decision remembers the time it went wrong. A model writes its decision record in a tool turn, where prompt recall never runs, and the words of the decision rarely match the words of the lesson against it. The hook recalls on the decision's own words and lists the research notes among the hits on their own, so the counter-evidence is on screen before the record is written |
 | Metacognition | anterior cingulate | confidence tags on every recalled note (STRONG = both engines agreed or dense cosine over the floor, FAIR = one engine) + an explicit "no note matched this sentence - no match is not the same as no record; search by the concrete name" line when a real question finds nothing; discipline docs, `docs/DISCIPLINE.md` | knowing how much to trust what memory just handed you, knowing that you don't know (say so, label the guess a hypothesis) - and when the tool is wrong, when to stop, when to ask |
 | Source monitoring ("did I actually look, or do I just not remember?") | prefrontal reality-monitoring | `unsearched-absence-stop.sh` + `scripts/brain-search` | a person who says "there is no record of X" has usually checked; a model says it from the absence of X in its context, which after a compaction or a long turn means nothing. The gate blocks an absence claim about a named thing when nothing in the turn searched for that name, and names the two searches to run. `desk_ledger.py` feeds it: work you closed on GitHub last month is in the vault under its exact title, so the search finds it |
 | Perseveration guard | basal ganglia loop that normally lets a stuck motor pattern break | `identical-answer-stop.sh` | a person snaps out of repeating themselves when the response clearly isn't landing; a model can keep emitting the same templated answer turn after turn, even under a one-character correction buried inside it. This hook blocks a byte-for-byte repeat of the previous turn's answer and forces a re-read, making that failure mode mechanically impossible instead of relying on the model to notice it |
@@ -278,6 +285,7 @@ anything; it gives a frozen model a memory it can read.
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
 | every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |
 | every prompt | `salience-inject.sh` | only when your prompt carries a correction signal: one line - "tag this turn's record `weight: lesson`"; a hard "run a pattern analysis" line when several corrections land inside 90 minutes (a burst, not the day's total - `BRAIN_SALIENCE_BURST` / `_WINDOW`); negated phrases ("nothing wrong") do not count. With `BRAIN_VERDICT=1` a VERDICT block follows: the time of the corrected prompt, the notes recall showed and the notes the model opened in the last three turns that had any (names only, read from the local transcript, at most 3,000 characters), and the ledger row to add, with its four verdicts. The hook never writes the ledger |
+| before a decision record is written | `decision-recall.sh` (body: `scripts/brain_decision_recall.py`) | only for a Write or Edit to `<vault>/decision/*.md`: A TOPIC, up to four notes closest to the file name and the first 300 characters being written (the record itself left out), and B OBJECTION, up to four notes from `research/` or `digs/` in the same ranking. When no research note ranks, a second query adds lesson words; when that finds nothing either, one line says that no match is not the same as no record. Returned as `additionalContext` with no permission decision, so the write goes through your usual permission flow. Section "Decision-time recall" below |
 | after a note write | `salience-postwrite.sh` | only when a decision record is written weight-less after a correction in this session |
 | every prompt | `context-inject.sh` | context ~Nk (P% of window), delta since last prompt; WARNING past 50% ("compact at the next clean boundary, prepare the handoff note"), HARD past 65% ("self-compact now" when `scripts/self-compact.sh` is installed, else "write the handoff note, let it compact"). On the first turn after a compaction: one line saying there is no measurement yet, and no order - the only number available then is the pre-compaction one. `BRAIN_CTX_WINDOW` / `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, `BRAIN_CTX_WARN`, `BRAIN_CTX_HARD`, `<project>/.claude/ctx-thresholds`. **Claude Code only** - needs the hook's `transcript_path`; silent elsewhere |
 | after a note write | `brain-embed-after-write.sh` | one line confirming the index update (or that it failed) plus "vectors: background sweeper" when a chunk was left for `scripts/brain_index_sweep.sh` to embed. The hook itself no longer loads the model (it cost 14 s per edit on the tool path); dense recall sees the note about 15 s later, BM25 at once. It waits at most 3 s for the index lock; past that it starts the sweeper and says the write was deferred |
@@ -292,6 +300,57 @@ anything; it gives a frozen model a memory it can read.
 
 Recall stays quiet when it has nothing good: below a relevance floor it returns no block at all,
 because five irrelevant notes cost more than none.
+
+## Decision-time recall
+
+Prompt recall answers the words you type. A decision record is usually written later, in the middle of a tool turn,
+and no recall runs there. The words of a decision ("cap the retry budget on the export job") also rarely match the
+words of the lesson that argues against it ("vendors removed client throttling from the sync path"), so that note can
+sit in the vault, indexed and healthy, while the decision is written without it. This happened on the author's install
+in October 2026: an approach that industry vendors had already abandoned got five more days of work, while the research
+note that recorded the abandonment was never shown. The prompt of the deciding turn got no strong match, and the tool
+turns that wrote the decision ran no recall at all.
+
+`hooks/decision-recall.sh` runs before every Write and Edit. A file outside `<vault>/decision/` costs one string check
+(about 5 ms measured). For a decision record it builds a query from the file name and the first 300 characters being
+written, and puts two views into context before the write lands:
+
+```
+DECISION-TIME RECALL - DR-2026-10-09-export-retry-budget-cap.md is being written. What the vault already holds on
+this decision (a title seen is not a note read: open the ones that bear on it, and if one argues against the
+decision, say so in the record):
+  A TOPIC (closest notes):
+    [1.00b] DR-2026-10-01-export-retry-budget > Export retry budget  (<vault>/decision/DR-2026-10-01-export-retry-budget.md)
+    [0.73b] export-job-notes > Export job  (<vault>/knowledge/export-job-notes.md)
+    [0.59b] export-batch-size > Export batch size  (<vault>/knowledge/export-batch-size.md)
+    [0.43b] export-schedule > Export schedule  (<vault>/knowledge/export-schedule.md)
+  B OBJECTION (research/, digs/ - lessons and counter-evidence first):
+    [0.65b] sync-throttling-removed > Sync throttling dig  (<vault>/research/sync-throttling-removed.md)
+  (off: touch <agent-config-dir>/brain-decision-recall.disabled)
+```
+
+That is the hook's output on the small vault this release was tested on: four topic notes, one research note. The
+paths print as real file paths, ready to Read.
+
+The objection view needs research notes under `research/` or `digs/` (or the folders named in
+`BRAIN_DECISION_OBJECTION_DIRS`). It ranks by the same word and meaning overlap as the rest of recall, so a research
+note whose wording shares nothing with the decisions it bears on is still missed. What fixed that on the author's
+install was one front matter line in the research note that names those decisions in the words a decision would use:
+
+```
+recall_hint: open when deciding a request quota, rate limit or throttling for an ingest or export client
+```
+
+On that test vault, a research note that shared no word with the decision "set a request quota for the ingest
+client" was in neither view; with that line it was listed under B OBJECTION. On the author's vault the same kind of
+line moved the note behind the October incident from outside the top 40 results to the first line of the objection
+view.
+
+The hook never blocks a write and never makes a permission decision. It returns `additionalContext`, because Claude
+Code does not pass a PreToolUse hook's plain stdout to the model, and it exits 0 on every path, silent on any error.
+Without the dense daemon it is plain BM25: about 130 ms per decision write on that test vault. Each firing adds one
+line to `<agent-config-dir>/brain-kit-state/decision-recall.log` (time, file, notes in A, notes in B, whether the second
+query ran), so you can check whether the objection view ever finds anything on your vault.
 
 ## Configuration
 
@@ -318,6 +377,7 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_RECALL_K` | `5` | how many notes recall injects |
 | `BRAIN_RECALL_MIN_WORDS` / `BRAIN_RECALL_FORCE` | `4` / `0` | prompts shorter than N words get no recall block at all ("go on", "yes do it": measured 88 such blocks, none of their notes ever opened); `BRAIN_RECALL_FORCE=1` exempts a deliberate manual lookup |
 | `BRAIN_RECALL_REPEAT_FILTER` | `0` | `1` turns on the repeat filter: within a session, drop a note already shown since the last compaction when it is only FAIR and shares no word with the prompt, or when it is a handover-style note (hub, handoff, closing, compact) that has never been opened. First showing is never filtered, shared docs are never filtered, a fully filtered turn prints nothing rather than claiming no match, and a call without a session id (`brain-search`) is never filtered. Off by default since 1.2.0: the 1.1.x filter did not know about compaction and dropped notes the model no longer had in context |
+| `BRAIN_DECISION_RECALL` / `BRAIN_DECISION_OBJECTION_DIRS` / `BRAIN_DECISION_WIDEN` | `1` / `research digs` / built-in English lesson words | decision-time recall: `0` turns it off (so does the file `<agent-config-dir>/brain-decision-recall.disabled`, which needs no restart); the folders whose notes make up the objection view, space separated, empty for no objection view; the words the second query adds when the first finds no research note |
 | `BRAIN_RRF_RECENCY` | `0` | freshness bonus on the fused score (<= 1 day x1.10, 2-3 days x1.03, memory exempt). Off because it measured worse: hit@1 0.633 -> 0.533, MRR 0.739 -> 0.689 on a 30-query gold set. Kept live so you can test it against your own set |
 | `BRAIN_STOPWORDS` | empty | extra stopwords (also `<root>/.brain-stopwords`) |
 | `BRAIN_INDEX` | `sqlite` | BM25 reads `.index/brain.db` instead of scanning files; unset or a broken index falls back on its own |

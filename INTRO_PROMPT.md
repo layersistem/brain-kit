@@ -39,6 +39,10 @@ what they mean (full table: README "What gets injected, and when"):
   (title only). "no note matched this sentence" is not proof that nothing is recorded: search by the
   concrete name with `brain-search` first; if that finds nothing either, say you don't know - don't
   invent.
+- **DECISION-TIME RECALL** (`decision-recall.sh`) - appears when you write or edit a file in `decision/`: the
+  closest notes (A TOPIC) and the research notes among them (B OBJECTION). Open the ones that bear on the decision
+  before it stands; if one argues against it, say so in the record. "nothing under research/ matched" is not proof
+  that no lesson exists.
 - **SALIENCE** (`salience-inject.sh`) - fires only when the user corrects you; tag this turn's
   decision record `weight: lesson`. With `BRAIN_VERDICT=1` a VERDICT block follows: add the one ledger
   row it asks for (which notes were in context, and whether one was in view and not followed).
@@ -84,7 +88,7 @@ python3 -c "import json;h=json.load(open('${CLAUDE_CONFIG_DIR:-$HOME/.claude}/se
 python3 "$BRAIN_ROOT/scripts/brain_bm25.py" "example decision" 3
 ```
 
-Expect hook entries for `UserPromptSubmit`, `PostToolUse`, `PreCompact`, `SessionStart` and `Stop`, and
+Expect hook entries for `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PreCompact`, `SessionStart` and `Stop`, and
 JSON from the second command. `[]` means the vault is empty, which on a truly fresh install is
 possible - the seeded example decision record should make it non-empty.
 
