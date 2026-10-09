@@ -60,6 +60,26 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
+### Coming from 1.3.0
+
+This release adds one hook, so the installer has to run once more after the updater. Coming from an older release, work
+through its section below first, then come back here.
+
+1. **Re-run `setup.sh` from a checkout of this release's tag.** It wires `hooks/decision-recall.sh` on `PreToolUse` for
+   `Write|Edit` in both profiles and keeps every entry already there: a full install goes from 18 entries to 19, a
+   minimal one from 14 to 15. The updater has already copied the hook and `scripts/brain_decision_recall.py`; without
+   the re-run they sit unused.
+2. **Tell the user** that writing or editing a file in `<vault>/decision/` now brings two short lists back with the
+   write's result: the closest notes, and the notes from `research/` or `digs/` among them; when one argues against
+   the decision, the model edits the record. It never blocks the write and makes
+   no permission decision. `BRAIN_DECISION_RECALL=0` in `brain-kit.env`, or the file
+   `<agent-config-dir>/brain-decision-recall.disabled`, turns it off. If their research notes live in other folders,
+   name them in `BRAIN_DECISION_OBJECTION_DIRS`.
+3. **Offer the backfill.** Research notes written before this release rarely share words with the decisions they bear
+   on. README "Decision-time recall", "Backfill: existing vaults", gives the three rules for adding a decision-language
+   `recall_hint` to them. Ask before editing the user's notes; it is their vault.
+4. **Restart the sessions** so the new hook loads.
+
 ### Coming from 1.2.0, 1.2.1 or 1.2.2
 
 No new hook and no vault change, so `setup.sh` does not have to run again. Two steps and one thing to
