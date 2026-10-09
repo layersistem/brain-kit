@@ -5,7 +5,7 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
-## [Unreleased]
+## [1.4.0] - 2026-10-09
 
 Decision-time recall (issue #11): recall now also runs at the moment a decision record is written, not only when a
 prompt arrives. One new hook to wire, so an upgrade runs `setup.sh` once more (UPGRADE.md, "Coming from 1.3.0"). No
