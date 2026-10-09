@@ -342,9 +342,31 @@ recall_hint: open when deciding a request quota, rate limit or throttling for an
 ```
 
 On that test vault, a research note that shared no word with the decision "set a request quota for the ingest
-client" was in neither view; with that line it was listed under B OBJECTION. On the author's vault the same kind of
-line moved the note behind the October incident from outside the top 40 results to the first line of the objection
-view.
+client" was in neither view; with that line it was listed under B OBJECTION.
+
+### Backfill: existing vaults
+
+The hint matters most on notes written before this release: they use the words of their own topic, not the words of the
+decisions they bear on. To retrofit a research or dig note:
+
+1. Add a `recall_hint:` line to its front matter and put the value in double quotes. An unquoted value that contains
+   `: ` is invalid YAML and breaks the front matter for Obsidian and other readers.
+2. Start the hint with the note's own topic text. Recall reads `recall_hint` instead of `topic` (and `description`), so
+   a hint that leaves the topic out makes the note harder to find by its subject. On the test vault a note found by its
+   topic alone dropped out of that query once a hint without the topic was added, and came back with the topic first.
+3. After the topic, name the decisions that should open this note, in the words those decisions would use, then one
+   sentence with its verdict.
+
+```
+topic: client throttling removed from sync
+recall_hint: "client throttling removed from sync - decision language (2026-10-09): open when deciding a retry budget, rate limit or throttling for an export, ingest or sync job - vendors removed client-side throttling because it hid failures"
+```
+
+Then check it the way a decision would find it: `brain-search "<a decision this note should object to>"`. A note edited
+inside an agent session is re-indexed by the write hook; after a bulk edit outside one, run
+`"$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" update`. On the author's vault 91 research and dig records were backfilled this way on 2026-10-09.
+For the decision query of the October incident, the record behind it went from outside the top 40 results to 8th
+overall and to the first line of the objection view.
 
 The hook never blocks a write and never makes a permission decision. It returns `additionalContext`, because Claude
 Code does not pass a PreToolUse hook's plain stdout to the model, and it exits 0 on every path, silent on any error.

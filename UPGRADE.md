@@ -74,7 +74,10 @@ through its section below first, then come back here.
    no permission decision. `BRAIN_DECISION_RECALL=0` in `brain-kit.env`, or the file
    `<agent-config-dir>/brain-decision-recall.disabled`, turns it off. If their research notes live in other folders,
    name them in `BRAIN_DECISION_OBJECTION_DIRS`.
-3. **Restart the sessions** so the new hook loads.
+3. **Offer the backfill.** Research notes written before this release rarely share words with the decisions they bear
+   on. README "Decision-time recall", "Backfill: existing vaults", gives the three rules for adding a decision-language
+   `recall_hint` to them. Ask before editing the user's notes; it is their vault.
+4. **Restart the sessions** so the new hook loads.
 
 ### Coming from 1.2.0, 1.2.1 or 1.2.2
 

@@ -31,15 +31,20 @@ vault format change.
   record. A private version of this hook has run on that install since 2026-10-09; there, adding decision words to a
   research note's `recall_hint` moved the note from outside the top 40 results to the first line of the objection view.
   The README section "Decision-time recall" shows how.
+- README "Backfill: existing vaults": how to add a decision-language `recall_hint` to older research notes. The value
+  goes in double quotes, the hint starts with the note's own topic text (recall reads the hint instead of `topic`, and
+  a hint without the topic made a note drop out of its own topic query on the test vault), then the decision classes
+  that should open the note and a one-sentence verdict. On the author's vault 91 records were backfilled on 2026-10-09.
 
 Measured on scratch installs, never on a live config. Setup, 27 checks: fresh full and minimal installs, a re-run
 without duplicate entries, an upgrade from a 1.3.0 install in both profiles keeping every earlier entry, and a user's
-own `PreToolUse` group with the same matcher kept. Behaviour on a small fixture vault with BM25 only, 69 checks: both
+own `PreToolUse` group with the same matcher kept. Behaviour on a small fixture vault with BM25 only, 72 checks: both
 views, the record left out of its own recall, the second query, the honest line, silence for every other target
 (another folder, a `decision-old/decision/` prefix, a `.txt` file, bad or empty input, both switches, an isolated
 project, a missing script, a broken recall module), symlinked vaults in both directions, and a research note that shares
-no word with the decision appearing under B once its `recall_hint` names the decision. Each of 18 deliberate faults in
-the new code turned at least one check red. In a headless Claude Code 2.1.295 session with only this hook loaded, the
+no word with the decision appearing under B once its `recall_hint` names the decision, and the backfill rule that a
+hint without the topic text loses the topic query. Each of 18 deliberate faults in the new code turned at least one
+check red. In a headless Claude Code 2.1.295 session with only this hook loaded, the
 model named the B OBJECTION note after a Write and the write went through; with the off file present it reported no such
 context. A decision write took about 130 ms on the fixture vault, any other write about 5 ms. `bash -n` passes under
 bash 3.2 and dash.
