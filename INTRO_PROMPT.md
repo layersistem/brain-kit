@@ -39,9 +39,10 @@ what they mean (full table: README "What gets injected, and when"):
   (title only). "no note matched this sentence" is not proof that nothing is recorded: search by the
   concrete name with `brain-search` first; if that finds nothing either, say you don't know - don't
   invent.
-- **DECISION-TIME RECALL** (`decision-recall.sh`) - appears when you write or edit a file in `decision/`: the
-  closest notes (A TOPIC) and the research notes among them (B OBJECTION). Open the ones that bear on the decision
-  before it stands; if one argues against it, say so in the record. "nothing under research/ matched" is not proof
+- **DECISION-TIME RECALL** (`decision-recall.sh`) - arrives with the result of a Write or Edit to a file in
+  `decision/`: the closest notes (A TOPIC) and the research notes among them (B OBJECTION). The record is already
+  written when you read it: open the ones that bear on the decision, and if one argues against it, Edit the record to
+  say so. "nothing under research/ matched" is not proof
   that no lesson exists.
 - **SALIENCE** (`salience-inject.sh`) - fires only when the user corrects you; tag this turn's
   decision record `weight: lesson`. With `BRAIN_VERDICT=1` a VERDICT block follows: add the one ledger

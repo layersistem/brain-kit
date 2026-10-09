@@ -143,10 +143,10 @@ is found by name; it is installed only when `gh` is on PATH and you list repos (
       +--> [UserPromptSubmit] context-inject.sh ----> how full the context is, delta since last prompt,
                                                      warning at 50% of the window, hard order at 65%
                                                      (self-compact when installed; Claude Code only)
-  you are about to write a decision record (<vault>/decision/*.md)
+  you write a decision record (<vault>/decision/*.md)
       +--> [PreToolUse] decision-recall.sh -------> brain_decision_recall.py: A TOPIC (closest notes) and
-                                                   B OBJECTION (the research notes among them), in context
-                                                   before the write lands; never blocks it
+                                                   B OBJECTION (the research notes among them), handed to
+                                                   the model with the write's result; never blocks it
   you write a note
       +--> [PostToolUse] brain-embed-after-write.sh --> brain_index.py update --> .index/brain.db
       |                                                 (chunks + BM25 tokens, ~1 s, hash-incremental)
@@ -267,7 +267,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Sleep consolidation | hippocampus -> cortex replay | `brain_consolidate.py` proposal | distil episodes into knowledge, mark superseded, surface contradictions - a human approves |
 | Belief tracking | orbitofrontal / anterior cingulate | the optional belief ledger, `docs/BELIEFS.md` | one falsifiable claim per belief, with its own status, separate from the episodic record of how you got there - so "is this still true" does not require re-reading history |
 | Implicit episodic trace | hippocampal indexing of what you did, not what you decided | `observe-mutations.sh` stream | every mutation leaves a one-line trace; consolidation matches traces to decisions and flags the unexplained ones |
-| Second thoughts at the moment of commitment | dorsolateral prefrontal cortex + anterior cingulate (conflict monitoring) | `decision-recall.sh` -> `scripts/brain_decision_recall.py` | a person about to commit to a decision remembers the time it went wrong. A model writes its decision record in a tool turn, where prompt recall never runs, and the words of the decision rarely match the words of the lesson against it. The hook recalls on the decision's own words and lists the research notes among the hits on their own, so the counter-evidence is on screen before the record is written |
+| Second thoughts at the moment of commitment | dorsolateral prefrontal cortex + anterior cingulate (conflict monitoring) | `decision-recall.sh` -> `scripts/brain_decision_recall.py` | a person about to commit to a decision remembers the time it went wrong. A model writes its decision record in a tool turn, where prompt recall never runs, and the words of the decision rarely match the words of the lesson against it. The hook recalls on the decision's own words and lists the research notes among the hits on their own, so the counter-evidence is on screen the moment the record exists, while one Edit still fixes it |
 | Metacognition | anterior cingulate | confidence tags on every recalled note (STRONG = both engines agreed or dense cosine over the floor, FAIR = one engine) + an explicit "no note matched this sentence - no match is not the same as no record; search by the concrete name" line when a real question finds nothing; discipline docs, `docs/DISCIPLINE.md` | knowing how much to trust what memory just handed you, knowing that you don't know (say so, label the guess a hypothesis) - and when the tool is wrong, when to stop, when to ask |
 | Source monitoring ("did I actually look, or do I just not remember?") | prefrontal reality-monitoring | `unsearched-absence-stop.sh` + `scripts/brain-search` | a person who says "there is no record of X" has usually checked; a model says it from the absence of X in its context, which after a compaction or a long turn means nothing. The gate blocks an absence claim about a named thing when nothing in the turn searched for that name, and names the two searches to run. `desk_ledger.py` feeds it: work you closed on GitHub last month is in the vault under its exact title, so the search finds it |
 | Perseveration guard | basal ganglia loop that normally lets a stuck motor pattern break | `identical-answer-stop.sh` | a person snaps out of repeating themselves when the response clearly isn't landing; a model can keep emitting the same templated answer turn after turn, even under a one-character correction buried inside it. This hook blocks a byte-for-byte repeat of the previous turn's answer and forces a re-read, making that failure mode mechanically impossible instead of relying on the model to notice it |
@@ -285,7 +285,7 @@ anything; it gives a frozen model a memory it can read.
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
 | every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |
 | every prompt | `salience-inject.sh` | only when your prompt carries a correction signal: one line - "tag this turn's record `weight: lesson`"; a hard "run a pattern analysis" line when several corrections land inside 90 minutes (a burst, not the day's total - `BRAIN_SALIENCE_BURST` / `_WINDOW`); negated phrases ("nothing wrong") do not count. With `BRAIN_VERDICT=1` a VERDICT block follows: the time of the corrected prompt, the notes recall showed and the notes the model opened in the last three turns that had any (names only, read from the local transcript, at most 3,000 characters), and the ledger row to add, with its four verdicts. The hook never writes the ledger |
-| before a decision record is written | `decision-recall.sh` (body: `scripts/brain_decision_recall.py`) | only for a Write or Edit to `<vault>/decision/*.md`: A TOPIC, up to four notes closest to the file name and the first 300 characters being written (the record itself left out), and B OBJECTION, up to four notes from `research/` or `digs/` in the same ranking. When no research note ranks, a second query adds lesson words; when that finds nothing either, one line says that no match is not the same as no record. Returned as `additionalContext` with no permission decision, so the write goes through your usual permission flow. Section "Decision-time recall" below |
+| with the result of a decision record write | `decision-recall.sh` (body: `scripts/brain_decision_recall.py`) | only for a Write or Edit to `<vault>/decision/*.md`: A TOPIC, up to four notes closest to the file name and the first 300 characters being written (the record itself left out), and B OBJECTION, up to four notes from `research/` or `digs/` in the same ranking. When no research note ranks, a second query adds lesson words; when that finds nothing either, one line says that no match is not the same as no record. Returned as `additionalContext` with no permission decision, so the write goes through your usual permission flow. Section "Decision-time recall" below |
 | after a note write | `salience-postwrite.sh` | only when a decision record is written weight-less after a correction in this session |
 | every prompt | `context-inject.sh` | context ~Nk (P% of window), delta since last prompt; WARNING past 50% ("compact at the next clean boundary, prepare the handoff note"), HARD past 65% ("self-compact now" when `scripts/self-compact.sh` is installed, else "write the handoff note, let it compact"). On the first turn after a compaction: one line saying there is no measurement yet, and no order - the only number available then is the pre-compaction one. `BRAIN_CTX_WINDOW` / `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, `BRAIN_CTX_WARN`, `BRAIN_CTX_HARD`, `<project>/.claude/ctx-thresholds`. **Claude Code only** - needs the hook's `transcript_path`; silent elsewhere |
 | after a note write | `brain-embed-after-write.sh` | one line confirming the index update (or that it failed) plus "vectors: background sweeper" when a chunk was left for `scripts/brain_index_sweep.sh` to embed. The hook itself no longer loads the model (it cost 14 s per edit on the tool path); dense recall sees the note about 15 s later, BM25 at once. It waits at most 3 s for the index lock; past that it starts the sweeper and says the write was deferred |
@@ -313,12 +313,15 @@ turns that wrote the decision ran no recall at all.
 
 `hooks/decision-recall.sh` runs before every Write and Edit. A file outside `<vault>/decision/` costs one string check
 (about 5 ms measured). For a decision record it builds a query from the file name and the first 300 characters being
-written, and puts two views into context before the write lands:
+written, and returns two views. Claude Code hands a PreToolUse hook's context to the model together with the tool's
+result, so the model reads them right after the record is written; when a note argues against the decision, an Edit
+puts that into the record. Showing the list before the first write would mean refusing that write once, which this hook
+never does. The output on the small vault this release was tested on:
 
 ```
-DECISION-TIME RECALL - DR-2026-10-09-export-retry-budget-cap.md is being written. What the vault already holds on
-this decision (a title seen is not a note read: open the ones that bear on it, and if one argues against the
-decision, say so in the record):
+DECISION-TIME RECALL - DR-2026-10-09-export-retry-budget-cap.md (this list arrives with the write's result). What the
+vault already holds on this decision (a title seen is not a note read: open the ones that bear on it, and if one argues
+against the decision, Edit the record to say so):
   A TOPIC (closest notes):
     [1.00b] DR-2026-10-01-export-retry-budget > Export retry budget  (<vault>/decision/DR-2026-10-01-export-retry-budget.md)
     [0.73b] export-job-notes > Export job  (<vault>/knowledge/export-job-notes.md)
@@ -329,8 +332,7 @@ decision, say so in the record):
   (off: touch <agent-config-dir>/brain-decision-recall.disabled)
 ```
 
-That is the hook's output on the small vault this release was tested on: four topic notes, one research note. The
-paths print as real file paths, ready to Read.
+Four topic notes, one research note; the paths print as real file paths, ready to Read.
 
 The objection view needs research notes under `research/` or `digs/` (or the folders named in
 `BRAIN_DECISION_OBJECTION_DIRS`). It ranks by the same word and meaning overlap as the rest of recall, so a research

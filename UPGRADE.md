@@ -62,15 +62,16 @@ those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run w
 
 ### Coming from 1.3.0
 
-1.4.0 adds one hook, so the installer has to run once more after the updater. Coming from an older release, work
+This release adds one hook, so the installer has to run once more after the updater. Coming from an older release, work
 through its section below first, then come back here.
 
-1. **Re-run `setup.sh` from a checkout of the 1.4.0 tag.** It wires `hooks/decision-recall.sh` on `PreToolUse` for
+1. **Re-run `setup.sh` from a checkout of this release's tag.** It wires `hooks/decision-recall.sh` on `PreToolUse` for
    `Write|Edit` in both profiles and keeps every entry already there: a full install goes from 18 entries to 19, a
    minimal one from 14 to 15. The updater has already copied the hook and `scripts/brain_decision_recall.py`; without
    the re-run they sit unused.
-2. **Tell the user** that writing or editing a file in `<vault>/decision/` now puts two short lists into the session
-   first: the closest notes, and the notes from `research/` or `digs/` among them. It never blocks the write and makes
+2. **Tell the user** that writing or editing a file in `<vault>/decision/` now brings two short lists back with the
+   write's result: the closest notes, and the notes from `research/` or `digs/` among them; when one argues against
+   the decision, the model edits the record. It never blocks the write and makes
    no permission decision. `BRAIN_DECISION_RECALL=0` in `brain-kit.env`, or the file
    `<agent-config-dir>/brain-decision-recall.disabled`, turns it off. If their research notes live in other folders,
    name them in `BRAIN_DECISION_OBJECTION_DIRS`.

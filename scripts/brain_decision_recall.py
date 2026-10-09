@@ -5,7 +5,9 @@ Prompt recall (hooks/_auto_retrieve.sh) builds its query from what the user type
 The moment memory matters most, a decision record being written, happens in a tool turn where nothing recalls
 anything, and the decision's own words ("cap the retry budget on the export job") rarely resemble the words of the
 older lesson that argues against it ("we removed client-side throttling from the sync path"). When a Write or Edit
-targets <vault>/decision/*.md this script prints two views into the model's context before the write lands:
+targets <vault>/decision/*.md this script returns two views. Claude Code delivers them with the tool's result, so the
+model reads them right after the record is written (or refused) and fixes the record with an Edit if one argues against
+it; showing them before the first write would mean refusing that write once, which this hook never does:
 
   A TOPIC      the closest notes to the decision: the file name's slug plus the first 300 characters being written.
                The record being written is left out, and so are the notes that go to B.
@@ -119,9 +121,9 @@ def main():
     cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
     root = os.environ.get("BRAIN_ROOT") or os.path.expanduser("~/brain")
     name = pathlib.Path(real).name
-    out = ["DECISION-TIME RECALL - %s is being written. What the vault already holds on this decision (a title seen "
-           "is not a note read: open the ones that bear on it, and if one argues against the decision, say so in "
-           "the record):" % name]
+    out = ["DECISION-TIME RECALL - %s (this list arrives with the write's result). What the vault already holds on "
+           "this decision (a title seen is not a note read: open the ones that bear on it, and if one argues against "
+           "the decision, Edit the record to say so):" % name]
     if a:
         out.append("  A TOPIC (closest notes):")
         out += [line(r, p) for r, p in a]

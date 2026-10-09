@@ -1,9 +1,10 @@
 #!/bin/sh
 # PreToolUse (Write|Edit) - DECISION-TIME RECALL. Prompt recall (_auto_retrieve.sh) runs on the user's words and only
 # when the user types; a decision record is written in a tool turn, where nothing recalled anything until this hook.
-# When a Write or Edit targets <vault>/decision/*.md, scripts/brain_decision_recall.py puts two views into context
-# before the write lands: A TOPIC (the closest notes) and B OBJECTION (the research notes among them, so a lesson that
-# argues against the decision is not outranked by routine notes). The logic lives in that script for the reason
+# When a Write or Edit targets <vault>/decision/*.md, scripts/brain_decision_recall.py returns two views: A TOPIC (the
+# closest notes) and B OBJECTION (the research notes among them, so a lesson that argues against the decision is not
+# outranked by routine notes). Claude Code hands a PreToolUse hook's context to the model with the tool's result, so the
+# model reads the list right after the record is written and corrects it with an Edit if a note argues against it. The logic lives in that script for the reason
 # _auto_retrieve.sh gives: no Python inside a hook file.
 # Off: touch <agent-config-dir>/brain-decision-recall.disabled, or BRAIN_DECISION_RECALL=0 in brain-kit.env.
 # Never blocks: no permission decision, exit 0 on every path, silent on any error. Works without the dense daemon
