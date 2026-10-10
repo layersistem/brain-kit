@@ -5,7 +5,7 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
-## [Unreleased]
+## [1.4.1] - 2026-10-10
 
 Documentation only (issue #4). No hook, script or vault format change; nothing to do on upgrade.
 
