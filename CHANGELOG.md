@@ -5,6 +5,17 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [Unreleased]
+
+Documentation only (issue #4). No hook, script or vault format change; nothing to do on upgrade.
+
+### Added
+- `docs/WIKI.md`: the layout and article shape a docs root (`BRAIN_WIKI_DIR`, `BRAIN_WIKI_DIRS`) is read best in. A
+  `wiki/` root with one folder per namespace, a `schema.md` and an index article; front matter with `namespace:` and
+  `topic:`; code paths written so that the `code:` line under a docs hit lists them. It says what the kit reads from
+  an article and what it does not (no script reads `namespace:`), and how to give each namespace its own scoped root.
+- A paragraph under README "Configuration" and a sentence in `docs/DISCIPLINE.md` §3 point at it.
+
 ## [1.4.0] - 2026-10-09
 
 Decision-time recall (issue #11): recall now also runs at the moment a decision record is written, not only when a

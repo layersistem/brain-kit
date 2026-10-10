@@ -124,7 +124,7 @@ of them long prompts, with the database side of the same queries answering in 8 
 
 The daemon now caps a query at `BRAIN_EMB_MAX_TOKENS` (192, applied as the model's `max_seq_length`)
 and `BRAIN_Q_MAX_CHARS` (1500); `brain_recall.py` cuts at `BRAIN_DENSE_Q_MAX` (1500) before the call,
-so a 15 KB query never travels. All five lengths above then answer in 0.35-0.73 s. A query is a
+so a 15-kilobyte query never travels. All five lengths above then answer in 0.35-0.73 s. A query is a
 question, not a document: 192 tokens is roughly 130 words, and on two gold sets whose queries average
 15.7 words, hit@1, hit@3 and MRR were identical before and after. Raise the cap if your prompts are
 genuinely long and you have the CPU for it - and measure the miss rate afterwards, not before. The

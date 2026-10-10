@@ -38,7 +38,9 @@ database, tracing a container to find out how it starts - search the vault and r
 existing notes. Most of the time the answer is already written down. Big code archaeology to
 answer a small question is the expensive way to get an answer you already own.
 
-Practical order: recall injection -> vault or wiki articles -> only then the code.
+Practical order: recall injection -> vault or wiki articles -> only then the code. If the wiki is yours to shape,
+[WIKI.md](WIKI.md) describes a layout and an article shape that recall reads well, including how to write code paths
+so that a wiki hit points at the code.
 
 ## 4. Weight tags, used sparingly
 
@@ -101,9 +103,9 @@ conflict inside your memory. See [MULTI_INSTANCE.md](MULTI_INSTANCE.md).
 Keep the focus file small. It is re-injected on every prompt, so it is the most expensive text
 in the vault per byte: current state, the pointer to today's hub record, open items - and
 nothing that a decision record already holds. We measured a focus file that had grown into a
-59 KB diary line costing 96 KB of injected context on every prompt, for every instance that
+59-kilobyte diary line costing 96 kilobytes of injected context on every prompt, for every instance that
 reads it. The hook caps its whole output at 8,500 characters and, when the focus does not fit,
-says so in the first line (Claude Code hands the model only a 2 KB preview of a hook output past
+says so in the first line (Claude Code hands the model only a 2-kilobyte preview of a hook output past
 about 10,000 characters, so a warning at the end would never be seen); the fix is to move the
 history into a decision record, not to raise the cap.
 
