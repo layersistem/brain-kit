@@ -393,7 +393,7 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_RECALL_WIKI_PULL` | `1` | when the fused top-k has no docs hit, append the best docs hit anyway (flagged as low score) so the map is on screen before the model judges from a note; `0` disables |
 | `BRAIN_RECALL_WIKI_PULL_RANK` | `10` | how far down either engine's ranking the docs-pull may reach; beyond it nothing is pulled and recall says "no match" instead of showing an unrelated doc |
 | `BRAIN_WIKI_SCOPE_RX` | empty | regex on the session's project slug; set it and only matching sessions see the docs root (others keep vault + memory) - applied by the file scan, the SQLite path and the dense daemon alike |
-| `BRAIN_WIKI_DIRS` / `BRAIN_WIKI_SCOPE_RXS` | empty | further docs roots and their scope regexes, two `;`-separated parallel lists (`;` because a scope is a regex, where `\|` is alternation): root N is visible only to sessions whose slug matches regex N, an empty regex = every session. Roots are tagged `wiki`, `wiki2`, `wiki3`, ... in the index and in recall output, so one machine can carry several products' docs and each session sees only its own (`scripts/brain_wiki.py`) |
+| `BRAIN_WIKI_DIRS` / `BRAIN_WIKI_SCOPE_RXS` | empty | further docs roots and their scope regexes, two `;`-separated parallel lists (`;` because a scope is a regex, where `\|` is alternation): root N is visible only to sessions whose slug matches regex N, an empty regex = every session. Roots are tagged `wiki`, `wiki2`, `wiki3`, ... in the index and in recall output, so one machine can carry several products' docs and each session sees only its own (`scripts/brain_wiki.py`). The layout and article shape recall reads well: [`docs/WIKI.md`](docs/WIKI.md) |
 | `BRAIN_WIKI_EMBED` | `1` | `0` keeps the docs root out of the encoder (BM25 only) - for a very large tree |
 | `BRAIN_ORPHAN_EXEMPT` / `BRAIN_WRITING_RULE` | `_drafts _archive refs focus`, empty | dirs where linkless files are fine by design; an optional rule name quoted in the orphan message |
 | `BRAIN_SALIENCE_RX` / `_BURST` / `_WINDOW` / `_NEG_RX` | built-in, `3`, `5400`, built-in | the correction markers (extended regex, lower-case; English built in); hard warning after N corrections inside the window (seconds); negation phrases that cancel a match |
@@ -407,7 +407,7 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_INDEX` | `sqlite` | BM25 reads `.index/brain.db` instead of scanning files; unset or a broken index falls back on its own |
 | `BRAIN_EMBED` | `1` | `0` (set by `--no-embed`) keeps every encoder off: the write hook still updates the BM25 side, the sweeper exits at once |
 | `BRAIN_EMBED_BUDGET` | `110` | seconds one sweeper round may spend encoding (the timer fires every 120 s); the rest waits for the next round, and every batch of 16 is committed as it is done. Not a number = 110 and a warning in the sweeper log. A manual `brain_index.py build --embed` or `update --embed` has no budget |
-| `BRAIN_FOCUS_MAX` / `BRAIN_FOCUS_LINE_MAX` | `8500` / `1500` | the focus hook's whole output in characters (Claude Code shows the model only a 2 KB preview of a hook output past about 10,000 characters), and the longest SUMMARY or NOW line before a warning (also where one line is clipped when the focus is cut) |
+| `BRAIN_FOCUS_MAX` / `BRAIN_FOCUS_LINE_MAX` | `8500` / `1500` | the focus hook's whole output in characters (Claude Code shows the model only a 2-kilobyte preview of a hook output past about 10,000 characters), and the longest SUMMARY or NOW line before a warning (also where one line is clipped when the focus is cut) |
 | `BRAIN_EMBED_SYNC` / `BRAIN_SWEEP_THREADS` | `0` / `4` | `BRAIN_EMBED_SYNC=1` makes the write hook embed inline again (the pre-1.1.1 behaviour: 14 s per edit on the tool path, for a machine with no timer). The thread count caps torch/BLAS in the sweeper: every core spinning measured slower than 16 threads on a 24-core box, and the sweeper shares the machine with the sessions |
 | `BRAIN_RECALL_REMOTE` | `0` | `1` sends the usage counter's increment to the dense daemon (`GET /count` on `BRAIN_SEARCHD_URL`) instead of writing `recall_counts.json` - for a second machine that reads the vault over a network share, so the file has one writer |
 | `BRAIN_EMBED_MODEL` / `BRAIN_RERANK_MODEL` | BGE-M3 / bge-reranker-v2-m3 | local model overrides |
@@ -425,6 +425,12 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_ABSENCE_GATE` / `BRAIN_ABSENCE_MAX_BLOCKS` / `BRAIN_ABSENCE_RX_FILE` | `1` / `2` / `<project>/.claude/absence-patterns` | the unsearched-absence gate: off switch, blocks per turn before the brake, and the claim-phrase file (one extended regex per line, replaces the built-in English list; `patterns/absence-claims.en.txt` is that list, `patterns/absence-claims.tr.txt` a Turkish one) |
 | `BRAIN_DESK_REPOS` / `BRAIN_DESK_AUTHORS` | empty / empty | the desk ledger's repos (`owner/name`, space or comma separated; else `<BRAIN_ROOT>/desk-ledger.repos`, one per line, written by `setup.sh --desk-repos=`) and an optional author filter (logins; a bot's `app/` prefix and `[bot]` suffix are ignored). Nothing listed = the ledger does nothing |
 | `BRAIN_UPDATE_CHECK` / `BRAIN_UPDATE_REMOTE` / `BRAIN_UPDATE_TIMEOUT` | `1` / the origin of the checkout `setup.sh` ran from, in its https form / `2` | the session-start update notice: `0` turns it off for good, the remote is where tag names are read from, the timeout bounds the single `git ls-remote` call |
+
+**Docs roots.** `BRAIN_WIKI_DIR` and `BRAIN_WIKI_DIRS` take any folder of markdown. When the wiki is yours to shape,
+[`docs/WIKI.md`](docs/WIKI.md) describes a layout recall reads well: a `wiki/` root with one folder per namespace
+(`code`, `corporate`, `customer`, more as you need them), a `schema.md` and an index article, articles whose front
+matter carries `namespace:` and `topic:`, and code paths written so that the `code:` line under a docs hit lists them.
+It also shows how to give each namespace its own root and scope. The kit does not check any of it.
 
 ## Staying up to date
 
