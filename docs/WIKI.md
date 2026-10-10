@@ -86,9 +86,9 @@ services/billing/retry.go, and scripts/replay.sh re-sends a failed charge by han
   ranked below a live one although its text matched the query better.
 - The second-level headings (`##`) split the article into sections, and a section is what recall points at
   (`wiki:payment-retries > Backoff schedule`). The text above the first of them is a section too, named after the
-  title. BM25 and the dense engine read the first 4,000 characters of a section; the excerpt under the hit and the
-  `code:` line read the first 600. A long section is better split under two headings than left with a tail no query
-  reaches.
+  title. BM25 and the dense engine read the first 4,000 characters of a section; the `code:` line reads the first
+  600, and the excerpt under the hit shows the first 200. A long section is better split under two headings
+  than left with a tail no query reaches.
 - The "When to look" line ([DISCIPLINE.md](DISCIPLINE.md) §2) goes right under the title, so it is in the excerpt
   whenever the opening section is the hit.
 
