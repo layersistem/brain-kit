@@ -135,8 +135,13 @@ def main():
                    "decision, search by the domain's own name: %s \"<name>\"" % (
                        ", ".join(d.strip("/") + "/" for d in dirs), os.path.join(root, "scripts", "brain-search")))
     out.append("  (off: touch %s)" % os.path.join(cfg, "brain-decision-recall.disabled"))
+    ctx = "\n".join(out)
+    if os.environ.get("BRAIN_RECALL_NEUTRALIZE") == "1":   # issue #14: same filter as the prompt recall renderer
+        sys.path.insert(0, str(HERE))
+        import brain_neutralize
+        ctx = brain_neutralize.neutralize(ctx)
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
-                                             "additionalContext": "\n".join(out)}}, ensure_ascii=False))
+                                             "additionalContext": ctx}}, ensure_ascii=False))
     try:
         st = os.path.join(cfg, "brain-kit-state")
         os.makedirs(st, exist_ok=True)

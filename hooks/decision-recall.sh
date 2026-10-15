@@ -13,6 +13,8 @@ CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 [ -f "$CFG/brain-decision-recall.disabled" ] && exit 0
 ENV_FILE="$CFG/brain-kit.env"
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"          # scope from the session's project, never the shell cwd
+# Private mode (issue #14): brain-recall.off reads no note into this session; prompt recall prints the visible line.
+[ -f "$SESSION_ROOT/.claude/brain-recall.off" ] || [ -f "$CFG/brain-recall.off" ] && exit 0
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 [ "${BRAIN_DECISION_RECALL:-1}" = "0" ] && exit 0
 IN=$(cat)
