@@ -5,7 +5,7 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
-## [Unreleased]
+## [1.5.0] - 2026-10-15
 
 Recall hygiene and record provenance (issue #14). One new hook to wire, so an upgrade runs `setup.sh` once more
 (UPGRADE.md, "Coming from 1.4.0 or 1.4.1"). Every new behaviour is off by default: with no new variable set to `1` and
