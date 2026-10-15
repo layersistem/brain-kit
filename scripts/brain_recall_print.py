@@ -10,12 +10,16 @@ stdin: the JSON list produced by brain_recall.py. stdout: the text block. Everyt
   BRAIN_ROOT, BRAIN_DIR, BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS, BRAIN_MEMORY2, BRAIN_DENSE_MIN as in the hook
   BRAIN_RECALL_REPEAT_FILTER  0 (default since 1.2.0): every hit is printed every time; 1 turns the repeat filter on
   BRAIN_VERDICT  1 adds the handover diet below (scripts/brain_verdict.py; off by default)
+  BRAIN_RECALL_NEUTRALIZE  1 prints the block through scripts/brain_neutralize.py (off by default; issue #14)
+  BRAIN_RECALL_FRESHNESS   1 adds "verified N days ago, basis: X" to a vault knowledge note's line, STALE past
+                           BRAIN_STALE_DAYS (30) unless the basis is measured (off by default; issue #14)
+  BRAIN_RECALL_FLOOR       1 prints a docs hit below the floor as its title line only (off by default; issue #14)
 
 Why a separate file (7 Sep 2026): this used to live inside the hook as a single-quoted `python3 -c '...'` block.
 One apostrophe in a comment broke the quoting, the hook errored, and because it is a global UserPromptSubmit hook
 every session on the machine got "A hook blocked your prompt" until it was fixed. A script file has no quoting class
 to get wrong, and a Python error here is swallowed (recall must never break a session)."""
-import sys, json, os, re, time, hashlib, subprocess
+import sys, json, os, re, time, hashlib, subprocess, datetime
 
 # ---- Repeat filter (23 Sep 2026). Measured over 1529 prompt/read pairs on the author's install: a note that
 # was already shown earlier in the same session, carries only the FAIR tier and shares no word with the prompt
@@ -129,6 +133,35 @@ def _sweep_seen():
         pass
 
 
+def freshness(x, vault):
+    """Issue #14, BRAIN_RECALL_FRESHNESS=1: how fresh a vault knowledge note is, read from its own front matter
+    (`last_verified:`, `basis:` - the fields the ranking already ages by). Display only: the tier and the header
+    counts stay as they are, because a STRONG line counted as FAIR would make the header describe another list.
+    Nothing for other notes, for a note without last_verified, or on any read error."""
+    p = x.get("path") or ""
+    if x.get("root") != "vault" or "/knowledge/" not in "/" + p or "/" not in p:
+        return ""
+    try:
+        with open(os.path.join(vault, p.split("/", 1)[1]), encoding="utf-8", errors="ignore") as fh:
+            head = fh.read(2000)
+        fm = head.split("\n---", 1)[0] if head.startswith("---") else ""
+        lv = re.search(r"(?m)^last_verified:[ \t]*['\"]?(\d{4}-\d{2}-\d{2})", fm)
+        if not lv:
+            return ""
+        days = max((datetime.date.today() - datetime.date.fromisoformat(lv.group(1))).days, 0)
+        b = re.search(r"(?m)^basis:[ \t]*(\S.*)$", fm)
+        basis = b.group(1).strip().strip("'\"") if b else "not recorded"
+        try:
+            limit = int(os.environ.get("BRAIN_STALE_DAYS", "") or 30)
+        except ValueError:
+            limit = 30
+        if days > limit and basis.lower() != "measured":
+            return " - STALE: verified %d days ago, basis: %s - re-check it before a verdict leans on it" % (days, basis)
+        return " - verified %d days ago, basis: %s" % (days, basis)
+    except Exception:
+        return ""
+
+
 def main():
     try:
         r = json.load(sys.stdin)
@@ -224,12 +257,18 @@ def main():
     except Exception:
         pass
     if docs:
+        # Floor (issue #14, BRAIN_RECALL_FLOOR=1): a docs hit that is here only because of the docs pull, or that the
+        # dense engine scored under BRAIN_DENSE_MIN, keeps its title line and loses the body, like a FAIR note.
+        # A BM25-only hit has no cosine to judge by and keeps its body.
+        floor = os.environ.get("BRAIN_RECALL_FLOOR") == "1"
         print("  SOURCE (shared docs - Read the path; a claim about how the system works is built from here and from the code):")
         for x in docs:
             h = (x.get("heading") or "").strip()
             x["path"] = wiki_path(x["root"], x["path"].split("/", 1)[1] if "/" in x["path"] else x["path"])
             tag = " (low score, surfaced by docs-priority)" if x.get("wiki_pull") else ""
             print("  %s [%s] %s:%s%s%s  (%s)" % (tier(x), x["score"], x["root"], x["note"], (" > " + h) if h else "", tag, x["path"]))
+            if floor and (x.get("wiki_pull") or (tier(x) == "FAIR" and x.get("cos") is not None)):
+                continue
             hint = (x.get("hint") or "").strip()
             if hint:
                 print("      what: " + hint[:130])
@@ -247,13 +286,14 @@ def main():
         print("  SOURCE (shared docs): no match - if this is a how-does-it-work question, find the doc and open the code.")
     if rest:
         print("  RECORD (notes/memory/decisions - the SOURCE for decisions and history: no 'nothing written / not recorded' verdict before these are opened; for how the system behaves, verify against the code):")
+    fresh = os.environ.get("BRAIN_RECALL_FRESHNESS") == "1"
     for x in rest:
         t = tier(x)
         h = (x.get("heading") or "").strip()
         line = "  %s [%s] %s:%s" % (t, x["score"], x["root"], x["note"])
         if h:
             line += " > " + h
-        print(line + "  (" + x["path"] + ")")
+        print(line + "  (" + x["path"] + (freshness(x, vault) if fresh else "") + ")")
         if t != "STRONG":  # diet: FAIR notes are title + address only
             continue
         hint = (x.get("hint") or "").strip()
@@ -294,7 +334,21 @@ def main():
 
 
 if __name__ == "__main__":
+    # Issue #14: with BRAIN_RECALL_NEUTRALIZE=1 the whole block, belief lines included, is rendered into a buffer and
+    # printed through scripts/brain_neutralize.py. Off, nothing is buffered or imported and the bytes are 1.4.1's.
+    bn = None
+    if os.environ.get("BRAIN_RECALL_NEUTRALIZE") == "1":
+        try:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            import io
+            import brain_neutralize as bn
+            real, sys.stdout = sys.stdout, io.StringIO()
+        except Exception:
+            bn = None
     try:
         main()
     except Exception:
         pass
+    if bn is not None:
+        out, sys.stdout = sys.stdout.getvalue(), real
+        sys.stdout.write(bn.neutralize(out))

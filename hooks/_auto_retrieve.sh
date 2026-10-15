@@ -34,6 +34,18 @@ export BRAIN_ROOT BRAIN_DIR
 for d in ${BRAIN_ISOLATE_DIRS:-}; do
   case "${SESSION_ROOT:-}" in $d|$d/*) exit 0 ;; esac
 done
+# Private mode (issue #14): a brain-recall.off file in <project>/.claude/ or in the agent config dir reads no note into
+# this session, from the next prompt on, no restart. It is never silent: every prompt gets the line below, so a flag
+# left behind cannot turn into a session that quietly lost its memory. The docs-topic marker is cleared as on a skipped
+# prompt. brain-search (BRAIN_RECALL_FORCE=1) still answers: a manual lookup is a deliberate call the model can see.
+if [ "${BRAIN_RECALL_FORCE:-0}" != "1" ]; then
+  for f in "$SESSION_ROOT/.claude/brain-recall.off" "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-recall.off"; do
+    [ -f "$f" ] || continue
+    rm -f "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit-state/wiki_topic.${BRAIN_INSTANCE:-default}" 2>/dev/null
+    echo "AUTO-RECALL OFF (private mode): $f exists, so no note was read into this turn. Delete that file to turn recall back on."
+    exit 0
+  done
+fi
 BM="$BRAIN_ROOT/scripts/brain_recall.py"
 [ -f "$BM" ] || BM="$BRAIN_ROOT/scripts/brain_bm25.py"   # older installs without the hybrid layer
 [ -f "$BM" ] || exit 0

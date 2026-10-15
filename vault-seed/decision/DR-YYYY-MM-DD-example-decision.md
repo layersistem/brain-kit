@@ -4,6 +4,7 @@ date: 2026-01-15
 topic: how a decision record is written in this vault
 status: active
 weight: canon
+origin_session: 0a1b2c3d
 ---
 
 # DR-YYYY-MM-DD-example-decision
@@ -27,6 +28,8 @@ Frontmatter carries the routing information recall uses:
 - `topic:` - a one-line description; recall injects it as the "what" line
 - `status:` - `active`, or `superseded` once a newer decision replaces it
 - `weight:` - `canon`, `lesson`, `approval` or `routine`; use it sparingly, it is a multiplier
+- `origin_session:` - optional: the first 8 characters of the id of the session that wrote the record
+  (`BRAIN_SHOW_SESSION=1` puts them on the clock line), so the transcript behind a decision can be found again
 
 ## ALTERNATIVES
 
@@ -46,7 +49,8 @@ its own is not a memory source: a decision needs a source and a link to the evid
 
 Never delete a decision that was replaced. Mark it `status: superseded` and add
 `superseded_by:` pointing at the newer record. Recall then down-ranks it instead of
-pretending it never existed, which keeps the history readable.
+pretending it never existed, which keeps the history readable. A status change replaces
+the one `status:` line in place; it never adds a second one (docs/DISCIPLINE.md §10).
 
 ## REOPEN
 

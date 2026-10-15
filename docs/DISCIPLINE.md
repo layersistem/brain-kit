@@ -62,6 +62,9 @@ Compaction is lossy and model-written. Two things make it survivable:
   `_drafts/`. It is deliberately excluded from recall and from the index - it is a backup for a
   human or an agent to open on purpose, not context to inject.
 
+A third thing steers the summary itself: a "Compact Instructions" section in `CLAUDE.md` that says what
+the summary must keep (README, "Compact Instructions").
+
 After a compaction: re-read the skills that were loaded (compaction drops their bodies),
 summarise the state in one message, and confirm before diving back in. Auto-resuming from a
 half-restored context is how sessions break things. The exception is self-compact
@@ -158,3 +161,25 @@ before reacting will wait forever. Look for the absorbed record, not only for th
 The general rule behind both: a transcript is an append-only log of an implementation, not a receipt.
 Before you quote a number from it, take one hour of it apart by hand and check that the parser and
 the eye agree.
+
+## 10. Editing a record: one status line, changed in place
+
+A record changes state over its life: a decision goes from `active` to `superseded`, a belief from
+`expected` to `confirmed`. The change is an edit of the one line that holds the state, made where that
+line stands, the way an exact-string replace works: the old line must be unique in the file, and after
+the edit there is still exactly one. Three things never happen:
+
+- **A second status line or block.** Appending "status: superseded" under the old one leaves two
+  answers in the file, and which one counts depends on the reader: the ranking (`brain_bm25.py`) takes
+  the first `status:` line of the front matter, `beliefs_rebuild.py` keeps the last `- status:` line of
+  a belief entry, a person usually reads the newest. A consolidation pass can check for it: more than one
+  `status:` line in a record's front matter, or more than one `- status:` line in one `## B###` entry of
+  the belief ledger, is a defect.
+- **A deleted record.** A replaced decision stays, marked `superseded` with a `superseded_by:` link
+  (§1); the history of why something was dropped is part of the memory.
+- **A silent rewrite of the body.** When a record's conclusion changes, add a dated section saying
+  what changed and why. The old reasoning stays readable under it.
+
+`origin_session:` (optional, in the record template) holds the first 8 characters of the id of the
+session that wrote the record; with `BRAIN_SHOW_SESSION=1` the clock line shows them. It is how a later
+consolidation finds the transcript a decision came out of. An edit by another session does not change it.

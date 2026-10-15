@@ -213,6 +213,7 @@ W=("UserPromptSubmit::::session-instance-bind.sh"   # first: every later hook re
    "UserPromptSubmit::::time-inject.sh" "UserPromptSubmit::::due-inject.sh"
    "UserPromptSubmit::::context-inject.sh" "UserPromptSubmit::::salience-inject.sh"
    "PreToolUse::Write|Edit::decision-recall.sh"     # issue #11: recall when a decision record is written
+   "PreToolUse::Write|Edit::vault-write-guard.sh"   # issue #14: private mode's write side, silent without its flag file
    "PostToolUse::Write|Edit::salience-postwrite.sh"
    "PostToolUse::Write|Edit::brain-embed-after-write.sh"
    "PostToolUse::Read::recall-usage-count.sh"       # ranking input: notes the model opened, not ones it was shown

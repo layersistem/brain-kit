@@ -60,6 +60,22 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
+### Coming from 1.4.0 or 1.4.1
+
+This release adds one hook and five switches, all off by default; with the switches off and no flag file, recall
+prints exactly what it printed before.
+
+1. **Re-run `setup.sh` from a checkout of this release's tag.** It wires `hooks/vault-write-guard.sh` on `PreToolUse`
+   for `Write|Edit` in both profiles: a full install goes from 19 entries to 20, a minimal one from 15 to 16. Without
+   its flag file the hook does two file tests and exits.
+2. **Tell the user what can be turned on** (README "Recall hygiene and private mode"): `BRAIN_RECALL_NEUTRALIZE=1`,
+   `BRAIN_RECALL_FRESHNESS=1`, `BRAIN_RECALL_FLOOR=1` and `BRAIN_SHOW_SESSION=1` in `brain-kit.env`, and the private
+   mode files `brain-recall.off` and `brain-write.off`. Ask before setting any of them; do not create a flag file on
+   your own.
+3. **Offer the "Compact Instructions" section** from the README for their `CLAUDE.md`. It is their file: show the
+   text, add it only when they say so.
+4. **Restart the sessions** so the new hook and the environment are loaded.
+
 ### Coming from 1.3.0
 
 This release adds one hook, so the installer has to run once more after the updater. Coming from an older release, work

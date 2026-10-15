@@ -5,6 +5,33 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [Unreleased]
+
+Recall hygiene and record provenance (issue #14). One new hook to wire, so an upgrade runs `setup.sh` once more
+(UPGRADE.md, "Coming from 1.4.0 or 1.4.1"). Every new behaviour is off by default: with no new variable set to `1` and
+no flag file, every touched hook and script prints the same bytes as 1.4.1. No vault format change.
+
+### Added
+- `BRAIN_RECALL_NEUTRALIZE=1` (`scripts/brain_neutralize.py`): prompt recall and decision-time recall remove zero-width
+  characters (U+200B, U+200C, U+200D, U+2060, U+FEFF) from what they print and rewrite harness tags such as
+  `<system-reminder>` as `[tag: system-reminder]`. A note that quotes a transcript can no longer put a live-looking
+  tag into the context. Only the printed copy changes.
+- `BRAIN_RECALL_FRESHNESS=1` / `BRAIN_STALE_DAYS` (30): a vault knowledge note with `last_verified:` shows
+  `verified N days ago, basis: X` on its recall line, and STALE past the limit unless its basis is `measured`. Display
+  only; tiers and counts do not change.
+- `BRAIN_RECALL_FLOOR=1`: a docs hit added by the docs pull, or scored under `BRAIN_DENSE_MIN` by the dense engine,
+  prints as its title line only.
+- Private mode. `brain-recall.off` in `<project>/.claude/` or the agent config dir: prompt and decision-time recall
+  read no note into the session, and prompt recall prints one `AUTO-RECALL OFF` line on every prompt instead.
+  `brain-write.off`: the new `hooks/vault-write-guard.sh` (`PreToolUse`, `Write|Edit`, both profiles; a full install
+  now has 20 entries, a minimal one 16) denies a Write or Edit inside the vault. Both take effect without a restart;
+  `brain-search` keeps working.
+- `origin_session:` in the decision record template, and `BRAIN_SHOW_SESSION=1`, which adds the session id's first 8
+  characters to the clock line so the model can fill the field in.
+- `docs/DISCIPLINE.md` §10: the editing contract (a status change replaces the one status line in place; no second
+  status line, no deleted record). README "Compact Instructions": what a `CLAUDE.md` section that steers the
+  compaction summary should keep.
+
 ## [1.4.1] - 2026-10-10
 
 Documentation only (issue #4). No hook, script or vault format change; nothing to do on upgrade.

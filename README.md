@@ -286,6 +286,7 @@ anything; it gives a frozen model a memory it can read.
 | every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise |
 | every prompt | `salience-inject.sh` | only when your prompt carries a correction signal: one line - "tag this turn's record `weight: lesson`"; a hard "run a pattern analysis" line when several corrections land inside 90 minutes (a burst, not the day's total - `BRAIN_SALIENCE_BURST` / `_WINDOW`); negated phrases ("nothing wrong") do not count. With `BRAIN_VERDICT=1` a VERDICT block follows: the time of the corrected prompt, the notes recall showed and the notes the model opened in the last three turns that had any (names only, read from the local transcript, at most 3,000 characters), and the ledger row to add, with its four verdicts. The hook never writes the ledger |
 | with the result of a decision record write | `decision-recall.sh` (body: `scripts/brain_decision_recall.py`) | only for a Write or Edit to `<vault>/decision/*.md`: A TOPIC, up to four notes closest to the file name and the first 300 characters being written (the record itself left out), and B OBJECTION, up to four notes from `research/` or `digs/` in the same ranking. When no research note ranks, a second query adds lesson words; when that finds nothing either, one line says that no match is not the same as no record. Returned as `additionalContext` with no permission decision, so the write goes through your usual permission flow. Section "Decision-time recall" below |
+| before a Write or Edit | `vault-write-guard.sh` | nothing, unless private mode's `brain-write.off` exists: then a write inside the vault is denied, with the flag's path as the reason (section "Recall hygiene and private mode") |
 | after a note write | `salience-postwrite.sh` | only when a decision record is written weight-less after a correction in this session |
 | every prompt | `context-inject.sh` | context ~Nk (P% of window), delta since last prompt; WARNING past 50% ("compact at the next clean boundary, prepare the handoff note"), HARD past 65% ("self-compact now" when `scripts/self-compact.sh` is installed, else "write the handoff note, let it compact"). On the first turn after a compaction: one line saying there is no measurement yet, and no order - the only number available then is the pre-compaction one. `BRAIN_CTX_WINDOW` / `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, `BRAIN_CTX_WARN`, `BRAIN_CTX_HARD`, `<project>/.claude/ctx-thresholds`. **Claude Code only** - needs the hook's `transcript_path`; silent elsewhere |
 | after a note write | `brain-embed-after-write.sh` | one line confirming the index update (or that it failed) plus "vectors: background sweeper" when a chunk was left for `scripts/brain_index_sweep.sh` to embed. The hook itself no longer loads the model (it cost 14 s per edit on the tool path); dense recall sees the note about 15 s later, BM25 at once. It waits at most 3 s for the index lock; past that it starts the sweeper and says the write was deferred |
@@ -376,6 +377,65 @@ Without the dense daemon it is plain BM25: about 130 ms per decision write on th
 line to `<agent-config-dir>/brain-kit-state/decision-recall.log` (time, file, notes in A, notes in B, whether the second
 query ran), so you can check whether the objection view ever finds anything on your vault.
 
+## Recall hygiene and private mode
+
+Recall puts note text in front of the model on every prompt, so what a note quotes reaches the context too. Four
+switches control that path. All are off by default, and with all of them off every touched hook and script prints the
+same bytes as 1.4.1.
+
+- **`BRAIN_RECALL_NEUTRALIZE=1`** filters what the recall renderer and decision-time recall print
+  (`scripts/brain_neutralize.py`). Zero-width characters (U+200B, U+200C, U+200D, U+2060, U+FEFF) are removed, and a
+  harness tag such as `<system-reminder>` or `<task-notification>`, opening or closing, is printed as
+  `[tag: system-reminder]`. A note that quotes a transcript then cannot put a live-looking tag into the context. Only
+  the printed copy changes; the vault is never edited. On the author's vault, 1 note held a harness tag and 2 held
+  zero-width characters (counted on 15 October 2026, about 2,300 notes).
+- **`BRAIN_RECALL_FRESHNESS=1`** adds the front matter dates to the line of a vault knowledge note:
+  `verified 12 days ago, basis: read from code`. Past `BRAIN_STALE_DAYS` (default 30), unless the basis is
+  `measured`, the line reads `STALE: verified 75 days ago, basis: read from code - re-check it before a verdict
+  leans on it`. Notes without `last_verified:` print as before. The tier and the header counts do not change.
+- **`BRAIN_RECALL_FLOOR=1`** prints a docs hit below the floor as its title line only, the way a FAIR note is already
+  printed. Below the floor means added by the docs pull (`BRAIN_RECALL_WIKI_PULL`) or scored by the dense engine
+  under `BRAIN_DENSE_MIN`; a BM25-only hit has no cosine to judge by and keeps its body.
+- **Private mode** is two flag files, read on every prompt and every tool call, so they need no restart:
+  - `brain-recall.off` in `<project>/.claude/` or in the agent config dir: prompt recall and decision-time recall
+    read no note into the session. Prompt recall prints one line instead, on every prompt, so a flag left behind
+    is always visible: `AUTO-RECALL OFF (private mode): <path> exists, so no note was read into this turn.`
+    `brain-search` still answers, because a manual search is a deliberate call the model can be seen making.
+  - `brain-write.off` in the same places: `hooks/vault-write-guard.sh` denies a Write or Edit whose target is inside
+    the vault (symlinks resolved) and gives the flag's path as the reason. Shell commands that write are not seen.
+    Without the file the hook does two file tests and exits.
+
+  The same switch makes an A/B measurement of recall possible: the same task with and without `brain-recall.off`.
+
+Records also say where they came from. The decision record template has an optional `origin_session:` field, the
+first 8 characters of the session id; with `BRAIN_SHOW_SESSION=1` the clock line ends in `session 0a1b2c3d`, so the
+model can fill it in. A record's status changes in place, on its one status line, and a record is never deleted
+(`docs/DISCIPLINE.md` §10).
+
+## Compact Instructions
+
+A compaction keeps what its summary keeps. The handoff note and the hooks bring the rest back from disk, but the
+summary itself can be steered from `CLAUDE.md`: Claude Code's best-practices page suggests compaction instructions
+there, and the project's `CLAUDE.md` is read again from disk after `/compact`. The heading name carries no meaning of
+its own; the instructions do. For a single compaction, `/compact <instructions>` takes the same text as an argument.
+A section like this one, in your own words, tells the summary what must survive:
+
+```markdown
+## Compact Instructions
+Keep in the summary, verbatim where it matters:
+1. open instructions from the user, quoted, with the time they were given;
+2. open tasks and the step each one is on;
+3. file paths, with line numbers where they were used;
+4. numbers that were measured, with the method that produced them;
+5. the decision records and docs the work rests on (paths);
+6. promises made and their deadlines.
+Leave out what the hooks inject (focus file, recall blocks, the clock line): they are printed again from disk
+after the compaction.
+```
+
+The last instruction saves room: hook output is re-injected after a compaction anyway, so a summary that copies it
+spends its budget twice. Check the first compaction after adding the section by hand; a summary cannot be undone.
+
 ## Configuration
 
 Everything is environment variables; `setup.sh` writes the few that matter into
@@ -402,6 +462,11 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_RECALL_MIN_WORDS` / `BRAIN_RECALL_FORCE` | `4` / `0` | prompts shorter than N words get no recall block at all ("go on", "yes do it": measured 88 such blocks, none of their notes ever opened); `BRAIN_RECALL_FORCE=1` exempts a deliberate manual lookup |
 | `BRAIN_RECALL_REPEAT_FILTER` | `0` | `1` turns on the repeat filter: within a session, drop a note already shown since the last compaction when it is only FAIR and shares no word with the prompt, or when it is a handover-style note (hub, handoff, closing, compact) that has never been opened. First showing is never filtered, shared docs are never filtered, a fully filtered turn prints nothing rather than claiming no match, and a call without a session id (`brain-search`) is never filtered. Off by default since 1.2.0: the 1.1.x filter did not know about compaction and dropped notes the model no longer had in context |
 | `BRAIN_DECISION_RECALL` / `BRAIN_DECISION_OBJECTION_DIRS` / `BRAIN_DECISION_WIDEN` | `1` / `research digs` / built-in English lesson words | decision-time recall: `0` turns it off (so does the file `<agent-config-dir>/brain-decision-recall.disabled`, which needs no restart); the folders whose notes make up the objection view, space separated, empty for no objection view; the words the second query adds when the first finds no research note |
+| `BRAIN_RECALL_NEUTRALIZE` | `0` | `1` removes zero-width characters and rewrites harness tags (`<system-reminder>` as `[tag: system-reminder]`) in what prompt recall and decision-time recall print; the vault is not edited (section "Recall hygiene and private mode") |
+| `BRAIN_RECALL_FRESHNESS` / `BRAIN_STALE_DAYS` | `0` / `30` | `1` adds `verified N days ago, basis: X` to the line of a vault knowledge note that has `last_verified:`, and STALE past the day limit unless the basis is `measured`; display only |
+| `BRAIN_RECALL_FLOOR` | `0` | `1` prints a docs hit added by the docs pull, or scored under `BRAIN_DENSE_MIN` by the dense engine, as its title line only |
+| `BRAIN_SHOW_SESSION` | `0` | `1` adds `session <first 8 characters of the session id>` to the clock line, the value of a record's `origin_session:` |
+| `brain-recall.off` / `brain-write.off` (files) | absent | private mode, in `<project>/.claude/` or the agent config dir, no restart: no note read into the session (one visible line per prompt instead), or no Write/Edit inside the vault |
 | `BRAIN_RRF_RECENCY` | `0` | freshness bonus on the fused score (<= 1 day x1.10, 2-3 days x1.03, memory exempt). Off because it measured worse: hit@1 0.633 -> 0.533, MRR 0.739 -> 0.689 on a 30-query gold set. Kept live so you can test it against your own set |
 | `BRAIN_STOPWORDS` | empty | extra stopwords (also `<root>/.brain-stopwords`) |
 | `BRAIN_INDEX` | `sqlite` | BM25 reads `.index/brain.db` instead of scanning files; unset or a broken index falls back on its own |

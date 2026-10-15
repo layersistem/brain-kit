@@ -33,6 +33,10 @@ if [ -n "$SID" ]; then
     elif [ "$G" -ge 120 ]; then LINE="$LINE · since last prompt +$((G/60))m"; fi
   fi
   echo "$NOW" > "$LAST_F"
+  # Issue #14: BRAIN_SHOW_SESSION=1 shows the session id's first 8 characters, the value a record's origin_session:
+  # field takes, so a later consolidation can find the transcript that produced the record. The model has no other
+  # way to see its own session id.
+  [ "${BRAIN_SHOW_SESSION:-0}" = "1" ] && LINE="$LINE · session $(printf '%s' "$SID" | cut -c1-8)"
 fi
 echo "$LINE  (resolve relative dates against this line, write them absolute)"
 exit 0
