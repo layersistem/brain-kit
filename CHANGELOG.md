@@ -22,7 +22,9 @@ no flag file, every touched hook and script prints the same bytes as 1.4.1. No v
 - `BRAIN_RECALL_FLOOR=1`: a docs hit added by the docs pull, or scored under `BRAIN_DENSE_MIN` by the dense engine,
   prints as its title line only.
 - Private mode. `brain-recall.off` in `<project>/.claude/` or the agent config dir: prompt and decision-time recall
-  read no note into the session, and prompt recall prints one `AUTO-RECALL OFF` line on every prompt instead.
+  read no note into the session, and prompt recall prints one `AUTO-RECALL OFF` line on every prompt instead. The
+  flag narrows recall only; other wired injectors (the focus line, due reminders, the compact handover pointer,
+  the pre-compact snapshot) are not affected.
   `brain-write.off`: the new `hooks/vault-write-guard.sh` (`PreToolUse`, `Write|Edit`, both profiles; a full install
   now has 20 entries, a minimal one 16) denies a Write or Edit inside the vault. Both take effect without a restart;
   `brain-search` keeps working.

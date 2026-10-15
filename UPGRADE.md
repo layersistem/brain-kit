@@ -62,7 +62,7 @@ those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run w
 
 ### Coming from 1.4.0 or 1.4.1
 
-This release adds one hook and five switches, all off by default; with the switches off and no flag file, recall
+This release adds one hook, four environment switches and two flag files, all off by default; with the switches off and no flag file, recall
 prints exactly what it printed before.
 
 1. **Re-run `setup.sh` from a checkout of this release's tag.** It wires `hooks/vault-write-guard.sh` on `PreToolUse`

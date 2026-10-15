@@ -55,7 +55,7 @@ git clone https://github.com/layersistem/brain-kit && cd brain-kit
 BRAIN_ROOT=~/brain python3 ~/brain/scripts/brain_bm25.py "example decision" 3
 ```
 
-Restart your agent session afterwards so the hooks load. `--minimal` wires 15 of the 19 hook entries:
+Restart your agent session afterwards so the hooks load. `--minimal` wires 16 of the 20 hook entries:
 everything except the vault hygiene check (`postwrite-check.sh`), the observation stream
 (`observe-mutations.sh`) and the two Stop gates, and it skips the consolidation skill. The choice is
 written to `brain-kit.env` as `BRAIN_PROFILE`, so a later `./setup.sh` keeps it; `--full` switches back. The
@@ -380,8 +380,8 @@ query ran), so you can check whether the objection view ever finds anything on y
 ## Recall hygiene and private mode
 
 Recall puts note text in front of the model on every prompt, so what a note quotes reaches the context too. Four
-switches control that path. All are off by default, and with all of them off every touched hook and script prints the
-same bytes as 1.4.1.
+environment switches and two flag files control that path. All are off by default, and with all of them off every
+touched hook and script prints the same bytes as 1.4.1.
 
 - **`BRAIN_RECALL_NEUTRALIZE=1`** filters what the recall renderer and decision-time recall print
   (`scripts/brain_neutralize.py`). Zero-width characters (U+200B, U+200C, U+200D, U+2060, U+FEFF) are removed, and a
@@ -401,6 +401,8 @@ same bytes as 1.4.1.
     read no note into the session. Prompt recall prints one line instead, on every prompt, so a flag left behind
     is always visible: `AUTO-RECALL OFF (private mode): <path> exists, so no note was read into this turn.`
     `brain-search` still answers, because a manual search is a deliberate call the model can be seen making.
+    The flag narrows recall only: other wired injectors (the focus line, due reminders, the compact handover
+    pointer, the pre-compact snapshot) keep printing and writing as before.
   - `brain-write.off` in the same places: `hooks/vault-write-guard.sh` denies a Write or Edit whose target is inside
     the vault (symlinks resolved) and gives the flag's path as the reason. Shell commands that write are not seen.
     Without the file the hook does two file tests and exits.
@@ -466,7 +468,7 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 | `BRAIN_RECALL_FRESHNESS` / `BRAIN_STALE_DAYS` | `0` / `30` | `1` adds `verified N days ago, basis: X` to the line of a vault knowledge note that has `last_verified:`, and STALE past the day limit unless the basis is `measured`; display only |
 | `BRAIN_RECALL_FLOOR` | `0` | `1` prints a docs hit added by the docs pull, or scored under `BRAIN_DENSE_MIN` by the dense engine, as its title line only |
 | `BRAIN_SHOW_SESSION` | `0` | `1` adds `session <first 8 characters of the session id>` to the clock line, the value of a record's `origin_session:` |
-| `brain-recall.off` / `brain-write.off` (files) | absent | private mode, in `<project>/.claude/` or the agent config dir, no restart: no note read into the session (one visible line per prompt instead), or no Write/Edit inside the vault |
+| `brain-recall.off` / `brain-write.off` (files) | absent | private mode, in `<project>/.claude/` or the agent config dir, no restart: prompt and decision-time recall read no note (one visible line per prompt instead; other injectors unaffected), or no Write/Edit inside the vault |
 | `BRAIN_RRF_RECENCY` | `0` | freshness bonus on the fused score (<= 1 day x1.10, 2-3 days x1.03, memory exempt). Off because it measured worse: hit@1 0.633 -> 0.533, MRR 0.739 -> 0.689 on a 30-query gold set. Kept live so you can test it against your own set |
 | `BRAIN_STOPWORDS` | empty | extra stopwords (also `<root>/.brain-stopwords`) |
 | `BRAIN_INDEX` | `sqlite` | BM25 reads `.index/brain.db` instead of scanning files; unset or a broken index falls back on its own |
