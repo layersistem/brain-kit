@@ -223,9 +223,11 @@ share the same quiet period:
 ```bash
 E="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$E" ] && { set -a; . "$E"; set +a; }
 H="${BRAIN_ROOT:-$HOME/brain}/hooks"; . "$H/_expect_remind.sh"; . "$H/_instance.sh"
-printf '%s' "$line" | expect_remind "the status line"   # prints the reminder or nothing
+printf '%s' "$line" | expect_remind "the status line" || true   # prints the reminder or nothing
 ```
 
 The first line matters: the hooks read `brain-kit.env` on every run, a script of yours does not, and a session does not
 put `BRAIN_ROOT`, `BRAIN_EXPECT` or `BRAIN_EXPECT_RX` into the environment of the commands it runs. Without it the
-function finds the switch off and prints nothing, or the file is not found at all. The kit ships no such script.
+function finds the switch off and prints nothing, or the file is not found at all. The function returns 0 on
+every path, also under `set -euo pipefail`; the `|| true` keeps a script with those options going all the same, since
+the function was written for the hooks, which run without them. The kit ships no such script.

@@ -38,8 +38,8 @@ With the switch unset or `0`, both changed hooks print the same bytes as 1.5.0, 
 - `hooks/_expect_remind.sh`, sourced and not wired: the one definition of that check, `expect_remind <where>
   [instance]`, reading the text on stdin. A script of your own that writes a status line or a ledger entry can call it
   and share the quiet period (`docs/DISCIPLINE.md` §11); such a script loads `brain-kit.env` first, since only the
-  hooks read it on their own. Without the file, check (d) stays silent and the other checks
-  run as before. The hook is wired in the `full` profile only, so a `--minimal` install gets
+  hooks read it on their own. The function returns 0 on every path, so a caller under `set -euo pipefail` goes on.
+  Without the file, check (d) stays silent and the other checks run as before. The hook is wired in the `full` profile only, so a `--minimal` install gets
   the DUE half of the feature and not the reminder.
 - `scripts/brain_expect.py`, read-only, over the scope `due-inject.sh` scans: open lines and how many are past their
   date, held, missed, void, and the hit rate held / (held + missed), with void in neither. `--open` lists every open
