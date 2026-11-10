@@ -1,11 +1,12 @@
 #!/bin/bash
 . "$(dirname "$0")/_dryrun.sh"   # dry-run layer: HOOK_DRY_RUN=1 -> report instead of block
-# PostToolUse (Write|Edit) - vault hygiene, three checks only, all on the file just written and all report-only:
+# PostToolUse (Write|Edit) - vault hygiene, three checks on the file just written, all report-only:
 #   (a) the note just written is 0 bytes (an empty note is a ghost node in a graph view)
 #   (b) [[wikilinks]] IN THE FILE JUST WRITTEN that point at a note which does not exist
 #   (c) the note just written has no [[links]] at all (an orphan lands disconnected in the graph)
 # All three are about the vault staying navigable; nothing else here is enforced, and nothing is deleted.
-# Returns decision:block with a reason, so the agent fixes it instead of moving on.
+# Returns decision:block with a reason, so the agent fixes it instead of moving on. With BRAIN_EXPECT=1 a fourth one,
+# (d), looks at the text the write put in and never blocks (see BRAIN_EXPECT below).
 #
 # 1.2.0: (a) used to delete every 0-byte *.md in the whole vault on each write (a placeholder in another folder was
 # removed in a test); it now only reports the file just written. Link targets are looked up in one list of note names

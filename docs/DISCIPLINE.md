@@ -206,8 +206,9 @@ entry in the belief ledger ([BELIEFS.md](BELIEFS.md)).
 
 A prediction that never gets its line is the common failure, so with the switch on `postwrite-check.sh` reminds you.
 It does not look at length or tense: it looks for a small vocabulary that separates a prediction from a task sentence
-or a description of how something works (`BRAIN_EXPECT_RX`, case ignored; by default
-`expect|estimate|predict|likely|probably|should hold|to watch`). When the text you just wrote to a decision record, a
+or a description of how something works (`BRAIN_EXPECT_RX`, case ignored, whole words only; by default
+`expect|estimate|predict|likely|probably|should hold|to watch`, so "expected", "unexpected" and "unlikely" do not
+count). When the text you just wrote to a decision record, a
 knowledge note, a hub note in `moc/` or a focus file holds one of those words and no `@expect` marker, one sentence
 follows the write, naming the words it found. It never blocks. Text inside fenced code, inline backticks and double
 quotes is not scanned, since an example or a quotation is not your prediction. An instance is reminded at most once in
@@ -220,9 +221,11 @@ The check lives in one sourced file, `hooks/_expect_remind.sh`, so a script of y
 share the same quiet period:
 
 ```bash
-. "$BRAIN_ROOT/hooks/_expect_remind.sh"; . "$BRAIN_ROOT/hooks/_instance.sh"
+E="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$E" ] && { set -a; . "$E"; set +a; }
+H="${BRAIN_ROOT:-$HOME/brain}/hooks"; . "$H/_expect_remind.sh"; . "$H/_instance.sh"
 printf '%s' "$line" | expect_remind "the status line"   # prints the reminder or nothing
 ```
 
-The function reads `BRAIN_EXPECT` and `BRAIN_EXPECT_RX` from the environment, so load `brain-kit.env` first when the
-script does not run inside a session. The kit ships no such script.
+The first line matters: the hooks read `brain-kit.env` on every run, a script of yours does not, and a session does not
+put `BRAIN_ROOT`, `BRAIN_EXPECT` or `BRAIN_EXPECT_RX` into the environment of the commands it runs. Without it the
+function finds the switch off and prints nothing, or the file is not found at all. The kit ships no such script.

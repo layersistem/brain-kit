@@ -20,13 +20,16 @@ With the switch unset or `0`, both changed hooks print the same bytes as 1.5.0, 
 - `hooks/due-inject.sh`: with `BRAIN_EXPECT=1`, open `@expect` lines in the focus file and in your own decision records
   appear in the DUE block on the schedule of `@due` lines (overdue, today, tomorrow, the coming week once a day), marked
   `EXPECTATION - write the outcome:`, and the header then says how to close one. Closed lines are not shown, and
-  neither are lines inside fenced code or inline backticks, which are format examples. `@due` lines print as before.
+  neither is a marker inside fenced code or an inline code span, which is a format example. Backticks pair from the
+  left, the same rule `scripts/brain_expect.py` uses, so a real line written between two code spans is shown and
+  counted alike. `@due` lines print as before.
 - `hooks/postwrite-check.sh`: with `BRAIN_EXPECT=1`, when the text a Write or Edit just put into a decision record, a
   knowledge note, a hub note (`moc/`) or a focus file holds prediction wording and no `@expect` marker, one fixed
   reminder sentence follows as `additionalContext`, with the file name and at most four of the words it found. The
   words are a setting, `BRAIN_EXPECT_RX` (extended regex, case ignored; default
-  `expect|estimate|predict|likely|probably|should hold|to watch`); text inside fenced code, inline backticks and double
-  quotes is not scanned. It never blocks and is printed at most once per instance in 15 minutes; a write that carries
+  `expect|estimate|predict|likely|probably|should hold|to watch`), matched as whole words, so "expected",
+  "unexpected" and "unlikely" do not count; text inside fenced code, inline backticks and double quotes is not
+  scanned. It never blocks and is printed at most once per instance in 15 minutes; a write that carries
   `@expect` restarts that period (state in `brain-kit-state/expect-reminder/instance-<name>`). When the same write is
   blocked for an empty note, a ghost link or an orphan, the sentence is appended to that reason. Under `HOOK_DRY_RUN`
   a reported block leaves the quiet period untouched. The first design (#18) reminded on any decision record of 300
@@ -34,13 +37,14 @@ With the switch unset or `0`, both changed hooks print the same bytes as 1.5.0, 
   predictions written to other places, so #19 replaced it before release.
 - `hooks/_expect_remind.sh`, sourced and not wired: the one definition of that check, `expect_remind <where>
   [instance]`, reading the text on stdin. A script of your own that writes a status line or a ledger entry can call it
-  and share the quiet period (`docs/DISCIPLINE.md` §11). Without the file, check (d) stays silent and the other checks
+  and share the quiet period (`docs/DISCIPLINE.md` §11); such a script loads `brain-kit.env` first, since only the
+  hooks read it on their own. Without the file, check (d) stays silent and the other checks
   run as before. The hook is wired in the `full` profile only, so a `--minimal` install gets
   the DUE half of the feature and not the reminder.
 - `scripts/brain_expect.py`, read-only, over the scope `due-inject.sh` scans: open lines and how many are past their
   date, held, missed, void, and the hit rate held / (held + missed), with void in neither. `--open` lists every open
-  line, `--closed` every closed line with the missed ones first. Lines in fenced code and inline backticks are not
-  counted.
+  line, `--closed` every closed line with the missed ones first. A marker in fenced code or inside an inline code span
+  is not counted; the listed text keeps its code spans, so a measure written as code (`make check`) is shown.
 - Docs: two rows in the README configuration table (`BRAIN_EXPECT`, `BRAIN_EXPECT_RX`), notes in the hooks table and
   the prostheses table, `docs/DISCIPLINE.md` §11 on when a line is worth writing, what the reminder looks for and how a
   script calls it, a paragraph in `docs/BELIEFS.md` (a missed expectation is a candidate `falsified` entry; the ledger

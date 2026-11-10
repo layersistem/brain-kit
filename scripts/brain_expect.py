@@ -81,10 +81,12 @@ def scan(path):
             continue
         if fence or "@expect" not in raw:
             continue
-        s = TICK_RX.sub("", raw)
+        # a marker inside an inline code span is an example; the spans are blanked to find the markers, and the text
+        # is cut from the line as written, so a measure written as code (`make check`) is still shown
+        s = TICK_RX.sub(lambda t: " " * len(t.group()), raw)
         marks = list(MARK_RX.finditer(s))
         for i, m in enumerate(marks):
-            body = s[m.end(): marks[i + 1].start() if i + 1 < len(marks) else len(s)].strip()
+            body = raw[m.end(): marks[i + 1].start() if i + 1 < len(marks) else len(raw)].strip()
             if m.group(1) in ("✓", "✗"):
                 body = DATE_RX.sub("", body)   # a line closed with its date kept: `@expect✓ 2026-11-13 held: ...`
                 st = "missed" if m.group(1) == "✗" else "void" if body.lower().startswith("void") else "held"

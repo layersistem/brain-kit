@@ -3,8 +3,12 @@
 # (issues #18 and #19, BRAIN_EXPECT=1 only). postwrite-check.sh calls it after a note write; a script of your own that
 # writes a status line or a ledger entry can call it after its write and shares the same quiet period.
 #
-#   . <brain root>/hooks/_expect_remind.sh
+#   E="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$E" ] && { set -a; . "$E"; set +a; }
+#   H="${BRAIN_ROOT:-$HOME/brain}/hooks"; . "$H/_expect_remind.sh"; . "$H/_instance.sh"
 #   printf '%s' "$text_just_written" | expect_remind "<where it went>" [instance]
+#
+# Load brain-kit.env first, as above: the hooks read it on every run, a script of yours does not, and a session does
+# not export BRAIN_ROOT, BRAIN_EXPECT or BRAIN_EXPECT_RX to the commands it runs.
 #
 # Reads the text just written on stdin. Prints one sentence when the text holds prediction wording and no `@expect`
 # marker, and nothing otherwise. Never blocks and changes nothing but its own state file.
@@ -13,8 +17,9 @@
 # saw none of the predictions written elsewhere; a broad forward-looking pattern was right on 2 of 14 sampled matches.
 # A short vocabulary is what separates a prediction from a task sentence or a description of how a mechanism behaves.
 #
-# - Pattern: BRAIN_EXPECT_RX (extended regex, case ignored), default below. Text inside fenced code, inline backticks
-#   and double quotes is not scanned: an example or a quotation is not the writer's prediction.
+# - Pattern: BRAIN_EXPECT_RX (extended regex, case ignored, whole words: `grep -w`, so "expected", "unexpected" and
+#   "unlikely" do not match "expect" or "likely"), default below. Text inside fenced code, inline backticks and double
+#   quotes is not scanned: an example or a quotation is not the writer's prediction.
 # - Quiet period: at most one reminder per instance in 15 minutes. A write that carries `@expect` restarts the period,
 #   so whoever has just written an expectation is not reminded. State: one epoch per instance in
 #   <agent-config-dir>/brain-kit-state/expect-reminder/instance-<name>.
@@ -32,7 +37,7 @@ expect_remind() {
     *@expect*) ;;
     *) found=$(printf '%s\n' "$text" | awk '/^[[:space:]]*```/{f=!f;next} !f' \
          | sed -e 's/`[^`]*`//g' -e 's/"[^"]*"//g' -e 's/“[^”]*”//g' \
-         | grep -oiE "${BRAIN_EXPECT_RX:-$EXPECT_RX_DEFAULT}" 2>/dev/null \
+         | grep -owiE "${BRAIN_EXPECT_RX:-$EXPECT_RX_DEFAULT}" 2>/dev/null \
          | awk '{k=tolower($0)} !g[k]++ {print substr($0, 1, 40)}' | head -4 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
        [ -n "$found" ] || return 0 ;;
   esac
