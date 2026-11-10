@@ -20,8 +20,13 @@ Scope is the one due-inject.sh scans: focus/_FOCUS_<instance>.txt and the decisi
 `instance: <instance>`. Instance: --instance, else BRAIN_INSTANCE, else the nearest .brain-instance above the project
 dir (CLAUDE_PROJECT_DIR or the current dir), else <vault>/.brain-instance, else `main`. Nothing here writes the vault
 or the belief ledger; a missed expectation is a candidate `falsified` entry there (docs/BELIEFS.md), written by you.
-Standard library only. Env: BRAIN_ROOT . BRAIN_DIR . BRAIN_INSTANCE"""
+Standard library only. Env: BRAIN_ROOT . BRAIN_DIR . BRAIN_INSTANCE, also read from <agent-config-dir>/brain-kit.env as
+the hooks do (an exported value wins), so the counter and the DUE block read the same vault (issue #22)."""
 import argparse, datetime, glob, os, re, sys
+
+import brain_env
+
+brain_env.load()
 
 BRAIN_ROOT = os.path.expanduser(os.environ.get("BRAIN_ROOT", "~/brain"))
 VAULT = os.path.expanduser(os.environ.get("BRAIN_DIR") or os.path.join(BRAIN_ROOT, "vault"))

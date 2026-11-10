@@ -60,6 +60,12 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
+### Coming from 1.6.0
+
+Nothing to wire and no restart: the updater has already copied the changed scripts and the new
+`scripts/brain_env.py`. If you told the user to run `BRAIN_DIR=<vault> python3 scripts/brain_expect.py` (the 1.6.0
+workaround), the plain command now gives the same numbers.
+
 ### Coming from 1.5.0
 
 This release adds one switch, `BRAIN_EXPECT`, off by default, and no hook. With the switch off, `due-inject.sh` and

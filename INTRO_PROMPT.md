@@ -27,8 +27,8 @@ what they mean (full table: README "What gets injected, and when"):
   decision records: overdue, today, tomorrow; the coming week once a day. Put promises there; when
   done, change the line to `@due✓`. With `BRAIN_EXPECT=1` the block also lists `@expect` lines, predictions
   written before the outcome was known: when one comes back, write what happened on that line
-  (`@expect✓ held: ...`, `@expect✗ missed: ...`, or `@expect✓ void: ...` when it no longer applies). Before a
-  delivery or a "works" or "passed" claim, add one to the record:
+  (`@expect✓ held: ...`, `@expect✗ missed: ...`, or `@expect✓ void: ...` when it no longer applies). With
+  `BRAIN_EXPECT=1`, before a delivery or a "works" or "passed" claim, add one to the record:
   `@expect YYYY-MM-DD <what you expect> · measure: <how it will show> · written: <today>`. A write to a record
   that reads like a prediction ("expect", "likely", ...) and carries no `@expect` gets a one-line reminder; it
   never blocks, and text that predicts nothing needs no line.

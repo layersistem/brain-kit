@@ -444,7 +444,8 @@ spends its budget twice. Check the first compaction after adding the section by 
 ## Configuration
 
 Everything is environment variables; `setup.sh` writes the few that matter into
-`<agent-config-dir>/brain-kit.env`, which every hook sources. An exported variable always wins.
+`<agent-config-dir>/brain-kit.env`, which every hook sources; `scripts/brain_expect.py`, `scripts/brain_verdict.py`
+and `scripts/desk_ledger.py` read it too when you run them yourself. An exported variable always wins.
 
 | Variable | Default | What it does |
 |---|---|---|

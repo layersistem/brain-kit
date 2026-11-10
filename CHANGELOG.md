@@ -5,6 +5,38 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [Unreleased]
+
+The expectation counter and the verdict ledger read the vault the hooks read (issue #22). Nothing to wire:
+`scripts/update.sh` brings the changed scripts and the new `scripts/brain_env.py`. When the environment already carries
+the settings, as it does when a hook starts a script, every output is the same as 1.6.0.
+
+### Fixed
+- `scripts/brain_expect.py` and `scripts/brain_verdict.py` took `BRAIN_ROOT` and `BRAIN_DIR` from the environment only.
+  The hooks source `<agent-config-dir>/brain-kit.env` on every run; a script started from a shell does not, so with
+  the vault path set only in that file (where `setup.sh` and `INTRO_PROMPT.md` put it) the counter fell back to
+  `~/brain/vault` and printed that vault's numbers without a warning, for example "open 0" while the DUE block showed
+  an open line. Both scripts now read the file before they build their paths, with the parser `scripts/desk_ledger.py`
+  has used since 1.2.0, moved unchanged into `scripts/brain_env.py` and shared by the three: lines of the form
+  `NAME=value`, `NAME="value"`, `NAME='value'` and `NAME="${NAME:-value}"`, with an optional `export`, are read and
+  nothing in the file is executed; a variable that is already in the environment wins. `brain_verdict.py` reads the
+  file only when it runs as a script: `brain_bm25.py` imports it for the verdict boost, and that import leaves the
+  caller's environment alone. The 1.6.0 known limit and its workaround no longer apply.
+
+### Changed
+- `INTRO_PROMPT.md`: the DUE item says that the `@expect` line before a delivery or a "works" or "passed" claim is
+  written with `BRAIN_EXPECT=1`. Read without the switch, the sentence asked for a line that never comes back.
+- README "Configuration" names the three scripts that read `brain-kit.env` themselves.
+
+Measured by the author: in a fixture with six vaults and fifteen forms of `brain-kit.env` (the four line forms,
+`$HOME` and `${HOME}` inside double quotes, `$` kept inside single quotes, root only, the instance set in the file,
+the default config dir, comments and noise, an exported value against the setup form and against a plain line, no
+file, command substitutions that must not run), each script run by hand prints what the 1.6.0 script prints when a
+hook has loaded the file, and under a hook prints what 1.6.0 printed; `desk_ledger.py` resolves the same root, vault
+and instance as 1.6.0 for every form: 107 of 107 checks. Twelve deliberate faults (a missing load in each script, the
+file winning over the environment, each parser rule removed) each turn the run red; the 1.6.0 tree fails 37 of the
+107 checks.
+
 ## [1.6.0] - 2026-11-11
 
 Expectation memory behind one new switch, `BRAIN_EXPECT`, off by default (issues #18 and #19). There is no new hook to
