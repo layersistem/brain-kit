@@ -183,3 +183,51 @@ the edit there is still exactly one. Three things never happen:
 `origin_session:` (optional, in the record template) holds the first 8 characters of the id of the
 session that wrote the record; with `BRAIN_SHOW_SESSION=1` the clock line shows them. It is how a later
 consolidation finds the transcript a decision came out of. An edit by another session does not change it.
+
+## 11. Expectations: the prediction before the outcome
+
+Decision records say what was decided, and the verdict ledger says what went wrong. Neither says what you expected
+before the outcome was known, so a surprise leaves no trace, and a "works" written after the fact cannot be told apart
+from a lucky guess. With `BRAIN_EXPECT=1` one line next to the work fills that gap. Write it in the focus file or in the
+decision record before you deliver, before you write "works" or "passed", and before you judge a result you have not
+measured yet:
+
+```
+@expect 2026-11-13 the export finishes in under 60 seconds on the full vault · measure: the timer line in the job log · written: 2026-11-10
+```
+
+The date is the day the outcome will be known. The measure is something a later session can check without asking you;
+a line whose measure is "it should be fine" is not worth writing, and neither is a line on a record that makes no claim.
+On its day the DUE block shows the line. Close it where it stands: `@expect✓ held: <what happened>`,
+`@expect✗ missed: <what happened>`, or `@expect✓ void: <why>` when the question stopped mattering. Keep the missed
+ones; they show where a claim ran ahead of the evidence. `scripts/brain_expect.py` prints the counts and the hit rate,
+and `--closed` lists the missed lines first. A missed line that changes what you believe is a candidate `falsified`
+entry in the belief ledger ([BELIEFS.md](BELIEFS.md)).
+
+A prediction that never gets its line is the common failure, so with the switch on `postwrite-check.sh` reminds you.
+It does not look at length or tense: it looks for a small vocabulary that separates a prediction from a task sentence
+or a description of how something works (`BRAIN_EXPECT_RX`, case ignored, whole words only; by default
+`expect|estimate|predict|likely|probably|should hold|to watch`, so "expected", "unexpected" and "unlikely" do not
+count). When the text you just wrote to a decision record, a
+knowledge note, a hub note in `moc/` or a focus file holds one of those words and no `@expect` marker, one sentence
+follows the write, naming the words it found. It never blocks. Text inside fenced code, inline backticks and double
+quotes is not scanned, since an example or a quotation is not your prediction. An instance is reminded at most once in
+15 minutes, and a write that carries `@expect` starts that period again, so you are not reminded right after writing
+an expectation. If your records are not in English, set the pattern to the words you actually use; a broad pattern
+such as any future tense reminds on most writes, and a reminder that is usually wrong stops being read.
+
+Predictions are also written outside the vault notes: a status line, a ledger entry, a message to another instance.
+The check lives in one sourced file, `hooks/_expect_remind.sh`, so a script of your own can run it after its write and
+share the same quiet period:
+
+```bash
+E="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$E" ] && { set -a; . "$E"; set +a; }
+H="${BRAIN_ROOT:-$HOME/brain}/hooks"; . "$H/_expect_remind.sh"; . "$H/_instance.sh"
+printf '%s' "$line" | expect_remind "the status line" || true   # prints the reminder or nothing
+```
+
+The first line matters: the hooks read `brain-kit.env` on every run, a script of yours does not, and a session does not
+put `BRAIN_ROOT`, `BRAIN_EXPECT` or `BRAIN_EXPECT_RX` into the environment of the commands it runs. Without it the
+function finds the switch off and prints nothing, or the file is not found at all. The function returns 0 on
+every path, also under `set -euo pipefail`; the `|| true` keeps a script with those options going all the same, since
+the function was written for the hooks, which run without them. The kit ships no such script.

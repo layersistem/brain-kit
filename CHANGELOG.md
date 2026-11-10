@@ -5,6 +5,61 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [Unreleased]
+
+Expectation memory behind one new switch, `BRAIN_EXPECT`, off by default (issues #18 and #19). There is no new hook to
+wire: `scripts/update.sh` brings the two changed hooks, the new sourced file `hooks/_expect_remind.sh` and the new
+script, and every hook reads `brain-kit.env` when it runs.
+With the switch unset or `0`, both changed hooks print the same bytes as 1.5.0, also on a vault that already contains
+`@expect` lines. No vault format change.
+
+### Added
+- The line: `@expect YYYY-MM-DD[ HH:MM] <what I expect> · measure: <how it will show> · written: YYYY-MM-DD`, a
+  prediction written next to the work before its outcome is known. It is closed on the same line as
+  `@expect✓ held: <what happened>`, `@expect✗ missed: <what happened>` or `@expect✓ void: <why it no longer applies>`.
+- `hooks/due-inject.sh`: with `BRAIN_EXPECT=1`, open `@expect` lines in the focus file and in your own decision records
+  appear in the DUE block on the schedule of `@due` lines (overdue, today, tomorrow, the coming week once a day), marked
+  `EXPECTATION - write the outcome:`, and the header then says how to close one. Closed lines are not shown, and
+  neither is a marker inside fenced code or an inline code span, which is a format example. Backticks pair from the
+  left, the same rule `scripts/brain_expect.py` uses, so a real line written between two code spans is shown and
+  counted alike. `@due` lines print as before.
+- `hooks/postwrite-check.sh`: with `BRAIN_EXPECT=1`, when the text a Write or Edit just put into a decision record, a
+  knowledge note, a hub note (`moc/`) or a focus file holds prediction wording and no `@expect` marker, one fixed
+  reminder sentence follows as `additionalContext`, with the file name and at most four of the words it found. The
+  words are a setting, `BRAIN_EXPECT_RX` (extended regex, case ignored; default
+  `expect|estimate|predict|likely|probably|should hold|to watch`), matched as whole words, so "expected",
+  "unexpected" and "unlikely" do not count; text inside fenced code, inline backticks and double quotes is not
+  scanned. It never blocks and is printed at most once per instance in 15 minutes; a write that carries
+  `@expect` restarts that period (state in `brain-kit-state/expect-reminder/instance-<name>`). When the same write is
+  blocked for an empty note, a ghost link or an orphan, the sentence is appended to that reason. Under `HOOK_DRY_RUN`
+  a reported block leaves the quiet period untouched. The first design (#18) reminded on any decision record of 300
+  characters or more without the line; on a fork it matched 432 of 1,240 writes in three days and none of the
+  predictions written to other places, so #19 replaced it before release.
+- `hooks/_expect_remind.sh`, sourced and not wired: the one definition of that check, `expect_remind <where>
+  [instance]`, reading the text on stdin. A script of your own that writes a status line or a ledger entry can call it
+  and share the quiet period (`docs/DISCIPLINE.md` §11); such a script loads `brain-kit.env` first, since only the
+  hooks read it on their own. The function returns 0 on every path, so a caller under `set -euo pipefail` goes on.
+  Without the file, check (d) stays silent and the other checks run as before. The hook is wired in the `full` profile only, so a `--minimal` install gets
+  the DUE half of the feature and not the reminder.
+- `scripts/brain_expect.py`, read-only, over the scope `due-inject.sh` scans: open lines and how many are past their
+  date, held, missed, void, and the hit rate held / (held + missed), with void in neither. `--open` lists every open
+  line, `--closed` every closed line with the missed ones first. A marker in fenced code or inside an inline code span
+  is not counted; the listed text keeps its code spans, so a measure written as code (`make check`) is shown.
+- Docs: two rows in the README configuration table (`BRAIN_EXPECT`, `BRAIN_EXPECT_RX`), notes in the hooks table and
+  the prostheses table, `docs/DISCIPLINE.md` §11 on when a line is worth writing, what the reminder looks for and how a
+  script calls it, a paragraph in `docs/BELIEFS.md` (a missed expectation is a candidate `falsified` entry; the ledger
+  is still written by hand), the DUE item in `INTRO_PROMPT.md`, and UPGRADE "Coming from 1.5.0".
+
+Measured with `BRAIN_EXPECT` unset, `0`, empty, `yes`, `true`, `01` and `BRAIN_EXPECT=0` in `brain-kit.env`: both
+changed hooks gave the same stdout, stderr, exit code and `brain-kit-state` files as 1.5.0 in 161 of 161 comparisons on
+a fixture vault that holds open, closed, fenced and backticked `@expect` lines, for three instance names, and for
+sixteen kinds of write to `postwrite-check.sh` (dry run and prediction wording in every scanned place included). With
+the switch on, 71 checks passed, and each of 41 deliberate faults in the new code turned at least one check red.
+`bash -n` passes under bash 3.2.57. On the fixture, median of 20 runs: `due-inject.sh` 539 ms in 1.5.0, 534 ms off,
+703 ms on (it then also prints eight expectation lines); `postwrite-check.sh` on a decision record 37 ms in 1.5.0,
+37 ms off, 57 ms on when the text holds no prediction word. A write that does hold one also resolves the instance
+name, the same process walk the prompt hooks do (160 ms measured inside a session on the test server).
+
 ## [1.5.0] - 2026-10-15
 
 Recall hygiene and record provenance (issue #14). One new hook to wire, so an upgrade runs `setup.sh` once more
