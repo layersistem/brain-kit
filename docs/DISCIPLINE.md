@@ -183,3 +183,23 @@ the edit there is still exactly one. Three things never happen:
 `origin_session:` (optional, in the record template) holds the first 8 characters of the id of the
 session that wrote the record; with `BRAIN_SHOW_SESSION=1` the clock line shows them. It is how a later
 consolidation finds the transcript a decision came out of. An edit by another session does not change it.
+
+## 11. Expectations: the prediction before the outcome
+
+Decision records say what was decided, and the verdict ledger says what went wrong. Neither says what you expected
+before the outcome was known, so a surprise leaves no trace, and a "works" written after the fact cannot be told apart
+from a lucky guess. With `BRAIN_EXPECT=1` one line next to the work fills that gap. Write it in the focus file or in the
+decision record before you deliver, before you write "works" or "passed", and before you judge a result you have not
+measured yet:
+
+```
+@expect 2026-11-13 the export finishes in under 60 seconds on the full vault · measure: the timer line in the job log · written: 2026-11-10
+```
+
+The date is the day the outcome will be known. The measure is something a later session can check without asking you;
+a line whose measure is "it should be fine" is not worth writing, and neither is a line on a record that makes no claim.
+On its day the DUE block shows the line. Close it where it stands: `@expect✓ held: <what happened>`,
+`@expect✗ missed: <what happened>`, or `@expect✓ void: <why>` when the question stopped mattering. Keep the missed
+ones; they show where a claim ran ahead of the evidence. `scripts/brain_expect.py` prints the counts and the hit rate,
+and `--closed` lists the missed lines first. A missed line that changes what you believe is a candidate `falsified`
+entry in the belief ledger ([BELIEFS.md](BELIEFS.md)).

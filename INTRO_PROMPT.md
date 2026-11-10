@@ -25,7 +25,13 @@ what they mean (full table: README "What gets injected, and when"):
   "yesterday" and "an hour ago" are guesses without it.
 - **DUE** (`due-inject.sh`) - `@due YYYY-MM-DD[ HH:MM] text` lines from your focus file or your own
   decision records: overdue, today, tomorrow; the coming week once a day. Put promises there; when
-  done, change the line to `@due✓`.
+  done, change the line to `@due✓`. With `BRAIN_EXPECT=1` the block also lists `@expect` lines, predictions
+  written before the outcome was known: when one comes back, write what happened on that line
+  (`@expect✓ held: ...`, `@expect✗ missed: ...`, or `@expect✓ void: ...` when it no longer applies). Before a
+  delivery or a "works" or "passed" claim, add one to the record:
+  `@expect YYYY-MM-DD <what you expect> · measure: <how it will show> · written: <today>`. A decision record
+  written without one gets a one-line reminder after the write; it never blocks, and a record that carries no
+  claim needs no line.
 - **context** (`context-inject.sh`, Claude Code only) - how full the window is. WARNING (50%):
   compact at the next clean boundary, prepare the handoff record now. HARD (65%): compact now - and
   when self-compact is installed, "self-compact now": write the handoff record and the focus summary,
