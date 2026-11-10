@@ -60,6 +60,13 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
+### Coming from 1.5.0
+
+Nothing to wire and no restart: the updater has already copied `hooks/postwrite-check.sh`, and the hook reads
+`brain-kit.env` when it runs. On a fast disk it prints exactly what it printed before. If the vault lives on a network
+mount or in a cloud-synced folder, tell the user about `BRAIN_POSTWRITE_BUDGET` (README "Configuration"): the default
+of 5 seconds keeps the hook answering there, at the price of skipping the ghost-link check while the storage is slow.
+
 ### Coming from 1.4.0 or 1.4.1
 
 This release adds one hook, four environment switches and two flag files, all off by default; with the switches off and no flag file, recall
