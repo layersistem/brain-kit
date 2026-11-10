@@ -9,18 +9,20 @@ this file.
 
 The write check no longer stalls on slow storage (issue #17). Nothing to wire: `scripts/update.sh` brings the changed
 hook. On a fast disk `postwrite-check.sh` prints the same bytes as 1.5.0. A write with nothing to report no longer
-pays for the vault-wide count, so it gets faster as the vault grows (median 119 ms to 71 ms at 3,000 notes); a write
-that does get a report pays for the time limit instead, about 17 ms more at 40 notes and 45 ms at 3,000.
+pays for the vault-wide count, so it gets faster as the vault grows (median 118 ms to 71 ms at 3,000 notes); a write
+that does get a report pays for the time limit instead, about 18 ms more at 40 notes and 47 ms at 3,000.
 
 ### Fixed
 - `hooks/postwrite-check.sh` read the whole vault twice on every Write or Edit of a note, once for the list of note
   names and once for the vault-wide ghost count, before it reported anything about the file just written. On a vault
   of about 2,900 notes on a network mount the name list alone took 72 s and the count did not finish in 5 minutes, so
-  not even the empty-note and orphan checks reached the model. Now those two checks need no vault pass; the name list
-  is built only when the written note has links, and the count only when the hook has something else to report (it
-  is printed only then). Both passes share one budget, `BRAIN_POSTWRITE_BUDGET` (seconds, default 5, `0` for no
-  limit). When it runs out, the pass is stopped, the ghost-link check is skipped for that write, and one line says so
-  as `additionalContext`, or appended to the block when there is one; the passes are then not tried again on that
+  not even the empty-note and orphan checks reached the model. Now those two checks need no vault pass of their own;
+  the count is made only when the hook has something else to report (it is printed only then), and the name list only
+  when the written note has links or the count needs it. Both passes share one budget, `BRAIN_POSTWRITE_BUDGET`
+  (seconds of real elapsed time, default 5, `0` for no limit; read in base 10 with at most five digits, anything else
+  counts as 5), so a report waits at most that long. When it runs out, the pass is stopped, the ghost-link check or
+  the count is skipped for that write, and one line says so as `additionalContext`, or appended to the block when
+  there is one; the passes are then not tried again on that
   machine for an hour (`brain-kit-state/postwrite-slow`), so the line is not repeated on every write.
 
 ## [1.5.0] - 2026-10-15

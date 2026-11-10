@@ -45,39 +45,45 @@ case "${FP#"$VAULT"/}" in .*|*/.*) exit 0 ;; esac
 # check) and the vault-wide ghost count (for the background figure). On storage where opening a file is slow (a network
 # mount, a cloud-synced folder) they cost one open per note on every write: a vault of about 2,900 notes on a network
 # mount took 72 s for the name list alone and had not finished the count after 5 minutes, so no check reached the
-# model. Now the checks that need only the written file (empty note, orphan) need no pass; the name list is built only
-# when the written file has links, the count only when there is something to report (the figure is printed only
-# then), and both share one budget. When it runs out, the pass is stopped, the ghost check is skipped for this write,
-# one line says so, and the passes are not tried again on this machine for an hour (state in
-# <agent-config-dir>/brain-kit-state/postwrite-slow): an alarm that repeats on every write is one nobody reads. On a
-# fast disk the output is byte-identical to 1.5.0.
+# model. Now the checks that need only the written file (empty note, orphan) need no pass of their own; the count is
+# made only when there is something to report (the figure is printed only then), the name list only when the written
+# file has links or the count needs it, and both share one budget, so a report waits at most that long. When it runs
+# out, the pass is stopped, the ghost check or the count is skipped for this write, one line says so, and the passes
+# are not tried again on this machine for an hour (state in <agent-config-dir>/brain-kit-state/postwrite-slow): an
+# alarm that repeats on every write is one nobody reads. On a fast disk the output is byte-identical to 1.5.0.
+# The budget is read in base 10 ("08" is 8) and has at most five digits; anything else counts as 5.
 BUDGET="${BRAIN_POSTWRITE_BUDGET:-5}"; case "$BUDGET" in ''|*[!0-9]*) BUDGET=5 ;; esac
+BUDGET="${BUDGET#"${BUDGET%%[!0]*}"}"; BUDGET="${BUDGET:-0}"; [ "${#BUDGET}" -gt 5 ] && BUDGET=5
 SLOWF="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit-state/postwrite-slow"
-DEADLINE=$((SECONDS + BUDGET)); vault_ok=0; over=0; TMPD=""; FILES=""; NAMES=""; OUT=""
+vault_ok=0; over=0; expired=0; TMPD=""; WD=""; FILES=""; NAMES=""; OUT=""
 if [ "$BUDGET" -gt 0 ] && [ -f "$SLOWF" ]; then
   last=$(cat "$SLOWF" 2>/dev/null); case "$last" in ''|*[!0-9]*) last=0 ;; esac
   [ $(( $(date +%s) - last )) -lt 3600 ] && vault_ok=2   # over budget within the hour: skip the passes quietly
 fi
+# Before the first pass: a temp dir for the passes' output and one watchdog for the whole budget, a subshell that
+# sleeps BUDGET seconds once and then sends this hook USR1. That is real elapsed time; bash's SECONDS steps at the
+# wall clock's second boundaries, so a 1 s budget counted with it could end at once. Told to stop (TERM), the watchdog
+# stops its own sleep; no pkill on that path, since pkill reads every process on the machine (about 0.1 s with 850).
 _tmpdir() {
   [ -n "$TMPD" ] || [ "$BUDGET" -eq 0 ] && return 0
-  TMPD=$(mktemp -d "${TMPDIR:-/tmp}/postwrite.XXXXXX" 2>/dev/null) && trap 'rm -rf "$TMPD"' EXIT
+  TMPD=$(mktemp -d "${TMPDIR:-/tmp}/postwrite.XXXXXX" 2>/dev/null) || return 0
+  trap 'expired=1' USR1; trap '_unwatch; rm -rf "$TMPD"' EXIT
+  { ( s=""; trap '[ -n "$s" ] && kill "$s"; exit 0' TERM; sleep "$BUDGET" & s=$!
+      wait "$s" && kill -USR1 $$ ) >/dev/null 2>&1 & } 2>/dev/null
+  WD=$!
 }
-# _bounded IN CMD...: CMD's stdout into OUT, stdin from the file IN, within what is left of the budget; 1 when it was
-# stopped. The watchdog marks and stops only if its sleep ran out; a sleep killed early leaves no mark. When CMD ends in
-# time the watchdog is told to stop its own sleep (a trap), not found with pkill: pkill reads every process on the
-# machine (about 0.1 s with 850 processes). Without a budget (or a temp dir) CMD simply runs, as in 1.5.0.
+_unwatch() { [ -n "$WD" ] && { kill "$WD"; wait "$WD"; } 2>/dev/null; WD=""; }
+# _bounded IN CMD...: CMD's stdout into OUT, stdin from the file IN; 1 when the budget ran out first. The USR1 trap ends
+# the wait, and the pass is stopped together with its children. Without a budget (or a temp dir) CMD simply runs, as in
+# 1.5.0.
 _bounded() {
-  local in="$1" left pid wd; shift; OUT=""
-  if [ "$BUDGET" -eq 0 ] || [ -z "$TMPD" ]; then OUT=$("$@" < "$in" 2>/dev/null); return 0; fi
-  left=$((DEADLINE - SECONDS)); [ "$left" -le 0 ] && return 1
+  local in="$1" pid; shift; OUT=""
+  if [ -z "$TMPD" ]; then OUT=$("$@" < "$in" 2>/dev/null); return 0; fi
+  [ "$expired" = 1 ] && return 1
   { "$@" < "$in" > "$TMPD/out" 2>/dev/null & } 2>/dev/null
   pid=$!
-  { ( s=""; trap '[ -n "$s" ] && kill "$s"; exit 0' TERM; sleep "$left" & s=$!
-      wait "$s" && { : > "$TMPD/stopped"; pkill -P "$pid"; kill "$pid"; } ) >/dev/null 2>&1 & } 2>/dev/null
-  wd=$!
   wait "$pid" 2>/dev/null
-  kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
-  [ -f "$TMPD/stopped" ] && return 1
+  if [ "$expired" = 1 ]; then { pkill -P "$pid"; kill "$pid"; wait "$pid"; } 2>/dev/null; return 1; fi
   OUT=$(< "$TMPD/out"); return 0
 }
 # One list of the vault's notes, built at most once per call and only when a check needs it (portable find: no
@@ -88,7 +94,7 @@ _names() {
   if _bounded /dev/null find "$VAULT" -mindepth 1 -name '.*' -prune -o -name '*.md' -type f -print; then
     FILES="$OUT"; NAMES=$(printf '%s\n' "$FILES" | sed 's#.*/##; s/\.md$//' | LC_ALL=C sort -u); vault_ok=1
   else
-    vault_ok=2; over=1
+    vault_ok=2; over=1   # 1: the name list was stopped, 2: the count was
   fi
 }
 _strip_code() { awk '/^[[:space:]]*```/{f=!f;next} !f' "$1" 2>/dev/null | sed 's/`[^`]*`//g'; }
@@ -129,7 +135,7 @@ if [ -n "$msg" ]; then
   if [ "$vault_ok" = 1 ] && [ -n "$FILES" ]; then
     if [ -n "$TMPD" ]; then
       printf '%s\n' "$FILES" | tr '\n' '\000' > "$TMPD/files0"
-      _bounded "$TMPD/files0" xargs -0 grep -hoE "\[\[[^]]+\]\]" || over=1
+      _bounded "$TMPD/files0" xargs -0 grep -hoE "\[\[[^]]+\]\]" || over=2
     else
       OUT=$(printf '%s\n' "$FILES" | tr '\n' '\000' | xargs -0 grep -hoE "\[\[[^]]+\]\]" 2>/dev/null)
     fi
@@ -139,18 +145,23 @@ if [ -n "$msg" ]; then
     fi
   fi
 fi
+_unwatch
 slow=""
-[ "$over" = 1 ] && slow="postwrite-check: the vault-wide pass did not finish within $BUDGET s (slow storage?). The \
-ghost-link check was skipped for this write and will not be tried again on this machine for an hour; the empty-note \
-and orphan checks ran. Not a block; carry on. (Budget: BRAIN_POSTWRITE_BUDGET.)"
+if [ "$over" != 0 ]; then
+  what="vault-wide ghost count"; [ "$over" = 1 ] && [ -n "$LINKS" ] && what="ghost-link check"
+  slow="postwrite-check: the vault-wide pass did not finish within $BUDGET s (slow storage?). The $what was skipped \
+for this write, and the vault-wide passes will not be tried again on this machine for an hour; the empty-note and \
+orphan checks ran."
+fi
 _slow_seen() { mkdir -p "$(dirname "$SLOWF")" 2>/dev/null; date +%s > "$SLOWF" 2>/dev/null; }
 if [ -n "$msg" ]; then
-  [ -n "$slow" ] && msg="${msg% } $slow"
+  [ -n "$slow" ] && msg="${msg%"${msg##*[! ]}"} $slow (Budget: BRAIN_POSTWRITE_BUDGET.)"
   dry_guard "postwrite-check" "vault-hygiene"
   [ -n "$slow" ] && _slow_seen
   jq -n --arg r "$msg" '{decision:"block",reason:$r}'
 elif [ -n "$slow" ]; then
   _slow_seen
-  jq -n --arg c "$slow" '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$c}}'
+  jq -n --arg c "$slow Not a block; carry on. (Budget: BRAIN_POSTWRITE_BUDGET.)" \
+    '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$c}}'
 fi
 exit 0
