@@ -7,9 +7,10 @@ An expectation is written before the outcome is known, next to the work, and clo
   closed   @expect✓ held: <what happened>  |  @expect✗ missed: <what happened>  |  @expect✓ void: <why it no longer applies>
 
 With BRAIN_EXPECT=1, hooks/due-inject.sh brings an open line back on its date and hooks/postwrite-check.sh reminds a
-decision record that has none. This script only reads: it prints how many lines are open (and how many of those are
-past their date), held, missed and void, and the hit rate held / (held + missed); void counts in neither. Lines inside
-fenced code blocks and inside inline backticks are format examples, not expectations, and are not counted.
+write that reads like a prediction and carries none. This script only reads: it prints how many lines are open (and
+how many of those are past their date), held, missed and void, and the hit rate held / (held + missed); void counts in
+neither. Lines inside fenced code blocks and inside inline backticks are format examples, not expectations, and are
+not counted.
 
   brain_expect.py [--instance NAME] [--open] [--closed]
     --open     every open line, oldest date first (default: the five oldest)

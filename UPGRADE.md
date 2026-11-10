@@ -65,11 +65,12 @@ those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run w
 This release adds one switch, `BRAIN_EXPECT`, off by default, and no hook. With the switch off, `due-inject.sh` and
 `postwrite-check.sh` print exactly what they printed before.
 
-1. **Nothing to wire.** The updater has already copied the two changed hooks and `scripts/brain_expect.py`; `setup.sh`
-   does not need to run again for this release.
+1. **Nothing to wire.** The updater has already copied the two changed hooks, the sourced `hooks/_expect_remind.sh` and
+   `scripts/brain_expect.py`; `setup.sh` does not need to run again for this release.
 2. **Tell the user what can be turned on** (README "Configuration", `BRAIN_EXPECT`; `docs/DISCIPLINE.md` §11): dated
-   `@expect` lines that come back on their day in the DUE block, a reminder after a decision record is written without
-   one, and a counter. Ask before adding `BRAIN_EXPECT=1` to `brain-kit.env`. The reminder lives in
+   `@expect` lines that come back on their day in the DUE block, a reminder when a write reads like a prediction and
+   carries none, and a counter. Ask before adding `BRAIN_EXPECT=1` to `brain-kit.env`; if the user's records are not in
+   English, ask which words their predictions use and set `BRAIN_EXPECT_RX` to them. The reminder lives in
    `postwrite-check.sh`, which a `--minimal` install does not wire; there only the DUE half works.
 3. **No restart is needed** for the switch: each hook reads `brain-kit.env` when it runs.
 

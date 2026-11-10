@@ -24,12 +24,13 @@
 #         BRAIN_ORPHAN_EXEMPT - space separated dir names where linkless files are fine by design
 #                               (default: "_drafts _archive refs focus"; raw agent output, scratch, working files)
 #         BRAIN_WRITING_RULE  - optional path/name of your note-writing rule, quoted in the orphan message
-#         BRAIN_EXPECT        - `1` adds (d), a reminder that never blocks (issue #18, off by default): a write that
-#                               leaves a decision/*.md file at 300 characters or more with no `@expect` line in it gets
-#                               one fixed sentence as additionalContext, at most once an hour per file (state in
-#                               <agent-config-dir>/brain-kit-state/expect-reminder/). It rides along with a block that
-#                               (a)-(c) raise and never turns a clean write into one. Unset or any other value: the
-#                               output is byte-identical to 1.5.0.
+#         BRAIN_EXPECT        - `1` adds (d), a reminder that never blocks (issues #18, #19; off by default): when the
+#                               text just written to a decision record, a knowledge note, a hub note (moc/) or a focus
+#                               file holds prediction wording (BRAIN_EXPECT_RX) and no `@expect` marker, one sentence
+#                               goes out as additionalContext, at most once per instance in 15 minutes. The definition
+#                               lives in _expect_remind.sh; without that file (d) stays silent. It rides along with a
+#                               block that (a)-(c) raise and never turns a clean write into one. Unset or any other
+#                               value: the output is byte-identical to 1.5.0.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 # Identity and scope derive from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd:
 # a `cd` into another project inside a session must not change who you are or whose memory you read.
@@ -72,24 +73,6 @@ if [ "$exempt" -eq 0 ]; then
   case "$FP" in *.md) [ -s "$FP" ] && ! grep -q '\[\[' "$FP" && orphan=$(basename "$FP") ;; esac
 fi
 
-# (d) Expectation reminder, BRAIN_EXPECT=1 only. Characters, not bytes: UTF-8 continuation bytes are dropped first.
-expect=""; EXF=""
-if [ "${BRAIN_EXPECT:-0}" = 1 ]; then
-  case "$FP" in "$VAULT"/decision/*.md)
-    if [ -s "$FP" ] && [ "$(LC_ALL=C tr -d '\200-\277' < "$FP" | wc -c | tr -d ' ')" -ge 300 ] && ! grep -q '@expect' "$FP"; then
-      EXF="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit-state/expect-reminder/$(basename "$FP")"
-      last=$(cat "$EXF" 2>/dev/null); case "$last" in ''|*[!0-9]*) last=0 ;; esac
-      if [ $(( $(date +%s) - last )) -ge 3600 ]; then
-        expect="EXPECTATION (a reminder, not a block; carry on): $(basename "$FP") has no @expect line. If this record \
-carries a delivery, a result or a \"works / passed / ready\" claim, add one line to it now: @expect YYYY-MM-DD <what you \
-expect to happen> · measure: <how it will show> · written: $(date +%F). If it carries none, do nothing. (Not repeated \
-for this file within the hour.)"
-      fi
-    fi ;;
-  esac
-fi
-_expect_shown() { mkdir -p "$(dirname "$EXF")" 2>/dev/null; date +%s > "$EXF" 2>/dev/null; }
-
 msg=""
 [ -n "$empty" ] && msg="The note you just wrote is empty (0 bytes): $empty. An empty note is a ghost node in the graph; \
 fill it or delete it yourself (nothing was deleted). "
@@ -99,13 +82,23 @@ so they create empty nodes. Fix: make the reference plain text (or backticks, if
 in the graph. Give it front matter and a closing 'Related' section with 2-5 links to notes that exist, one of them \
 its hub.${BRAIN_WRITING_RULE:+ Rule: $BRAIN_WRITING_RULE.} "
 [ -n "$msg" ] && [ "${ghosts_all:-0}" -gt 0 ] && msg="${msg}(Vault-wide ghost targets, background only: $ghosts_all.)"
+[ -n "$msg" ] && dry_guard "postwrite-check" "vault-hygiene"
+
+# (d) Expectation reminder, BRAIN_EXPECT=1 only, on the text this write put in (content, or new_string for an Edit).
+# After the dry-run exit, so a reported block leaves the quiet period untouched.
+expect=""
+if [ "${BRAIN_EXPECT:-0}" = 1 ] && [ -f "$(dirname "$0")/_expect_remind.sh" ]; then
+  case "$FP" in "$VAULT"/decision/*.md|"$VAULT"/knowledge/*.md|"$VAULT"/moc/*.md|"$VAULT"/focus/*.txt)
+    . "$(dirname "$0")/_expect_remind.sh"; . "$(dirname "$0")/_instance.sh" 2>/dev/null
+    expect=$(printf '%s' "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string // ""' 2>/dev/null \
+             | expect_remind "$(basename "$FP")" 2>/dev/null) ;;
+  esac
+fi
+
 if [ -n "$msg" ]; then
   [ -n "$expect" ] && msg="${msg% } $expect"
-  dry_guard "postwrite-check" "vault-hygiene"
-  [ -n "$expect" ] && _expect_shown
   jq -n --arg r "$msg" '{decision:"block",reason:$r}'
 elif [ -n "$expect" ]; then
-  _expect_shown
   jq -n --arg c "$expect" '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$c}}'
 fi
 exit 0
