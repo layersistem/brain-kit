@@ -1,11 +1,12 @@
 #!/bin/bash
 . "$(dirname "$0")/_dryrun.sh"   # dry-run layer: HOOK_DRY_RUN=1 -> report instead of block
-# PostToolUse (Write|Edit) - vault hygiene, three checks only, all on the file just written and all report-only:
+# PostToolUse (Write|Edit) - vault hygiene, three checks on the file just written, all report-only:
 #   (a) the note just written is 0 bytes (an empty note is a ghost node in a graph view)
 #   (b) [[wikilinks]] IN THE FILE JUST WRITTEN that point at a note which does not exist
 #   (c) the note just written has no [[links]] at all (an orphan lands disconnected in the graph)
 # All three are about the vault staying navigable; nothing else here is enforced, and nothing is deleted.
-# Returns decision:block with a reason, so the agent fixes it instead of moving on.
+# Returns decision:block with a reason, so the agent fixes it instead of moving on. With BRAIN_EXPECT=1 a fourth one,
+# (d), looks at the text the write put in and never blocks (see BRAIN_EXPECT below).
 #
 # 1.2.0: (a) used to delete every 0-byte *.md in the whole vault on each write (a placeholder in another folder was
 # removed in a test); it now only reports the file just written. Link targets are looked up in one list of note names
@@ -25,6 +26,13 @@
 #                               (default: "_drafts _archive refs focus"; raw agent output, scratch, working files)
 #         BRAIN_WRITING_RULE  - optional path/name of your note-writing rule, quoted in the orphan message
 #         BRAIN_POSTWRITE_BUDGET - seconds the vault-wide passes may take together (default 5, 0 = no limit; #17)
+#         BRAIN_EXPECT        - `1` adds (d), a reminder that never blocks (issues #18, #19; off by default): when the
+#                               text just written to a decision record, a knowledge note, a hub note (moc/) or a focus
+#                               file holds prediction wording (BRAIN_EXPECT_RX) and no `@expect` marker, one sentence
+#                               goes out as additionalContext, at most once per instance in 15 minutes. The definition
+#                               lives in _expect_remind.sh; without that file (d) stays silent. It rides along with a
+#                               block that (a)-(c) raise and never turns a clean write into one. Unset or any other
+#                               value: (d) is off and adds nothing to the output.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 # Identity and scope derive from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd:
 # a `cd` into another project inside a session must not change who you are or whose memory you read.
@@ -154,14 +162,30 @@ for this write, and the vault-wide passes will not be tried again on this machin
 orphan checks ran."
 fi
 _slow_seen() { mkdir -p "$(dirname "$SLOWF")" 2>/dev/null; date +%s > "$SLOWF" 2>/dev/null; }
+[ -n "$msg" ] && dry_guard "postwrite-check" "vault-hygiene"
+
+# (d) Expectation reminder, BRAIN_EXPECT=1 only, on the text this write put in (content, or new_string for an Edit).
+# After the dry-run exit, so a reported block leaves the quiet period untouched.
+expect=""
+if [ "${BRAIN_EXPECT:-0}" = 1 ] && [ -f "$(dirname "$0")/_expect_remind.sh" ]; then
+  case "$FP" in "$VAULT"/decision/*.md|"$VAULT"/knowledge/*.md|"$VAULT"/moc/*.md|"$VAULT"/focus/*.txt)
+    . "$(dirname "$0")/_expect_remind.sh"; . "$(dirname "$0")/_instance.sh" 2>/dev/null
+    expect=$(printf '%s' "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string // ""' 2>/dev/null \
+             | expect_remind "$(basename "$FP")" 2>/dev/null) ;;
+  esac
+fi
+
+# After the report, in this order: the slow-storage line (#17), then the reminder (d). With no report, both go out
+# together as context.
 if [ -n "$msg" ]; then
   [ -n "$slow" ] && msg="${msg%"${msg##*[! ]}"} $slow (Budget: BRAIN_POSTWRITE_BUDGET.)"
-  dry_guard "postwrite-check" "vault-hygiene"
+  [ -n "$expect" ] && msg="${msg% } $expect"
   [ -n "$slow" ] && _slow_seen
   jq -n --arg r "$msg" '{decision:"block",reason:$r}'
-elif [ -n "$slow" ]; then
-  _slow_seen
-  jq -n --arg c "$slow Not a block; carry on. (Budget: BRAIN_POSTWRITE_BUDGET.)" \
-    '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$c}}'
+elif [ -n "$slow$expect" ]; then
+  ctx=""
+  [ -n "$slow" ] && { _slow_seen; ctx="$slow Not a block; carry on. (Budget: BRAIN_POSTWRITE_BUDGET.)"; }
+  [ -n "$expect" ] && ctx="${ctx:+$ctx }$expect"
+  jq -n --arg c "$ctx" '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$c}}'
 fi
 exit 0

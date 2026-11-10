@@ -60,12 +60,26 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
-### Coming from 1.5.0
+### Coming from 1.6.0
 
 Nothing to wire and no restart: the updater has already copied `hooks/postwrite-check.sh`, and the hook reads
 `brain-kit.env` when it runs. On a fast disk it prints exactly what it printed before. If the vault lives on a network
 mount or in a cloud-synced folder, tell the user about `BRAIN_POSTWRITE_BUDGET` (README "Configuration"): the default
 of 5 seconds keeps the hook answering there, at the price of skipping the ghost-link check while the storage is slow.
+
+### Coming from 1.5.0
+
+This release adds one switch, `BRAIN_EXPECT`, off by default, and no hook. With the switch off, `due-inject.sh` and
+`postwrite-check.sh` print exactly what they printed before.
+
+1. **Nothing to wire.** The updater has already copied the two changed hooks, the sourced `hooks/_expect_remind.sh` and
+   `scripts/brain_expect.py`; `setup.sh` does not need to run again for this release.
+2. **Tell the user what can be turned on** (README "Configuration", `BRAIN_EXPECT`; `docs/DISCIPLINE.md` §11): dated
+   `@expect` lines that come back on their day in the DUE block, a reminder when a write reads like a prediction and
+   carries none, and a counter. Ask before adding `BRAIN_EXPECT=1` to `brain-kit.env`; if the user's records are not in
+   English, ask which words their predictions use and set `BRAIN_EXPECT_RX` to them. The reminder lives in
+   `postwrite-check.sh`, which a `--minimal` install does not wire; there only the DUE half works.
+3. **No restart is needed** for the switch: each hook reads `brain-kit.env` when it runs.
 
 ### Coming from 1.4.0 or 1.4.1
 
