@@ -5,7 +5,7 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
-## [Unreleased]
+## [1.6.0] - 2026-11-11
 
 Expectation memory behind one new switch, `BRAIN_EXPECT`, off by default (issues #18 and #19). There is no new hook to
 wire: `scripts/update.sh` brings the two changed hooks, the new sourced file `hooks/_expect_remind.sh` and the new
@@ -50,15 +50,27 @@ With the switch unset or `0`, both changed hooks print the same bytes as 1.5.0, 
   script calls it, a paragraph in `docs/BELIEFS.md` (a missed expectation is a candidate `falsified` entry; the ledger
   is still written by hand), the DUE item in `INTRO_PROMPT.md`, and UPGRADE "Coming from 1.5.0".
 
-Measured with `BRAIN_EXPECT` unset, `0`, empty, `yes`, `true`, `01` and `BRAIN_EXPECT=0` in `brain-kit.env`: both
-changed hooks gave the same stdout, stderr, exit code and `brain-kit-state` files as 1.5.0 in 161 of 161 comparisons on
-a fixture vault that holds open, closed, fenced and backticked `@expect` lines, for three instance names, and for
-sixteen kinds of write to `postwrite-check.sh` (dry run and prediction wording in every scanned place included). With
-the switch on, 71 checks passed, and each of 41 deliberate faults in the new code turned at least one check red.
-`bash -n` passes under bash 3.2.57. On the fixture, median of 20 runs: `due-inject.sh` 539 ms in 1.5.0, 534 ms off,
-703 ms on (it then also prints eight expectation lines); `postwrite-check.sh` on a decision record 37 ms in 1.5.0,
-37 ms off, 57 ms on when the text holds no prediction word. A write that does hold one also resolves the instance
-name, the same process walk the prompt hooks do (160 ms measured inside a session on the test server).
+Measured on the released tree, in an acceptance run that did not use the author's test rig. With the switch off in
+sixteen ways (unset, `0`, empty, other words and numbers, a padded `1`, in the environment and in `brain-kit.env`), both
+changed hooks gave the same stdout, stderr, exit code and `brain-kit-state` files as 1.5.0 in 560 of 560 comparisons
+(224 for `due-inject.sh`, 336 for `postwrite-check.sh`), on a fixture vault with more than thirty `@expect` lines
+(open, closed, fenced, inside a code span, between two code spans), for three instance names and seventeen kinds of
+write. With the switch on, 129 checks passed, and 15 of 15 in a clean Ubuntu 24.04 install; a 1.5.0 install updated
+with `scripts/update.sh` received the two new files and the switch worked without running `setup.sh` again (15 of 15).
+Of 16 single-line faults put into the new code, 15 turned a check red; the sixteenth weakens one of two tests of the
+same switch, so the output does not change. `bash -n` passes under bash 3.2.57, and the off comparison and the
+reminder checks were also run inside a bash 3.2.57 container during review. Not measured: macOS and BSD tools at run
+time, and an install with the embedding model.
+
+Latency, measured by the author on the first review candidate (the off path did not change afterwards; the on path of
+`due-inject.sh` gained one awk call per scanned line), median of 20 runs on a fixture: `due-inject.sh` 539 ms in
+1.5.0, 534 ms off, 703 ms on (it then also prints eight expectation lines); `postwrite-check.sh` on a decision record
+37 ms in 1.5.0, 37 ms off, 57 ms on when the text holds no prediction word. A write that does hold one also resolves
+the instance name, the same process walk the prompt hooks do (160 ms measured inside a session on the test server).
+
+Known limit: `scripts/brain_expect.py` reads `BRAIN_ROOT` and `BRAIN_DIR` from the environment only. If your vault
+path is set only in `brain-kit.env`, the hooks see that vault and the counter counts the default one, without a
+warning; run it as `BRAIN_DIR=<your vault> python3 scripts/brain_expect.py` until the next release.
 
 ## [1.5.0] - 2026-10-15
 
