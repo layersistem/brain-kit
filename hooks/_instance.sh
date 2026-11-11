@@ -35,7 +35,7 @@ brain_instance() {
   if [ -z "$i" ]; then
     while [ "$d" != "/" ] && [ -n "$d" ]; do
       if [ -f "$d/.brain-instance" ]; then i=$(head -1 "$d/.brain-instance" | tr -d "[:space:]"); break; fi
-      d=$(dirname "$d")
+      _up=$(dirname "$d"); [ "$_up" = "$d" ] && break; d=$_up
     done
   fi
   printf '%s' "${i:-unknown}"

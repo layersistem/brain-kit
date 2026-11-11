@@ -1,0 +1,4 @@
+# Every text file is checked out with LF line ends on every system. Git for Windows ships with core.autocrlf=true,
+# which would hand a Windows clone CR LF shell scripts, pattern files with a stray CR on every line and a VERSION
+# file that no longer equals its own tag.
+* text=auto eol=lf

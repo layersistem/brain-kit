@@ -5,6 +5,64 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [Unreleased]
+
+Windows support: the kit installs and works natively on Windows 10 and 11 in Git Bash (issue #27). Until now the
+README sent Windows users to WSL. Nothing changes on macOS or Linux; `scripts/update.sh` brings the changed hooks.
+
+### Added
+- `docs/WINDOWS.md`: the install on Windows step by step, written for the model that does it. Prerequisites with
+  their `winget` commands, the shell to use, the installer, what healthy output looks like, and a table from each
+  failure to its fix.
+- `scripts/install-check.sh`, on every system: five checks that hand the hooks a real payload instead of looking
+  for files. It writes a test note without links, expects the hygiene hook to report it, the index hook to count
+  it and recall to find it, then removes the note. Exit code 0 only when all five pass.
+- `hooks/_platform.sh`, sourced by every hook after `brain-kit.env`. It returns at once outside Windows. On
+  Windows it puts the kit's `python3` and an LF-only `jq` in front of the hooks' PATH, converts `C:\...` paths to
+  the form Git Bash compares, and gives `BRAIN_MEMORY2` the Windows name of the agent's per-project memory folder.
+- `setup.sh` on Windows: a Task Scheduler entry `brain-kit index sweep` (every 2 minutes, started through
+  `pythonw.exe` and `scripts/brain_sweep_task.py`, so no window opens) does what the launchd agent does on macOS.
+- `.gitattributes`: every text file is checked out with LF line ends. Git for Windows defaults to
+  `core.autocrlf=true`, which gave a Windows clone CR LF scripts, pattern files and `VERSION`.
+
+### Fixed
+- `setup.sh` stopped with exit code 49 and no message when a `python3` on PATH did not run (on Windows that name
+  is a Microsoft Store placeholder). A name that does not run is now skipped, `python` is tried as well, and the
+  message for a missing Python or jq names the `winget` command.
+- `setup.sh` called `.venv/bin/pip`; a Windows venv has `Scripts`. The installer, the write hook and the sweeper
+  now use the interpreter where the venv has it.
+- `setup.sh` on Windows checks that torch loads right after installing it and names the missing Microsoft Visual
+  C++ runtime; before, the install ran for minutes and failed at the index build with `WinError 126 ... c10.dll`.
+- The write hooks compared the file path of a tool call with the vault path as text. On Windows the first is
+  `C:\Users\...` and the second `/c/Users/...`, so `postwrite-check.sh`, `brain-embed-after-write.sh`,
+  `salience-postwrite.sh` and `recall-usage-count.sh` exited 0 and did nothing: new notes never reached the index.
+- Values read from a native `jq.exe` or Python carried a trailing carriage return on Windows, so
+  `sessionstart-compact-pointer.sh` compared `compact` with `compact\r` and never printed its block.
+- Seven hooks walked up from the project folder with `while [ "$d" != "/" ]`. On a Windows path `dirname` stops at
+  `C:` and the loop never ended; a relative path did the same on any system. The loop now stops when `dirname`
+  makes no progress.
+- `scripts/brain_usage_count.py` imported `fcntl`, which Windows does not have; the lock uses `msvcrt` there.
+- `scripts/brain_index.py` and `scripts/brain_bm25.py` spell a note's relative path with forward slashes on
+  every system.
+- `hooks/time-inject.sh` passed the session file's path inside a Python code string, where a Windows Python could
+  not open it; the path is an argument now.
+- The operating-rules block that `setup.sh` appends to `CLAUDE.md` names the vault as `C:/Users/...` on Windows,
+  a form the agent's file tools open.
+
+### Not on Windows
+- Self-compact (it needs tmux) and the session-bound instance identity (it reads the process list in a way Git
+  Bash cannot). The dense recall daemon has not been set up as a Windows service.
+
+### Measured
+- A clean Windows 11 machine (build 26100, 4 GB of memory), Git for Windows, Python 3.12, jq 1.8.2 and the Visual
+  C++ runtime from winget: `./setup.sh --yes-defaults` exit code 0 with no manual step, 1449 s, of which the first
+  load of the embedding model took 816 s; 20 hook entries, index 2 files, 9 chunks, 9 vectors, the scheduled task
+  created and run by Task Scheduler.
+- The hooks with payloads in the three path forms a Windows session can produce (`C:\...`, `C:/...`, `/c/...`) and
+  a Windows-form project folder: the hygiene hook reported the linkless note in all three, the index went from 2
+  to 5 files, the compaction pointer printed its block, the usage counter counted. Before: 0 of 3 notes indexed
+  and no report, with every hook exiting 0.
+
 ## [1.6.0] - 2026-11-11
 
 Expectation memory, on by default, with one switch to turn it off, `BRAIN_EXPECT=0` (issues #18 and #19). There is no new hook to

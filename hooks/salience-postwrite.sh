@@ -5,10 +5,12 @@
 INPUT=$(cat)
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"   # 1.2.3: same settings source as every other hook
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 read -r SID FP < <(printf '%s' "$INPUT" | python3 -c 'import sys,json
 try:
     o=json.load(sys.stdin); print(o.get("session_id",""), (o.get("tool_input") or {}).get("file_path",""))
 except Exception: print("", "")' 2>/dev/null)
+FP=$(brain_fp "$FP")
 case "$FP" in */decision/*.md) ;; *) exit 0 ;; esac
 [ -f "$FP" ] || exit 0
 F="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit-state/salience_${SID:-x}"; [ -f "$F" ] || exit 0

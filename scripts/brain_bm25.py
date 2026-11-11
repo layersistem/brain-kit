@@ -152,7 +152,7 @@ def _corpus():
                 # split under `##` headings, which also makes the recall line say where to look.
                 tok = _toks((f.stem + " " + h + " " + hint + " " + b)[:4000])
                 docs.append({"root": rtag, "note": f.stem, "heading": h,
-                             "path": f"{rtag}/{f.relative_to(root)}",
+                             "path": f"{rtag}/{f.relative_to(root).as_posix()}",
                              "text": b[:600], "tok": tok, "hint": hint, "dord": dord, "sup": sup,
                              "name": set(_toks(f.stem + " " + h + " " + hint)),
                              "project": note_project(txt, tok, f.stem),

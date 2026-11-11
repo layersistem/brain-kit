@@ -9,6 +9,7 @@
 # BRAIN_PERSEVERATION_GUARD=0 to disable.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 INPUT=$(cat)
 [ "${BRAIN_PERSEVERATION_GUARD:-1}" = "0" ] && exit 0
 [ "$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false')" = "true" ] && exit 0

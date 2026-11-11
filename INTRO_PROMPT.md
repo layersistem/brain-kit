@@ -4,6 +4,9 @@ You are installing **brain-kit**: a persistent memory layer that survives compac
 this session access to what previous sessions decided. Follow this file top to bottom, run the
 commands yourself, verify the results, and finish with a five-line report.
 
+**On Windows, read `docs/WINDOWS.md` first and install by it.** It covers the prerequisites, the shell to use
+(Git Bash), the installer and the checks, step by step. Come back here at A3 or B1 when its checks pass.
+
 Two engines, neither of which calls an API:
 
 - **Recall** - `brain_recall.py`: BM25 (pure stdlib; reads a prebuilt SQLite index when

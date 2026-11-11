@@ -27,6 +27,7 @@
 set -euo pipefail
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 [ -f "$CFG/brain-kit.env" ] && { set -a; . "$CFG/brain-kit.env" 2>/dev/null; set +a; } || true
+[ -f "${BRAIN_ROOT:-$HOME/brain}/hooks/_platform.sh" ] && . "${BRAIN_ROOT:-$HOME/brain}/hooks/_platform.sh"   # Windows: python3, jq, path forms
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 REMOTE="${BRAIN_UPDATE_REMOTE:-https://github.com/layersistem/brain-kit}"
 YES=0; DRY=0; WANT=""

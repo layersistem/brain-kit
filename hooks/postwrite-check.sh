@@ -37,6 +37,7 @@ ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 # a `cd` into another project inside a session must not change who you are or whose memory you read.
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 for d in ${BRAIN_ISOLATE_DIRS:-}; do
@@ -44,6 +45,7 @@ for d in ${BRAIN_ISOLATE_DIRS:-}; do
 done
 INPUT=$(cat)
 FP=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+FP=$(brain_fp "$FP")
 [ -z "$FP" ] && exit 0
 case "$FP" in "$VAULT"/*) ;; *) exit 0 ;; esac
 case "${FP#"$VAULT"/}" in .*|*/.*) exit 0 ;; esac

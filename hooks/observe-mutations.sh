@@ -7,6 +7,7 @@
 # Zero model calls, append-only, secrets masked, <=160 chars per line.
 INPUT=$(cat)
 ENVF="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$ENVF" ] && { set -a; . "$ENVF"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 # Identity derives from the SESSION project dir (CLAUDE_PROJECT_DIR), never from the shell cwd.
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 VAULT="${BRAIN_DIR:-${BRAIN_ROOT:-$HOME/brain}/vault}"
@@ -15,7 +16,7 @@ if [ -z "$I" ]; then                       # walk up from cwd for a .brain-insta
   _d="$SESSION_ROOT"
   while [ "$_d" != "/" ] && [ -n "$_d" ]; do
     if [ -f "$_d/.brain-instance" ]; then I=$(head -1 "$_d/.brain-instance" | tr -cd 'a-zA-Z0-9_-'); break; fi
-    _d=$(dirname "$_d")
+    _up=$(dirname "$_d"); [ "$_up" = "$_d" ] && break; _d=$_up
   done
 fi
 [ -z "$I" ] && [ -f "$VAULT/.brain-instance" ] && I=$(head -1 "$VAULT/.brain-instance" | tr -cd 'a-zA-Z0-9_-')

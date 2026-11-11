@@ -40,6 +40,7 @@
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 ENV_FILE="$CFG/brain-kit.env"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 INPUT=$(cat)
 # One python call: session id, transcript path, cwd, the project's own compaction ceiling from

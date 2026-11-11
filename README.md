@@ -26,6 +26,14 @@ all, and the semantic layer runs BGE-M3 on your CPU.
   Homebrew, `brew install python@3.12`. Tested on a real Mac (macOS 27.2, Apple silicon, 11 November 2026): with
   Homebrew Python the default `./setup.sh` finished in 78 s, embedding model included (5.5 GB on disk), and in a
   real Claude Code session every hook ran without an error.
+- **On Windows, follow [`docs/WINDOWS.md`](docs/WINDOWS.md).** The kit installs natively in Git Bash (Git for
+  Windows), the shell Claude Code runs its hooks in; WSL is not needed. It needs Git for Windows, Python 3.10 or
+  newer, jq and, for the full install, the Microsoft Visual C++ runtime, each one `winget install` away. That page
+  is written so that a model can do the whole install by reading it: every step has a check, the healthy output
+  and the fix. Tested on a clean Windows 11 machine with 4 GB of memory (11 November 2026): `./setup.sh
+  --yes-defaults` finished with no manual step in 24 minutes (10 of them downloads, 14 the first load of the
+  embedding model), and with tool payloads that spell the path the Windows way the write hooks reported and
+  indexed every test note. On 4 GB the embedding model makes the machine sluggish; install with `--no-embed` there.
 - Python >= 3.10 with its `venv` module (on Debian and Ubuntu that is the separate `python3-venv`
   package: `sudo apt install python3-venv`), `jq`, and bash - the hooks and scripts are bash scripts;
   macOS's own `/bin/bash` 3.2 is enough. **macOS ships Python 3.9, which is too old:** install 3.10 or newer
@@ -33,7 +41,7 @@ all, and the semantic layer runs BGE-M3 on your CPU.
   if you use Homebrew, `brew install python@3.12`; `jq` comes from `brew install jq` or the
   [jq download page](https://jqlang.github.io/jq/download/). Measured on a stock Mac (no Homebrew): the installer
   stops at the Python check within 0.2 s and writes nothing; with a 3.12 interpreter first on PATH the same tree
-  installs cleanly in 1.3 s. macOS and Linux tested; on Windows the kit runs inside WSL (the Linux path), not natively.
+  installs cleanly in 1.3 s. macOS, Linux and Windows (Git Bash) tested.
 - **BGE-M3 (`BAAI/bge-m3`) is required for the full kit.** `setup.sh` installs
   `sentence-transformers` + `torch` into `<BRAIN_ROOT>/.venv` and the first embed run downloads
   the model (once, from Hugging Face; offline afterwards). It powers the embed hook, the
@@ -59,6 +67,10 @@ git clone https://github.com/layersistem/brain-kit && cd brain-kit
 ./setup.sh                       # or: ./setup.sh --no-embed   (BM25 only, no model download)
 BRAIN_ROOT=~/brain python3 ~/brain/scripts/brain_bm25.py "example decision" 3
 ```
+
+On Windows run these in Git Bash and use `python` where a line says `python3`; the full walk-through is
+[`docs/WINDOWS.md`](docs/WINDOWS.md). On any system, `bash ~/brain/scripts/install-check.sh` then tells you in five
+lines whether the hooks do their work: it writes a test note, hands the hooks a real payload and removes the note.
 
 Restart your agent session afterwards so the hooks load. `--minimal` wires 16 of the 20 hook entries:
 everything except the vault hygiene check (`postwrite-check.sh`), the observation stream
@@ -122,7 +134,8 @@ To keep recall, the focus line and the write hooks quiet in some directories, li
 Two things install on their own when the machine can carry them. The **index sweeper** timer
 (`scripts/systemd/brain-index-sweep.*`, every 2 minutes) embeds what the write hook only chunked; on macOS
 the installer loads a launchd agent that does the same (`~/Library/LaunchAgents/local.brain-kit.index-sweep.plist`),
-without either it prints the cron line instead, and `--no-timers` skips the step. The **desk
+on Windows it creates a Task Scheduler entry named `brain-kit index sweep` that runs without a window;
+without any of them it prints the cron line instead, and `--no-timers` skips the step. The **desk
 ledger** (`scripts/desk_ledger.py`, hourly) exports your repos' issues and PRs into the vault so closed work
 is found by name; it is installed only when `gh` is on PATH and you list repos (the prompt, or
 `--desk-repos="owner/a owner/b"`), otherwise it is skipped without a word.

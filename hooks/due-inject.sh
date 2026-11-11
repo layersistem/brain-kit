@@ -20,6 +20,7 @@
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 INPUT=$(cat)
@@ -28,7 +29,7 @@ if [ -z "$I" ]; then
   _d="$SESSION_ROOT"
   while [ "$_d" != "/" ] && [ -n "$_d" ]; do
     if [ -f "$_d/.brain-instance" ]; then I=$(head -1 "$_d/.brain-instance" | tr -d '[:space:]'); break; fi
-    _d=$(dirname "$_d")
+    _up=$(dirname "$_d"); [ "$_up" = "$_d" ] && break; _d=$_up
   done
 fi
 [ -z "$I" ] && [ -f "$VAULT/.brain-instance" ] && I=$(head -1 "$VAULT/.brain-instance" | tr -d '[:space:]')

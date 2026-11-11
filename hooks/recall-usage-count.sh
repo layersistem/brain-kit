@@ -20,6 +20,7 @@
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 export BRAIN_ROOT BRAIN_DIR BRAIN_MEMORY BRAIN_RECALL_REMOTE BRAIN_SEARCHD_URL
@@ -27,7 +28,7 @@ export BRAIN_MEMORY2="${BRAIN_MEMORY2:-$HOME/.claude/projects/$(printf '%s' "${S
 IN=$(cat)
 case "$IN" in
   *"$VAULT"*|*"/memory/"*) ;;
-  *) exit 0 ;;
+  *) case "${OSTYPE:-}" in msys*|cygwin*) ;; *) exit 0 ;; esac ;;   # Windows: the payload spells the path C:\\..., the script decides
 esac
 CNT="$BRAIN_ROOT/scripts/brain_usage_count.py"
 [ -f "$CNT" ] || exit 0

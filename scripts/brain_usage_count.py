@@ -24,7 +24,6 @@ rename, because several sessions on one machine share the file. Standard library
 Env: BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_MEMORY (<root>/memory) . BRAIN_MEMORY2 .
      BRAIN_RECALL_REMOTE (0) . BRAIN_SEARCHD_URL (http://127.0.0.1:8799)
 """
-import fcntl
 import json
 import os
 import re
@@ -33,6 +32,17 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
+
+try:                       # POSIX
+    import fcntl
+    def _lock(fh): fcntl.flock(fh, fcntl.LOCK_EX)
+    def _unlock(fh): fcntl.flock(fh, fcntl.LOCK_UN)
+except ImportError:        # Windows has no fcntl; msvcrt.locking waits about ten seconds for the byte, then raises
+    import msvcrt
+    def _lock(fh):
+        fh.seek(0); msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+    def _unlock(fh):
+        fh.seek(0); msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
 
 BRAIN_ROOT = os.path.expanduser(os.environ.get("BRAIN_ROOT", "~/brain"))
 VAULT = os.path.abspath(os.path.expanduser(os.environ.get("BRAIN_DIR") or os.path.join(BRAIN_ROOT, "vault")))
@@ -55,7 +65,8 @@ def counted(fp):
     if not fp or not fp.lower().endswith(".md"):
         return False
     p = os.path.abspath(os.path.expanduser(fp))
-    root = next((r for r in ([VAULT, MEMORY] + ([MEMORY2] if MEMORY2 else [])) if p.startswith(r + os.sep)), None)
+    nc = os.path.normcase                             # Windows: folder names that differ only in case are one folder
+    root = next((r for r in ([VAULT, MEMORY] + ([MEMORY2] if MEMORY2 else [])) if nc(p).startswith(nc(r) + os.sep)), None)
     if root is None:
         return False
     rel = p[len(root) + 1:].split(os.sep)            # the same exclusions brain_bm25._corpus applies
@@ -71,10 +82,10 @@ def bump(b):
     d = os.path.dirname(COUNTS)
     os.makedirs(d, exist_ok=True)
     with open(LOCK, "a+") as lk:
-        fcntl.flock(lk, fcntl.LOCK_EX)
+        _lock(lk)
         try:
             try:
-                with open(COUNTS) as fh:
+                with open(COUNTS, encoding="utf-8") as fh:
                     c = json.load(fh)
             except Exception:
                 c = {}
@@ -87,11 +98,11 @@ def bump(b):
             e["ts"] = int(time.time())
             c[b] = e
             fd, tmp = tempfile.mkstemp(dir=d, prefix=".rc-")
-            with os.fdopen(fd, "w") as fh:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 json.dump(c, fh, ensure_ascii=False)
             os.replace(tmp, COUNTS)
         finally:
-            fcntl.flock(lk, fcntl.LOCK_UN)
+            _unlock(lk)
     return True
 
 
