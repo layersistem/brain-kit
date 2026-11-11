@@ -75,6 +75,12 @@ Known limit: `scripts/brain_expect.py` reads `BRAIN_ROOT` and `BRAIN_DIR` from t
 path is set only in `brain-kit.env`, the hooks see that vault and the counter counts the default one, without a
 warning; run it as `BRAIN_DIR=<your vault> python3 scripts/brain_expect.py` until the next release.
 
+Changed after the release, version number unchanged (11 November 2026): the example decision record in `vault-seed/`
+now ends with a RELATED section and one link. Without it, the first Edit of that note made `postwrite-check.sh` report
+the kit's own example as an orphan; this showed up in a real session on a Mac. The seed is copied into a new vault
+only, so an existing vault keeps its copy: add a link to that note yourself, or delete the note once you have real
+records.
+
 ## [1.5.0] - 2026-10-15
 
 Recall hygiene and record provenance (issue #14). One new hook to wire, so an upgrade runs `setup.sh` once more

@@ -56,3 +56,9 @@ the one `status:` line in place; it never adds a second one (docs/DISCIPLINE.md 
 
 State what would make this decision worth revisiting - the condition, not a date. For example:
 "reopen if the vault passes ~2000 notes and BM25 recall latency exceeds 300 ms".
+
+## RELATED
+
+Close every record with two to five links to notes that exist, one of them its hub. A note without a
+single link lands disconnected in the graph, and the post-write check says so on the next write. This
+example links to the one other note the kit ships: [[beliefs]].
