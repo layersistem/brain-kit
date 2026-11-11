@@ -21,6 +21,11 @@ all, and the semantic layer runs BGE-M3 on your CPU.
 
 ## Requirements
 
+- **On a Mac, install Python 3.10 or newer first.** macOS ships Python 3.9, and `setup.sh` stops at once with a
+  message when it finds nothing newer: get it from [python.org](https://www.python.org/downloads/macos/) or, with
+  Homebrew, `brew install python@3.12`. Tested on a real Mac (macOS 27.2, Apple silicon, 11 November 2026): with
+  Homebrew Python the default `./setup.sh` finished in 78 s, embedding model included (5.5 GB on disk), and in a
+  real Claude Code session every hook ran without an error.
 - Python >= 3.10 with its `venv` module (on Debian and Ubuntu that is the separate `python3-venv`
   package: `sudo apt install python3-venv`), `jq`, and bash - the hooks and scripts are bash scripts;
   macOS's own `/bin/bash` 3.2 is enough. **macOS ships Python 3.9, which is too old:** install 3.10 or newer
