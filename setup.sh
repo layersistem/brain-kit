@@ -41,7 +41,14 @@ esac; done
 say(){ printf '\n== %s\n' "$1"; }
 ok(){ printf '   ok  %s\n' "$1"; }
 die(){ printf '\nFAILED: %s\n' "$1" >&2; exit 1; }
-CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+# Windows (docs/WINDOWS.md): Claude Code runs hooks in Git Bash (Git for Windows), so that is the shell this installer
+# supports there. A path given in the Windows form (C:\Users\me\brain) is stored in Git Bash's form (/c/Users/me/brain),
+# the form $HOME has and the hooks compare against. PYTHONUTF8: the Python steps below read and write settings.json
+# and the notes as UTF-8, not in the Windows code page.
+WIN=0; case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) WIN=1; export PYTHONUTF8=1 ;; esac
+posix(){ if [ "$WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then case "$1" in [A-Za-z]:[\\/]*) cygpath -u "$1"; return ;; esac; fi; printf '%s' "$1"; }
+shown(){ if [ "$WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }   # the form a model's file tools open: C:/Users/me/brain
+CLAUDE_DIR="$(posix "${CLAUDE_CONFIG_DIR:-$HOME/.claude}")"
 # Upgrade keeps your settings (1.2.0): the values an earlier install wrote to <config>/brain-kit.env are this run's
 # defaults. The file is read in a subshell with those variables unset, so its own values come through rather than the
 # ones its "${VAR:-...}" form would take from this shell. A flag, an answer or an exported variable still wins.
@@ -61,6 +68,7 @@ if [ "$ASK" = "1" ]; then
   read -r -p "agent config dir [$CLAUDE_DIR]: " _b || true; [ -n "${_b:-}" ] && CLAUDE_DIR="$_b"
   read -r -p "project dir (its .claude/settings.json and CLAUDE.md take the opt-ins) [$PROJECT]: " _c || true; [ -n "${_c:-}" ] && PROJECT="$_c"
 fi
+BRAIN_ROOT="$(posix "$BRAIN_ROOT")"; CLAUDE_DIR="$(posix "$CLAUDE_DIR")"; PROJECT="$(posix "$PROJECT")"
 [ "$CLAUDE_DIR" = "$CLAUDE_DIR0" ] || prior_env "$CLAUDE_DIR/brain-kit.env"   # another config dir: its own file decides
 # The profile is kept across re-runs (1.2.3): --minimal or --full decides; without either, an exported BRAIN_PROFILE, then
 # the earlier install's choice, then full. Until 1.2.2 the choice was not recorded, so the documented upgrade step
@@ -100,6 +108,9 @@ if [ -z "$SELFC" ]; then
     esac
   fi
 fi
+if [ "$WIN" = 1 ] && [ "$SELFC" != "no" ] && [ -n "$SELFC" ]; then
+  echo "   self-compact needs tmux, which Git Bash on Windows does not have - not installed"; SELFC=no
+fi
 case "$SELFC" in no|NO|n|N|"") SELFC=no ;; *[!A-Za-z0-9_.:-]*) die "--self-compact takes a tmux session name or 'no' (got '$SELFC')" ;; esac
 # caveman (1.2.0): opt-in. Until 1.1.1 it was copied into <config>/skills on every install without a word in
 # any document, and its own text calls itself mandatory in every session - so every project on the machine
@@ -121,27 +132,35 @@ fi
 [ -n "$EMBED" ] || EMBED="${BRAIN_EMBED:-${PREV_BRAIN_EMBED:-1}}"
 [ "$EMBED" = "0" ] || EMBED=1
 _pd="${PREV_BRAIN_DIR:-}"; [ "$_pd" = "${PREV_BRAIN_ROOT:-}/vault" ] && _pd=""   # the old default follows a new root
-VAULT="${BRAIN_DIR:-${_pd:-$BRAIN_ROOT/vault}}"; HOOKS="$BRAIN_ROOT/hooks"
+VAULT="$(posix "${BRAIN_DIR:-${_pd:-$BRAIN_ROOT/vault}}")"; HOOKS="$BRAIN_ROOT/hooks"
 SETTINGS="$CLAUDE_DIR/settings.json"; INST="${BRAIN_INSTANCE:-main}"
 say "brain-kit installer (profile=$PROFILE, embeddings=$EMBED)"
 echo "   root=$BRAIN_ROOT   vault=$VAULT   config=$CLAUDE_DIR   instance=$INST"
 echo "   project=$PROJECT   context-window=$CTXWIN   self-compact=$SELFC   caveman=$CAVE   desk-ledger=${DESK:-skipped}"
 [ -n "${PREV_BRAIN_ROOT:-}" ] && echo "   defaults taken from the existing $CLAUDE_DIR/brain-kit.env (your own lines in it are kept)"
 PYBIN=""
-for c in python3.13 python3.12 python3.11 python3.10 python3; do
+# A name that is on PATH but does not run is skipped, not fatal: on Windows `python3` and `python` can be the
+# Microsoft Store placeholders, which exit non-zero - under `set -e` that ended the installer with no message
+# (exit code 49, measured on a clean Windows 11). `python` is in the list for Windows: python.org and winget
+# install python.exe and no python3.exe.
+for c in python3.13 python3.12 python3.11 python3.10 python3 python; do
   command -v "$c" >/dev/null 2>&1 || continue
-  m=$("$c" -c 'import sys;print(sys.version_info[1] if sys.version_info[0]==3 else 0)' 2>/dev/null)
+  m=$("$c" -c 'import sys;print(sys.version_info[1] if sys.version_info[0]==3 else 0)' 2>/dev/null | tr -d '\r') || m=0
   if [ "${m:-0}" -ge 10 ] 2>/dev/null; then PYBIN="$c"; break; fi
 done
 if [ -z "$PYBIN" ]; then
-  if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+  if [ "$WIN" = 1 ]; then
+    die "Python >= 3.10 not found. Windows: winget install -e --id Python.Python.3.12  (or the installer from https://www.python.org/downloads/windows/ with 'Add python.exe to PATH' ticked), then open a NEW Git Bash window and run ./setup.sh again. The python and python3 names that open the Microsoft Store are placeholders, not Python. Steps: docs/WINDOWS.md"
+  elif [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
     die "Python >= 3.10 not found. macOS ships 3.9, which is too old: install a current Python from https://www.python.org/downloads/macos/ (the .pkg puts python3.12 on PATH), or with Homebrew if you use it: brew install python@3.12"
   else
     die "Python >= 3.10 not found. Debian/Ubuntu: sudo apt install python3 python3-venv; other distributions: the python3 (3.10 or newer) package of your package manager"
   fi
 fi
 if ! command -v jq >/dev/null 2>&1; then
-  if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+  if [ "$WIN" = 1 ]; then
+    die "jq not found - the write hooks need it. Windows: winget install -e --id jqlang.jq  then open a NEW Git Bash window and run ./setup.sh again. Steps: docs/WINDOWS.md"
+  elif [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
     die "jq not found - the write hooks need it. Homebrew: brew install jq; without Homebrew: the macOS binary from https://jqlang.github.io/jq/download/"
   else
     die "jq not found - the write hooks need it. Debian/Ubuntu: sudo apt install jq"
@@ -152,10 +171,18 @@ say "(1/8) directories"
 mkdir -p "$VAULT"/{decision,knowledge,memory,moc,focus,_drafts,.index} \
          "$BRAIN_ROOT/scripts" "$BRAIN_ROOT/patterns" "$HOOKS" "$CLAUDE_DIR/skills"
 say "(2/8) python environment"
-[ -x "$BRAIN_ROOT/.venv/bin/python" ] || "$PYBIN" -m venv "$BRAIN_ROOT/.venv" || die "venv failed"
+# The venv's interpreter: bin/python on macOS and Linux, Scripts/python.exe on Windows (there is no .venv/bin there).
+VPY="$BRAIN_ROOT/.venv/bin/python"; [ "$WIN" = 1 ] && VPY="$BRAIN_ROOT/.venv/Scripts/python.exe"
+[ -x "$VPY" ] || "$PYBIN" -m venv "$BRAIN_ROOT/.venv" || die "venv failed"
+[ -x "$VPY" ] || die "venv created but $VPY is missing"
 if [ "$EMBED" = "1" ]; then
   echo "   installing embedding deps (first run downloads torch - minutes)..."
-  "$BRAIN_ROOT/.venv/bin/pip" install --quiet -r "$KIT/requirements.txt" || die "pip install failed"
+  "$VPY" -m pip install --quiet -r "$KIT/requirements.txt" || die "pip install failed"
+  # Windows: torch needs the Microsoft Visual C++ runtime and a fresh Windows does not have it; without this test the
+  # install ran for five minutes and then failed at the index build with "WinError 126 ... c10.dll".
+  if [ "$WIN" = 1 ] && ! "$VPY" -c "import torch" >/dev/null 2>&1; then
+    die "torch is installed but does not load. On Windows it needs the Microsoft Visual C++ runtime: winget install -e --id Microsoft.VCRedist.2015+.x64  then run ./setup.sh again (nothing is downloaded twice). Steps: docs/WINDOWS.md"
+  fi
   ok "embedding deps installed"
 else
   ok "skipped (--no-embed) - BM25 recall is stdlib-only and needs nothing"
@@ -177,6 +204,41 @@ ORIGIN=$(printf '%s' "$ORIGIN" | sed -E 's#^(ssh://)?git@([^:/]+)[:/](.+)$#https
 # pattern looks at the whole value; grep would pass a value of several lines if one line is clean.
 case "$ORIGIN" in *[!A-Za-z0-9._:/@+~-]*) ORIGIN="" ;; esac
 cp -f "$KIT"/hooks/*.sh "$HOOKS/"; chmod +x "$HOOKS"/*.sh
+if [ "$WIN" = 1 ]; then
+  # What hooks/_platform.sh puts on the hooks' PATH (the reasons are in that file):
+  #   <root>/.venv/Scripts/python3.exe  the venv's own launcher under the name the hooks call
+  #   sitecustomize.py in the venv      Python ends its output lines with LF, not CR LF
+  #   <root>/winbin/jq                  the real jq with --binary, for the same reason
+  #   <root>/winbin/bash.path           where Git Bash is, for the scheduled sweeper (step 7)
+  [ -f "$BRAIN_ROOT/.venv/Scripts/python3.exe" ] || cp -f "$VPY" "$BRAIN_ROOT/.venv/Scripts/python3.exe"
+  SITE="$(posix "$("$VPY" -c 'import sysconfig;print(sysconfig.get_paths()["purelib"])' | tr -d '\r')")"
+  if [ ! -f "$SITE/sitecustomize.py" ] || grep -q "brain-kit" "$SITE/sitecustomize.py"; then
+    cat > "$SITE/sitecustomize.py" <<'SITEPY'
+# brain-kit (Windows), written by setup.sh. The hooks read this interpreter's output in Git Bash and compare it as
+# text; with the Windows default every line ends in CR LF and no comparison matches. Output lines end in LF instead.
+import sys
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(newline="\n")
+    except Exception:
+        pass
+SITEPY
+  fi
+  mkdir -p "$BRAIN_ROOT/winbin"
+  cat > "$BRAIN_ROOT/winbin/jq" <<'JQSH'
+#!/bin/sh
+# brain-kit (Windows), written by setup.sh. A native jq.exe ends its lines with CR LF unless told --binary, and the
+# hooks compare its output as text. hooks/_platform.sh puts this folder first on the hooks' PATH; this wrapper takes
+# the folder off PATH again and calls the real jq with the flag.
+d=${0%/*}; P=":$PATH:"
+while :; do case "$P" in *":$d:"*) P="${P%%":$d:"*}:${P#*":$d:"}" ;; *) break ;; esac; done
+PATH="${P#:}"; PATH="${PATH%:}"; export PATH
+exec jq --binary "$@"
+JQSH
+  chmod +x "$BRAIN_ROOT/winbin/jq"
+  cygpath -w "$(command -v bash)" > "$BRAIN_ROOT/winbin/bash.path"
+  ok "Windows layer: python3.exe in the venv, LF line ends for Python and jq ($BRAIN_ROOT/winbin)"
+fi
 # self-compact: "no" now keeps an earlier opt-in (not installing is not uninstalling); a fresh install stays off.
 SC_ON=0; [ "$SELFC" != "no" ] && SC_ON=1; [ "$SELFC" = "no" ] && [ "${PREV_BRAIN_SELF_COMPACT:-0}" = "1" ] && SC_ON=1
 # The env file is merged, not rewritten (1.2.0). The lines of the variables this script owns are replaced in place,
@@ -262,7 +324,7 @@ cp -n "$KIT"/vault-seed/decision/*.md "$VAULT/decision/" 2>/dev/null || true
 cp -n "$KIT"/vault-seed/knowledge/beliefs.md "$VAULT/knowledge/" 2>/dev/null || true
 CM="$CLAUDE_DIR/CLAUDE.md"
 if grep -q "brain-kit-operating-rules" "$CM" 2>/dev/null; then ok "CLAUDE.md block already there"
-else sed "s|<vault>|$VAULT|g" "$KIT/docs/CLAUDE_BLOCK.md" >> "$CM"; ok "operating rules appended to $CM"; fi
+else sed "s|<vault>|$(shown "$VAULT")|g" "$KIT/docs/CLAUDE_BLOCK.md" >> "$CM"; ok "operating rules appended to $CM"; fi
 say "(7/8) background timers (index sweeper, desk ledger)"
 # The write hook only chunks a note (about 1 s); the vectors come from scripts/brain_index_sweep.sh, run by the
 # hook and by this 2-minute timer. On macOS a launchd agent does the same (1.2.0; until then macOS got only the
@@ -270,6 +332,18 @@ say "(7/8) background timers (index sweeper, desk ledger)"
 SYSD=0; LAUNCHD=0
 if [ "$TIMERS" = "1" ] && command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then SYSD=1; fi
 if [ "$TIMERS" = "1" ] && [ "$SYSD" = "0" ] && [ "$(uname -s)" = "Darwin" ] && command -v launchctl >/dev/null 2>&1; then LAUNCHD=1; fi
+WINTASK=0; if [ "$TIMERS" = "1" ] && [ "$WIN" = 1 ] && command -v schtasks >/dev/null 2>&1; then WINTASK=1; fi
+install_task(){ # Windows: a Task Scheduler entry that runs the sweeper every 2 minutes. pythonw.exe starts it, so no
+  # console window opens; scripts/brain_sweep_task.py then runs the same brain_index_sweep.sh in Git Bash.
+  local TN="brain-kit index sweep" PW SW
+  PW=$(cygpath -w "$BRAIN_ROOT/.venv/Scripts/pythonw.exe"); SW=$(cygpath -w "$BRAIN_ROOT/scripts/brain_sweep_task.py")
+  if MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' schtasks /Create /F /SC MINUTE /MO 2 /TN "$TN" /TR "\"$PW\" \"$SW\"" >/dev/null 2>&1; then
+    ok "scheduled task \"$TN\" created (every 2 min; remove with: schtasks /Delete /TN \"$TN\" /F)"
+  else
+    echo "   could not create the scheduled task \"$TN\". The write hook still starts the sweeper after each note the agent"
+    echo "   writes; notes written outside the agent get their vectors when you run: bash \"$BRAIN_ROOT/scripts/brain_index_sweep.sh\""
+  fi
+}
 install_agent(){ # macOS: a per-user launchd agent that runs the sweeper every 120 s, the systemd timer's job on Linux
   local LA="$HOME/Library/LaunchAgents" L="local.brain-kit.index-sweep" SWP
   SWP=$(printf '%s' "$BRAIN_ROOT/scripts/brain_index_sweep.sh" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
@@ -302,6 +376,8 @@ install_unit(){ # $1 = unit base name
 if [ "$EMBED" = "1" ]; then
   if [ "$SYSD" = "1" ]; then install_unit brain-index-sweep
   elif [ "$LAUNCHD" = "1" ]; then install_agent
+  elif [ "$WINTASK" = "1" ]; then install_task
+  elif [ "$WIN" = 1 ]; then echo "   no scheduled task (--no-timers): the write hook starts the sweeper after each note the agent writes"
   else echo "   no systemd --user or launchd agent here: add this cron line for the vector sweeper:"
        echo "     */2 * * * * bash \"$BRAIN_ROOT/scripts/brain_index_sweep.sh\""; fi
 else ok "sweeper skipped (--no-embed: nothing to embed)"; fi
@@ -342,14 +418,14 @@ say "building the index"
 # After the seed, not before it: an index built earlier would miss the example decision record
 # and the belief-ledger template this step just copied in.
 if [ "$EMBED" = "1" ]; then
-  BRAIN_ROOT="$BRAIN_ROOT" BRAIN_DIR="$VAULT" "$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" build --embed \
+  BRAIN_ROOT="$BRAIN_ROOT" BRAIN_DIR="$VAULT" "$VPY" "$BRAIN_ROOT/scripts/brain_index.py" build --embed \
     && ok "brain.db built (BM25 + BGE-M3)" || die "index build failed"
 else
-  BRAIN_ROOT="$BRAIN_ROOT" BRAIN_DIR="$VAULT" "$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" build \
+  BRAIN_ROOT="$BRAIN_ROOT" BRAIN_DIR="$VAULT" "$VPY" "$BRAIN_ROOT/scripts/brain_index.py" build \
     && ok "brain.db built (BM25 only - no torch needed)" || die "index build failed"
 fi
 say "done - restart your agent session so the hooks load, then read README.md"
-echo "   smoke test: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_INDEX=sqlite python3 \"$BRAIN_ROOT/scripts/brain_bm25.py\" \"example decision\" 3"
+echo "   smoke test: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_INDEX=sqlite \"$VPY\" \"$BRAIN_ROOT/scripts/brain_bm25.py\" \"example decision\" 3"
 echo "   manual recall: \"$BRAIN_ROOT/scripts/brain-search\" \"example decision\""
-echo "   index stats: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_DIR=\"$VAULT\" \"$BRAIN_ROOT/.venv/bin/python\" \"$BRAIN_ROOT/scripts/brain_index.py\" stats"
-echo "   re-embed after --no-embed: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_DIR=\"$VAULT\" \"$BRAIN_ROOT/.venv/bin/python\" \"$BRAIN_ROOT/scripts/brain_index.py\" build --embed"
+echo "   index stats: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_DIR=\"$VAULT\" \"$VPY\" \"$BRAIN_ROOT/scripts/brain_index.py\" stats"
+echo "   re-embed after --no-embed: BRAIN_ROOT=\"$BRAIN_ROOT\" BRAIN_DIR=\"$VAULT\" \"$VPY\" \"$BRAIN_ROOT/scripts/brain_index.py\" build --embed"

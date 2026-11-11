@@ -18,7 +18,7 @@ body:
     id: environment
     attributes:
       label: OS, shell and Claude Code version
-      placeholder: "macOS 15.6, bash 3.2.57, Claude Code 2.1.280"
+      placeholder: "macOS 15.6, bash 3.2.57, Claude Code 2.1.280  (or: Windows 11, Git Bash 2.47, Claude Code 2.1.318)"
     validations:
       required: true
   - type: input

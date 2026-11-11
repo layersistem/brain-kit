@@ -14,6 +14,7 @@
 #         BRAIN_UPDATE_TIMEOUT (2 seconds).
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 [ -f "$CFG/brain-kit.env" ] && { set -a; . "$CFG/brain-kit.env" 2>/dev/null; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 [ "${BRAIN_UPDATE_CHECK:-1}" = "0" ] && exit 0
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 REMOTE="${BRAIN_UPDATE_REMOTE:-https://github.com/layersistem/brain-kit}"

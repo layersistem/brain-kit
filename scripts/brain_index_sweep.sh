@@ -25,11 +25,12 @@
 # default of "every core" spins all of them for a worse time - 64 chunks took 10.1 s on 24 threads, 8.8 s on 16).
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 [ -f "$CFG/brain-kit.env" ] && { set -a; . "$CFG/brain-kit.env"; set +a; }
+[ -f "${BRAIN_ROOT:-$HOME/brain}/hooks/_platform.sh" ] && . "${BRAIN_ROOT:-$HOME/brain}/hooks/_platform.sh"   # Windows: python3, jq, path forms
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 export BRAIN_ROOT BRAIN_DIR
 [ "${BRAIN_EMBED:-1}" != "0" ] || exit 0
-PY="$BRAIN_ROOT/.venv/bin/python"
+PY="$BRAIN_ROOT/.venv/bin/python"; [ -x "$PY" ] || PY="$BRAIN_ROOT/.venv/Scripts/python.exe"   # Windows venv layout
 [ -x "$PY" ] || exit 0
 LOCK="$VAULT/.index/.embed.lock"; SWL="$VAULT/.index/.sweep.lock"; L="$CFG/brain-kit-state/index_sweep.log"
 mkdir -p "$VAULT/.index" "$(dirname "$L")"
@@ -42,13 +43,14 @@ export TOKENIZERS_PARALLELISM=false BRAIN_INSTANCE="${BRAIN_INSTANCE:-sweep}"
 # a cached model never needs the hub; without this a timer run on an offline box waits on a connect timeout
 [ -d "${HF_HOME:-$HOME/.cache/huggingface}/hub" ] && export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 T="${BRAIN_SWEEP_THREADS:-4}"; export OMP_NUM_THREADS="$T" MKL_NUM_THREADS="$T" OPENBLAS_NUM_THREADS="$T"
+NICE="nice -n 10"; command -v nice >/dev/null 2>&1 || NICE=""
 R="update skipped (the write hook holds the lock)"
 if mkdir "$LOCK" 2>/dev/null; then
   HELD="$LOCK"
-  R=$(cd "$BRAIN_ROOT" && nice -n 10 "$PY" scripts/brain_index.py update 2>&1 | grep -aoE "brain.db:.*|Traceback.*|[A-Za-z]*Error.*" | tail -1)
+  R=$(cd "$BRAIN_ROOT" && $NICE "$PY" scripts/brain_index.py update 2>&1 | grep -aoE "brain.db:.*|Traceback.*|[A-Za-z]*Error.*" | tail -1)
   rmdir "$LOCK" 2>/dev/null; HELD=""
 fi
-E=$(cd "$BRAIN_ROOT" && nice -n 10 "$PY" scripts/brain_index.py embed 2>&1 | grep -aoE "brain.db embed:.*|Traceback.*|[A-Za-z]*Error.*" | tail -1)
+E=$(cd "$BRAIN_ROOT" && $NICE "$PY" scripts/brain_index.py embed 2>&1 | grep -aoE "brain.db embed:.*|Traceback.*|[A-Za-z]*Error.*" | tail -1)
 case "$R|$E" in
   *"(0 changed, 0 removed)"*"|brain.db embed: missing 0"*|"update skipped"*"|brain.db embed: missing 0"*) ;;   # quiet run
   *) echo "$(date '+%F %T') ${R:-NO OUTPUT} | ${E:-VECTOR STEP: NO OUTPUT}" >> "$L" ;;

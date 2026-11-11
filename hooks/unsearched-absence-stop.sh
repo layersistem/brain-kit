@@ -38,6 +38,7 @@
 # name is resolved only when a log line is written.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 [ "${BRAIN_ABSENCE_GATE:-1}" = "0" ] && exit 0
 INPUT=$(cat)
 read -r SID TP CWD <<EOF

@@ -9,6 +9,7 @@
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 ENV_FILE="$CFG/brain-kit.env"   # 1.2.3: same settings source as every other hook (TZ set there applies to the clock)
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 INPUT=$(cat)
 SID=$(printf '%s' "$INPUT" | python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("session_id",""))
@@ -17,7 +18,7 @@ NOW=$(date +%s)
 LINE="⏱ NOW $(date '+%F %a %H:%M %Z')"
 if [ -n "$SID" ]; then
   START=$(grep -l "\"sessionId\":\"$SID\"" "$CFG"/sessions/*.json 2>/dev/null | head -1 \
-    | xargs -I{} python3 -c 'import sys,json;print(int(json.load(open("{}")).get("startedAt",0)//1000))' 2>/dev/null)
+    | xargs -I{} python3 -c 'import sys,json;print(int(json.load(open(sys.argv[1], encoding="utf-8")).get("startedAt",0)//1000))' {} 2>/dev/null)
   if [ -n "$START" ] && [ "$START" -gt 0 ] 2>/dev/null; then
     # 1.2.0: `date -r <epoch>` is BSD/macOS only - GNU date reads the argument as a FILE, so on Linux every prompt
     # printed "(started )" and left "No such file or directory" on stderr. GNU `date -d @<epoch>` is the fallback.

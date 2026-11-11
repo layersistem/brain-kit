@@ -114,6 +114,8 @@ sends that line, not its own.
 ## Limits
 
 - Claude Code only, and only inside tmux. Other CLIs have no `/compact` to send and no pane to read.
+- Not on Windows. Git Bash has no tmux, so `setup.sh` installs nothing there: a yes to the question or
+  `--self-compact=<session>` prints one line and leaves the feature off.
 - The busy check reads the last six lines of the pane for "esc to interrupt". A theme or a future
   release that renames that text makes the script wait the full 30 minutes and give up; the log says so.
 - The script never decides *whether* to compact. That call stays with the model and the context hook's

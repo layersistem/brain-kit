@@ -55,7 +55,7 @@ def md_files():
                     continue  # frontmatter opt-out: this note never enters recall
             except OSError:
                 continue
-            yield root, tag, p, f"{tag}/{p.relative_to(root)}"
+            yield root, tag, p, f"{tag}/{p.relative_to(root).as_posix()}"
 
 
 def file_rows(text, f, tag):

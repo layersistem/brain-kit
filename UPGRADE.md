@@ -60,23 +60,39 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
-### Coming from 1.6.0
+### Coming from 1.7.0
 
 Nothing to wire and no restart: the updater has already copied the changed scripts and the new
-`scripts/brain_env.py`. If you told the user to run `BRAIN_DIR=<vault> python3 scripts/brain_expect.py` (the 1.6.0
-workaround), the plain command now gives the same numbers. `scripts/desk_ledger.py` reads the file by the same rules:
-if `brain-kit.env` assigns a name twice, the later line now counts, as it does for the hooks.
+`scripts/brain_env.py`; no hook changed. If you told the user to run `BRAIN_DIR=<vault> python3
+scripts/brain_expect.py` (the 1.6.0 workaround), the plain command now gives the same numbers. If a script prints a
+line that starts with `brain_env:`, a line of `brain-kit.env` sets a variable with a command substitution: write the
+value out in that line.
+
+### Coming from 1.6.0
+
+This release makes the kit install and work natively on Windows (Git Bash). On macOS and Linux nothing changes in what
+the hooks print.
+
+1. **Nothing to wire.** The updater has already copied the changed hooks, the new sourced file `hooks/_platform.sh`
+   (every hook reads it; outside Windows it returns at once), `scripts/install-check.sh` and `docs/WINDOWS.md`.
+   `setup.sh` does not need to run again on macOS or Linux.
+2. **Check the result with real input:** `bash "$BRAIN_ROOT/scripts/install-check.sh"`. It writes a test note, hands
+   the hooks a payload, expects the orphan report, the index line and a recall hit, and removes the note. Five lines
+   starting with `PASS` and exit code 0 mean the hooks do their work; a `FAIL` line names what was expected.
+3. **On Windows** there is no earlier native install to upgrade: before this release the kit ran only inside WSL, and
+   a copy inside WSL is a Linux install that updates like one. To move to a native install, follow `docs/WINDOWS.md`
+   from the start and point `BRAIN_DIR` at the notes you already have.
 
 ### Coming from 1.5.0
 
-This release adds one switch, `BRAIN_EXPECT`, off by default, and no hook. With the switch off, `due-inject.sh` and
-`postwrite-check.sh` print exactly what they printed before.
+This release adds expectation memory and one switch for it, `BRAIN_EXPECT`, and no hook. It is on by default; with
+`BRAIN_EXPECT=0` in `brain-kit.env`, `due-inject.sh` and `postwrite-check.sh` print exactly what they printed before.
 
 1. **Nothing to wire.** The updater has already copied the two changed hooks, the sourced `hooks/_expect_remind.sh` and
    `scripts/brain_expect.py`; `setup.sh` does not need to run again for this release.
-2. **Tell the user what can be turned on** (README "Configuration", `BRAIN_EXPECT`; `docs/DISCIPLINE.md` §11): dated
+2. **Tell the user what is now on** (README "Configuration", `BRAIN_EXPECT`; `docs/DISCIPLINE.md` §11): dated
    `@expect` lines that come back on their day in the DUE block, a reminder when a write reads like a prediction and
-   carries none, and a counter. Ask before adding `BRAIN_EXPECT=1` to `brain-kit.env`; if the user's records are not in
+   carries none, and a counter. `BRAIN_EXPECT=0` in `brain-kit.env` turns it off; if the user's records are not in
    English, ask which words their predictions use and set `BRAIN_EXPECT_RX` to them. The reminder lives in
    `postwrite-check.sh`, which a `--minimal` install does not wire; there only the DUE half works.
 3. **No restart is needed** for the switch: each hook reads `brain-kit.env` when it runs.

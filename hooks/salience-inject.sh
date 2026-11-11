@@ -18,6 +18,7 @@ CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 # (until 1.2.2 this hook saw only exported variables, and a line in brain-kit.env changed nothing).
 ENV_FILE="$CFG/brain-kit.env"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 _PROJ="${CLAUDE_PROJECT_DIR:-$PWD}"; _PROJ="${_PROJ%/}"
 LASTF="$CFG/brain-kit-state/self-compact.$(printf '%s' "$_PROJ" | tr -c 'A-Za-z0-9' '-').last"
 read -r SID PROMPT < <(printf '%s' "$INPUT" | python3 -c 'import sys,json

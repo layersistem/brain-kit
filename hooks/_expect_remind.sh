@@ -1,6 +1,6 @@
 #!/bin/bash
 # _expect_remind.sh - sourced, not a hook and not wired into settings. The one definition of the expectation reminder
-# (issues #18 and #19, BRAIN_EXPECT=1 only). postwrite-check.sh calls it after a note write; a script of your own that
+# (issues #18 and #19; on unless BRAIN_EXPECT=0). postwrite-check.sh calls it after a note write; a script of your own that
 # writes a status line or a ledger entry can call it after its write and shares the same quiet period.
 #
 #   E="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"; [ -f "$E" ] && { set -a; . "$E"; set +a; }
@@ -32,7 +32,7 @@ EXPECT_RX_DEFAULT='expect|estimate|predict|likely|probably|should hold|to watch'
 
 expect_remind() {
   local where="${1:-the vault}" inst="${2:-}" text found="" now last dir f
-  [ "${BRAIN_EXPECT:-0}" = 1 ] || return 0
+  [ "${BRAIN_EXPECT:-1}" = 1 ] || return 0
   text=$(cat 2>/dev/null) || true
   [ -n "$text" ] || return 0
   case "$text" in

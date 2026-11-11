@@ -123,7 +123,8 @@ What makes a path appear on that line:
 
 The write hook re-indexes vault and memory notes only. An article edited under a docs root reaches the SQLite index on
 the next round of the index sweeper (every two minutes, when its timer is installed) or with
-`"$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" update`. Until then recall shows the old text;
+`"$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" update` (on Windows:
+`"$BRAIN_ROOT/.venv/Scripts/python.exe"`). Until then recall shows the old text;
 on the test wiki the new path appeared right after the `update`. A very large tree can stay out of the encoder with
 `BRAIN_WIKI_EMBED=0`.
 

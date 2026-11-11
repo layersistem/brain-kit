@@ -14,7 +14,11 @@ os.environ before the script builds its paths, the way the shell reads it, and n
 - Quoting as in the shell: single quotes literal, double quotes expand $NAME and ${NAME} and drop the backslash before
   \\ " $ `; an unquoted # that starts a word begins a comment. Several assignments on one line, `;` between statements
   and an `export` in front are read. A line that would run a command (a word that is not an assignment, which also
-  makes the assignments in front of it temporary) is skipped; $(...) and backticks are kept as text, never run.
+  makes the assignments in front of it temporary) is skipped.
+- Nothing is run. An assignment whose value the shell would compute - $(...), backticks, $'...', $"..." or a ${...}
+  operator other than - = + - is not applied: the name keeps the value it had, and when the assignment would have
+  counted, one line on stderr names the variable and the line number (never the value). Before 1.7.1's fix the
+  unrun text itself became the value, so `BRAIN_DIR=$(cmd)` gave a vault called "$(cmd)".
 - Measured against bash 3.2 and 5.2, the scripts and the hooks also differ on a line that runs a command or $(...)
   (the hook runs it), on CRLF line ends (the hook keeps the CR in the value), on ~ inside double quotes (the hook keeps
   it as text, the scripts' paths expand it), and on shell syntax this reader does not take: $'...', $"...", +=, a
@@ -24,10 +28,24 @@ os.environ before the script builds its paths, the way the shell reads it, and n
 
 desk_ledger.py has read brain-kit.env since 1.2.0; its reader moved here (issue #22) and now follows these rules too.
 Env: CLAUDE_CONFIG_DIR (~/.claude)"""
-import os, re
+import os, re, sys
 
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _PARAM = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(:?)([-=+]?)")
+
+
+_DRIVE = re.compile(r"/([A-Za-z])(/.*)?$")
+
+
+def _native(v):
+    """Windows only. setup.sh stores paths in Git Bash's form (/c/Users/me/brain); a hook's shell turns that into
+    C:/Users/me/brain when it starts Python. A value read straight from the file needs the same step."""
+    m = _DRIVE.match(v)
+    return f"{m.group(1)}:{m.group(2) or '/'}" if m else v
+
+
+class _Unread(Exception):
+    """The word needs the shell to compute it (a command substitution, backticks, $'...', an operator not taken)."""
 
 
 def _close(s, i):
@@ -79,6 +97,8 @@ def _expand(s, cur, dq=False):
         if c == '"' and not dq:
             j = _dq_end(s, i + 1)
             out.append(_expand(s[i + 1:j], cur, True)); i = j + 1; continue
+        if c == "`" or s.startswith("$(", i) or (not dq and s[i:i + 2] in ("$'", '$"')):
+            raise _Unread()
         if c == "$":
             m = _NAME.match(s, i + 1)
             if m:
@@ -97,6 +117,8 @@ def _expand(s, cur, dq=False):
                     out.append(v); i = j + 1; continue
                 if op == "+":
                     out.append(_expand(word, cur, dq) if have else ""); i = j + 1; continue
+            if s.startswith("${", i):
+                raise _Unread()   # ${NAME%x}, ${#NAME}, ${NAME/a/b}, an unclosed ${ ...
         out.append(c); i += 1
     return "".join(out)
 
@@ -131,6 +153,12 @@ def _statements(line):
     return stmts + [words]
 
 
+def _warn(no, name):
+    print(f"brain_env: brain-kit.env line {no}: {name} is set with shell syntax this reader does not run (a command"
+          f" substitution, backticks, $'...' or a ${{...}} operator other than - = +); {name} keeps the value it had."
+          " Export it, or write the value out.", file=sys.stderr)
+
+
 def load():
     """Read <CLAUDE_CONFIG_DIR>/brain-kit.env into os.environ by the rules above. A missing or unreadable file changes
     nothing. Bytes that are not UTF-8 reach os.environ as they are in the file, as the shell passes them on
@@ -143,16 +171,23 @@ def load():
         return
     kept = {k for k, v in os.environ.items() if v}
     cur = dict(os.environ)
-    for ln in lines:
+    for no, ln in enumerate(lines, 1):
         for words in _statements(ln):
             if words[:1] == ["export"]:
                 words = [x for x in words[1:] if not _NAME.fullmatch(x)]
             pairs = [x.split("=", 1) for x in words]
             if not words or any(len(p) != 2 or not _NAME.fullmatch(p[0]) for p in pairs):
-                continue   # empty, or it would run a command
+                # empty, or it would run a command. An unquoted $(cmd with spaces) lands here too, split into words.
+                if pairs and len(pairs[0]) == 2 and _NAME.fullmatch(pairs[0][0]) and pairs[0][0] not in kept \
+                        and ("$(" in pairs[0][1] or "`" in pairs[0][1]):
+                    _warn(no, pairs[0][0])
+                continue
             for name, raw in pairs:
                 if name not in kept:
-                    cur[name] = _expand(raw, cur)
+                    try:
+                        cur[name] = _expand(raw, cur)
+                    except _Unread:
+                        _warn(no, name)
     for name, v in cur.items():   # ${NAME:=word} sets NAME as well, so compare instead of listing the assignments
         if name not in kept and os.environ.get(name) != v:
-            os.environ[name] = v
+            os.environ[name] = _native(v) if os.name == "nt" else v

@@ -188,7 +188,7 @@ consolidation finds the transcript a decision came out of. An edit by another se
 
 Decision records say what was decided, and the verdict ledger says what went wrong. Neither says what you expected
 before the outcome was known, so a surprise leaves no trace, and a "works" written after the fact cannot be told apart
-from a lucky guess. With `BRAIN_EXPECT=1` one line next to the work fills that gap. Write it in the focus file or in the
+from a lucky guess. One line next to the work fills that gap (expectation memory; `BRAIN_EXPECT=0` turns it off). Write it in the focus file or in the
 decision record before you deliver, before you write "works" or "passed", and before you judge a result you have not
 measured yet:
 
@@ -228,6 +228,6 @@ printf '%s' "$line" | expect_remind "the status line" || true   # prints the rem
 
 The first line matters: the hooks read `brain-kit.env` on every run, a script of yours does not, and a session does not
 put `BRAIN_ROOT`, `BRAIN_EXPECT` or `BRAIN_EXPECT_RX` into the environment of the commands it runs. Without it the
-function finds the switch off and prints nothing, or the file is not found at all. The function returns 0 on
+function does not see a `BRAIN_EXPECT=0` or a pattern of your own, or the file is not found at all. The function returns 0 on
 every path, also under `set -euo pipefail`; the `|| true` keeps a script with those options going all the same, since
 the function was written for the hooks, which run without them. The kit ships no such script.

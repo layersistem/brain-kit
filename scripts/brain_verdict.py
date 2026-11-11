@@ -22,10 +22,10 @@ ledger or the focus file. Standard library only; every failure prints less, neve
 Env: BRAIN_ROOT . BRAIN_DIR . BRAIN_VERDICT_LEDGER (default <vault>/knowledge/verdict-ledger.md) . BRAIN_VERDICT_PROMPT
      (the correcting prompt, so `moment` does not take it for the corrected one) . BRAIN_MEMORY / BRAIN_MEMORY2.
      Run as a script, the same variables are also read from <agent-config-dir>/brain-kit.env as the hooks do (an exported
-     value wins; issue #22). Imported (brain_bm25 does, for the boost), it leaves its caller's environment alone."""
+     value wins; issue #22); `moment` does not read it, because salience-inject.sh has sourced the file already. Imported (brain_bm25 does, for the boost), it leaves its caller's environment alone."""
 import os, sys, re, json, datetime
 
-if __name__ == "__main__":
+if __name__ == "__main__" and sys.argv[1:2] != ["moment"]:   # `moment` is the hook's call, and the hook has sourced the file
     import brain_env
     brain_env.load()
 

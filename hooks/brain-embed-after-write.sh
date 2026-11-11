@@ -26,18 +26,20 @@ ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 # a `cd` into another project inside a session must not change who you are or whose memory you read.
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 export BRAIN_ROOT BRAIN_DIR
 for d in ${BRAIN_ISOLATE_DIRS:-}; do
   case "${SESSION_ROOT:-}" in $d|$d/*) exit 0 ;; esac
 done
-PY="$BRAIN_ROOT/.venv/bin/python"
+PY="$BRAIN_ROOT/.venv/bin/python"; [ -x "$PY" ] || PY="$BRAIN_ROOT/.venv/Scripts/python.exe"   # Windows venv layout
 [ -x "$PY" ] || exit 0
 EMBED_FLAG=""
 [ "${BRAIN_EMBED:-1}" != "0" ] && [ "${BRAIN_EMBED_SYNC:-0}" = "1" ] && EMBED_FLAG="--embed"
 INPUT=$(cat)
 FP=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+FP=$(brain_fp "$FP")
 SW="$BRAIN_ROOT/scripts/brain_index_sweep.sh"
 start_sweeper(){
   # the systemd unit only when it is THIS install's (setup.sh writes ExecStart with this BRAIN_ROOT);

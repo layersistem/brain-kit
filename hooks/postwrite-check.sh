@@ -5,7 +5,7 @@
 #   (b) [[wikilinks]] IN THE FILE JUST WRITTEN that point at a note which does not exist
 #   (c) the note just written has no [[links]] at all (an orphan lands disconnected in the graph)
 # All three are about the vault staying navigable; nothing else here is enforced, and nothing is deleted.
-# Returns decision:block with a reason, so the agent fixes it instead of moving on. With BRAIN_EXPECT=1 a fourth one,
+# Returns decision:block with a reason, so the agent fixes it instead of moving on. A fourth one,
 # (d), looks at the text the write put in and never blocks (see BRAIN_EXPECT below).
 #
 # 1.2.0: (a) used to delete every 0-byte *.md in the whole vault on each write (a placeholder in another folder was
@@ -25,7 +25,7 @@
 #         BRAIN_ORPHAN_EXEMPT - space separated dir names where linkless files are fine by design
 #                               (default: "_drafts _archive refs focus"; raw agent output, scratch, working files)
 #         BRAIN_WRITING_RULE  - optional path/name of your note-writing rule, quoted in the orphan message
-#         BRAIN_EXPECT        - `1` adds (d), a reminder that never blocks (issues #18, #19; off by default): when the
+#         BRAIN_EXPECT        - (d), a reminder that never blocks (issues #18, #19; on by default, `0` turns it off): when the
 #                               text just written to a decision record, a knowledge note, a hub note (moc/) or a focus
 #                               file holds prediction wording (BRAIN_EXPECT_RX) and no `@expect` marker, one sentence
 #                               goes out as additionalContext, at most once per instance in 15 minutes. The definition
@@ -37,6 +37,7 @@ ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 # a `cd` into another project inside a session must not change who you are or whose memory you read.
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 for d in ${BRAIN_ISOLATE_DIRS:-}; do
@@ -44,6 +45,7 @@ for d in ${BRAIN_ISOLATE_DIRS:-}; do
 done
 INPUT=$(cat)
 FP=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+FP=$(brain_fp "$FP")
 [ -z "$FP" ] && exit 0
 case "$FP" in "$VAULT"/*) ;; *) exit 0 ;; esac
 case "${FP#"$VAULT"/}" in .*|*/.*) exit 0 ;; esac
@@ -85,10 +87,10 @@ its hub.${BRAIN_WRITING_RULE:+ Rule: $BRAIN_WRITING_RULE.} "
 [ -n "$msg" ] && [ "${ghosts_all:-0}" -gt 0 ] && msg="${msg}(Vault-wide ghost targets, background only: $ghosts_all.)"
 [ -n "$msg" ] && dry_guard "postwrite-check" "vault-hygiene"
 
-# (d) Expectation reminder, BRAIN_EXPECT=1 only, on the text this write put in (content, or new_string for an Edit).
+# (d) Expectation reminder, unless BRAIN_EXPECT=0, on the text this write put in (content, or new_string for an Edit).
 # After the dry-run exit, so a reported block leaves the quiet period untouched.
 expect=""
-if [ "${BRAIN_EXPECT:-0}" = 1 ] && [ -f "$(dirname "$0")/_expect_remind.sh" ]; then
+if [ "${BRAIN_EXPECT:-1}" = 1 ] && [ -f "$(dirname "$0")/_expect_remind.sh" ]; then
   case "$FP" in "$VAULT"/decision/*.md|"$VAULT"/knowledge/*.md|"$VAULT"/moc/*.md|"$VAULT"/focus/*.txt)
     . "$(dirname "$0")/_expect_remind.sh"; . "$(dirname "$0")/_instance.sh" 2>/dev/null
     expect=$(printf '%s' "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string // ""' 2>/dev/null \

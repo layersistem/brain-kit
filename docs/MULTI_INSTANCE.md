@@ -101,6 +101,10 @@ resolved per **session** first (`hooks/_instance.sh`):
    order of sources is therefore: bound session -> ticket -> title -> folder. Unset,
    the title source is skipped and nothing changes.
 
+Not on Windows: the binding reads the process list in a way Git Bash cannot, so a session there is named by
+`BRAIN_INSTANCE`, else by the nearest `.brain-instance`, else `main`. A single-user install needs nothing more;
+two named sessions in one folder are not supported on Windows.
+
 Measured on the day it shipped: a pid file set to a test name changed every hook's
 identity at once; removing it restored the old one; the ticket was consumed exactly once. Rename the state files if you must, but
 never write them by hand for a running session - that is how a session ends up

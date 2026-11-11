@@ -4,6 +4,9 @@ You are installing **brain-kit**: a persistent memory layer that survives compac
 this session access to what previous sessions decided. Follow this file top to bottom, run the
 commands yourself, verify the results, and finish with a five-line report.
 
+**On Windows, read `docs/WINDOWS.md` first and install by it.** It covers the prerequisites, the shell to use
+(Git Bash), the installer and the checks, step by step. Come back here at A3 or B1 when its checks pass.
+
 Two engines, neither of which calls an API:
 
 - **Recall** - `brain_recall.py`: BM25 (pure stdlib; reads a prebuilt SQLite index when
@@ -25,10 +28,10 @@ what they mean (full table: README "What gets injected, and when"):
   "yesterday" and "an hour ago" are guesses without it.
 - **DUE** (`due-inject.sh`) - `@due YYYY-MM-DD[ HH:MM] text` lines from your focus file or your own
   decision records: overdue, today, tomorrow; the coming week once a day. Put promises there; when
-  done, change the line to `@due✓`. With `BRAIN_EXPECT=1` the block also lists `@expect` lines, predictions
+  done, change the line to `@due✓`. The block also lists `@expect` lines (unless `BRAIN_EXPECT=0`), predictions
   written before the outcome was known: when one comes back, write what happened on that line
-  (`@expect✓ held: ...`, `@expect✗ missed: ...`, or `@expect✓ void: ...` when it no longer applies). With
-  `BRAIN_EXPECT=1`, before a delivery or a "works" or "passed" claim, add one to the record:
+  (`@expect✓ held: ...`, `@expect✗ missed: ...`, or `@expect✓ void: ...` when it no longer applies). Before a
+  delivery or a "works" or "passed" claim, add one to the record:
   `@expect YYYY-MM-DD <what you expect> · measure: <how it will show> · written: <today>`. A write to a record
   that reads like a prediction ("expect", "likely", ...) and carries no `@expect` gets a one-line reminder; it
   never blocks, and text that predicts nothing needs no line.
@@ -178,6 +181,8 @@ Do not rewrite note bodies. This is a memory install, not a documentation refact
 
 ```bash
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
+# On Windows the kit's interpreter is "$BRAIN_ROOT/.venv/Scripts/python.exe": use it in place of .venv/bin/python
+# and of python3 in the three lines below.
 "$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" build --embed   # drop --embed if --no-embed
 BRAIN_INDEX=sqlite python3 "$BRAIN_ROOT/scripts/brain_bm25.py" "<a phrase you know is in the notes>" 5
 "$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_search.py" "<the same idea, other words>" -k 5

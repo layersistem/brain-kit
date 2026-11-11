@@ -29,6 +29,7 @@ SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 # shell variables and BRAIN_INDEX=sqlite never got past this hook: brain_bm25 re-scanned the whole vault on every
 # prompt (measured on a 2000-note vault: 5.8-6.8 s per prompt, against 0.24 s with the variable exported).
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 export BRAIN_ROOT BRAIN_DIR
 for d in ${BRAIN_ISOLATE_DIRS:-}; do

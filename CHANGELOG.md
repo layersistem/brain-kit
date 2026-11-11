@@ -5,75 +5,160 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
-## [Unreleased]
+## [1.7.1] - 2026-11-11
 
-The expectation counter and the verdict ledger read the vault the hooks read (issue #22). Nothing to wire:
-`scripts/update.sh` brings the changed scripts and the new `scripts/brain_env.py`. When the environment already
-carries the settings, as it does when a hook starts a script, every output is the same as 1.6.0, apart from the new
-stderr line for a vault path that does not exist.
+The expectation counter and the verdict ledger read the vault the hooks read (issue #22). Nothing to wire and no hook
+changes: `scripts/update.sh` brings the changed scripts and the new `scripts/brain_env.py`.
 
 ### Fixed
 - `scripts/brain_expect.py` and `scripts/brain_verdict.py` took `BRAIN_ROOT` and `BRAIN_DIR` from the environment
-  only. The hooks source `<agent-config-dir>/brain-kit.env` on every run; a script started from a shell does not, so
-  with the vault path set only in that file (where `setup.sh` and `INTRO_PROMPT.md` put it) the counter fell back to
-  `~/brain/vault` and printed that vault's numbers without a warning, for example "open 0" while the DUE block showed
-  an open line. Both scripts, and `scripts/desk_ledger.py`, which has read the file since 1.2.0, now share one reader,
-  `scripts/brain_env.py`. It reads the file the way the shell does and never executes it: a later line overrides an
-  earlier one, `NAME="${NAME:-value}"` (the form `setup.sh` writes) keeps a value that is already set and not empty,
-  quoting and `$NAME` expansion follow the shell, a `#` comment after a value is dropped, and a line that would run a
-  command is skipped. A variable exported non-empty before the script starts wins over every line, while in the hooks
-  a plain `NAME=value` line overrides it (issue #24). The other measured differences from the hooks: a line with a
-  command or `$(...)`, which a hook runs; CRLF line ends, whose CR a hook keeps in the value; `~` inside double quotes,
-  which a hook keeps as text; and rare shell syntax the reader does not take (README "Configuration" lists it). Bytes
-  that are not UTF-8 are passed on as the shell passes them, so a stray byte no longer stops the scripts (it stopped
-  `desk_ledger.py` since 1.2.0). `brain_verdict.py` reads the
-  file only when it runs as a script: `brain_bm25.py` imports it for the verdict boost, and that import leaves the
-  caller's environment alone. The 1.6.0 known limit and its workaround no longer apply.
-- `scripts/desk_ledger.py` read the same file with a smaller parser: the first of two assignments won, and a comment
-  after a value became part of it. It now uses the shared reader, and an exported variable that is empty no longer
-  hides the file's value.
+  only. The hooks source `<agent-config-dir>/brain-kit.env` on every run; a script started from a shell does not. With
+  the vault path set only in that file, which is where `setup.sh` and `INTRO_PROMPT.md` put it, the counter fell back
+  to `~/brain/vault` and printed that vault's numbers without a warning: "open 0" while the DUE block showed an open
+  line. Both scripts, and `scripts/desk_ledger.py`, which has read the file since 1.2.0, now share one reader,
+  `scripts/brain_env.py`. It reads the file by the shell's rules and runs nothing: a later line overrides an earlier
+  one, `NAME="${NAME:-value}"` keeps a value that is already set and not empty, quoting and `$NAME` follow the shell,
+  and a line that would run a command is skipped. A variable exported non-empty before the script starts wins.
+- A value the shell would compute (`$(...)`, backticks, `$'...'`, a `${...}` operator other than `-`, `=`, `+`) is
+  not applied by the reader: the name keeps the value it had, and one line on stderr names the variable and the line
+  number, never the value. `brain_verdict.py moment`, the one call a hook makes, does not read the file at all,
+  because the hook has already sourced it; the hook's output is the same as in 1.7.0.
+- `scripts/desk_ledger.py` read the file with a smaller parser: the first of two assignments won, and a comment after
+  a value became part of it. It uses the shared reader now.
 - `scripts/brain_expect.py` prints one line on stderr when the vault it resolved does not exist, so a mistyped path no
   longer gives a believable "open 0".
+- On Windows the reader turns a path stored in Git Bash's form (`/c/Users/me/brain`) into `c:/Users/me/brain`, the
+  step the shell does for a hook when it starts Python.
 
 ### Changed
-- `INTRO_PROMPT.md`: the DUE item says that the `@expect` line before a delivery or a "works" or "passed" claim is
-  written with `BRAIN_EXPECT=1`. Read without the switch, the sentence asked for a line that never comes back.
 - README "Configuration" and the header `setup.sh` writes into a new `brain-kit.env` say which lines an exported
   variable wins over, and name the three scripts that read the file themselves.
 
-Measured by the author. Against the shell: 34 forms of the file (the four line forms, two assignments of one name in
-each order with the setup form, an empty value followed by `${NAME:-}` and by `${NAME-}`, comments after plain, quoted
-and setup-form values, `#` inside quotes and inside a word, `$HOME` and `${HOME}`, a value built from an earlier line,
-mixed quoting, the escaping `setup.sh` writes, a backslash, two assignments on one line, `;`, an assignment in front
-of a command, `export NAME` alone, `${NAME:+}`, `${NAME:=}`) times four environments (none, `BRAIN_DIR` exported,
-exported empty, `BRAIN_ROOT` exported): the reader gives what `set -a; . brain-kit.env` gives in 106 cases, and in the
-other 30, where a plain line meets an exported value of the same name, it keeps the exported one; command
-substitutions stay text and run nothing. End to end, with seven vaults and twenty-five files (four of them with a
-Latin-1 byte, a stray byte, a NUL, and a vault path that is not UTF-8): each of four calls run by hand prints what the
-1.6.0 script prints when a hook has loaded the file, under a hook prints what 1.6.0 printed, exits 0 without a
-traceback, and `desk_ledger.py` resolves the root, vault and instance a hook would give it: 229 of 229 checks.
-Nineteen deliberate faults each turn one of the two runs red; the first review head (`164f4b2`) fails 67 of the 229,
-the second (`966b272`) fails 36, all on the files with those bytes.
+### Measured
+- Two installs side by side on Linux, 1.7.0 and this tree, vault path only in `brain-kit.env` in the form `setup.sh`
+  writes, one open `@expect` line due tomorrow: the DUE hook shows the line in both; the counter says "open 0" in
+  1.7.0 and "open 1" here.
+- Thirteen one-line forms of the file through the reader, nothing in the environment: five plain and quoted forms
+  give the value the shell gives; six computed forms (`$(true)`, `"$(cat ...)"`, backticks, `${NAME%/}`, `$''`, an
+  unquoted `$(echo a b)`) leave the name unset with one stderr line each; a default that is not taken and a temporary
+  assignment in front of a command behave as in the shell. The reader before this fix made the unrun text the vault
+  path in five of the six.
+- `BRAIN_DIR=$(true)` in the file, sourced by a shell first: the counter and `brain_verdict.py report` print the same
+  stdout as 1.7.0. `hooks/salience-inject.sh` with `BRAIN_VERDICT=1` on a correcting prompt: output identical to
+  1.7.0, exit code 0, empty stderr, and the ledger path it names is the vault's.
+- Not measured on a Windows machine. The path conversion was checked against the function on Linux only; the hooks,
+  which are what was measured on Windows for 1.7.0, are unchanged.
+
+## [1.7.0] - 2026-11-11
+
+Windows support: the kit installs and works natively on Windows 10 and 11 in Git Bash (issue #27). Until now the
+README sent Windows users to WSL. Nothing changes on macOS or Linux; `scripts/update.sh` brings the changed hooks.
+There is no new hook to wire. The pages that still described the kit as it was before Windows support were brought
+in line with it (issue #28).
+
+### Added
+- `docs/WINDOWS.md`: the install on Windows step by step, written for the model that does it. Prerequisites with
+  their `winget` commands, the shell to use, the installer, what healthy output looks like, and a table from each
+  failure to its fix.
+- `scripts/install-check.sh`, on every system: five checks that hand the hooks a real payload instead of looking
+  for files. It writes a test note without links, expects the hygiene hook to report it, the index hook to count
+  it and recall to find it, then removes the note. Exit code 0 only when all five pass.
+- `hooks/_platform.sh`, sourced by every hook after `brain-kit.env`. It returns at once outside Windows. On
+  Windows it puts the kit's `python3` and an LF-only `jq` in front of the hooks' PATH, converts `C:\...` paths to
+  the form Git Bash compares, and gives `BRAIN_MEMORY2` the Windows name of the agent's per-project memory folder.
+- `setup.sh` on Windows: a Task Scheduler entry `brain-kit index sweep` (every 2 minutes, started through
+  `pythonw.exe` and `scripts/brain_sweep_task.py`, so no window opens) does what the launchd agent does on macOS.
+- `.gitattributes`: every text file is checked out with LF line ends. Git for Windows defaults to
+  `core.autocrlf=true`, which gave a Windows clone CR LF scripts, pattern files and `VERSION`.
+
+### Fixed
+- `setup.sh` stopped with exit code 49 and no message when a `python3` on PATH did not run (on Windows that name
+  is a Microsoft Store placeholder). A name that does not run is now skipped, `python` is tried as well, and the
+  message for a missing Python or jq names the `winget` command.
+- `setup.sh` called `.venv/bin/pip`; a Windows venv has `Scripts`. The installer, the write hook and the sweeper
+  now use the interpreter where the venv has it.
+- `setup.sh` on Windows checks that torch loads right after installing it and names the missing Microsoft Visual
+  C++ runtime; before, the install ran for minutes and failed at the index build with `WinError 126 ... c10.dll`.
+- The write hooks compared the file path of a tool call with the vault path as text. On Windows the first is
+  `C:\Users\...` and the second `/c/Users/...`, so `postwrite-check.sh`, `brain-embed-after-write.sh`,
+  `salience-postwrite.sh` and `recall-usage-count.sh` exited 0 and did nothing: new notes never reached the index.
+- Values read from a native `jq.exe` or Python carried a trailing carriage return on Windows, so
+  `sessionstart-compact-pointer.sh` compared `compact` with `compact\r` and never printed its block.
+- Seven hooks walked up from the project folder with `while [ "$d" != "/" ]`. On a Windows path `dirname` stops at
+  `C:` and the loop never ended; a relative path did the same on any system. The loop now stops when `dirname`
+  makes no progress.
+- `scripts/brain_usage_count.py` imported `fcntl`, which Windows does not have; the lock uses `msvcrt` there.
+- `scripts/brain_index.py` and `scripts/brain_bm25.py` spell a note's relative path with forward slashes on
+  every system.
+- `hooks/time-inject.sh` passed the session file's path inside a Python code string, where a Windows Python could
+  not open it; the path is an argument now.
+- The operating-rules block that `setup.sh` appends to `CLAUDE.md` names the vault as `C:/Users/...` on Windows,
+  a form the agent's file tools open.
+- The hooks rely on Git Bash translating `/c/Users/...` for a native Python. A shell that sets
+  `MSYS_NO_PATHCONV=1` (common with docker and kubectl) hands that switch to the agent and so to every hook, and
+  the translation stops. `hooks/_platform.sh` drops the switch for the hook's own children.
+
+### Not on Windows
+- Self-compact (it needs tmux) and the session-bound instance identity (it reads the process list in a way Git
+  Bash cannot). The dense recall daemon has not been set up as a Windows service.
+
+### Measured
+- A clean Windows 11 machine (build 26100, 4 GB of memory), Git for Windows, Python 3.12, jq 1.8.2 and the Visual
+  C++ runtime from winget: `./setup.sh --yes-defaults` exit code 0 with no manual step, 1449 s, of which the first
+  load of the embedding model took 816 s; 20 hook entries, index 2 files, 9 chunks, 9 vectors, the scheduled task
+  created and run by Task Scheduler.
+- The hooks with payloads in the three path forms a Windows session can produce (`C:\...`, `C:/...`, `/c/...`) and
+  a Windows-form project folder: the hygiene hook reported the linkless note in all three, the index went from 2
+  to 5 files, the compaction pointer printed its block, the usage counter counted. Before: 0 of 3 notes indexed
+  and no report, with every hook exiting 0.
+- `scripts/install-check.sh` on that install: 5 of 5 in 13 s, and the vector the write left missing was filled by
+  the scheduled sweeper (244 s on that machine).
+- The commands of `docs/WINDOWS.md` run as written from CMD on a fresh clone (Git's `core.autocrlf=true`, files
+  checked out with LF): prerequisite checks, `./setup.sh --yes-defaults --no-embed` exit code 0, install check
+  5 of 5, 70 s in all.
+- A real Claude Code session on that machine (2.1.318, headless, hook events included in the output): a prompt, a
+  Read and a Write of a decision record gave 18 hook answers, all exit code 0 with an empty stderr; the write was
+  followed by the decision-time recall, the index line and the orphan report, and the usage counter counted the
+  Read. A manual compaction wrote the snapshot and printed the pointer to it; the prompt after it ran its 11 hooks
+  clean. Claude Code hands hooks `C:\Users\...` in `file_path`, `cwd` and `transcript_path`, `C:/Users/...` in
+  `CLAUDE_PROJECT_DIR`, and names the project's memory folder `C--Users-<name>-<project>`.
+- The same session started from a shell that carries `MSYS_NO_PATHCONV=1`: before that fix the compaction
+  snapshot was not written (Python got `/c/Users/...`); after it, prompt, compaction and the prompt after it ran
+  clean and the snapshot was there.
+- The release tree on a real Mac (macOS 27.2.1, Apple silicon, bash 3.2.57, Homebrew Python, jq 1.7.1), because
+  every hook now sources `hooks/_platform.sh`: `./setup.sh --no-embed --no-timers --yes-defaults` exit code 0 in
+  2 s, `scripts/install-check.sh` 5 of 5, and each of the 20 wired hook entries run once with a payload of its
+  event (prompt, Write of a decision record, compaction, session start, end of turn): exit code 0 and an empty
+  stderr 20 times, the snapshot written and the pointer to it printed. These payloads were written by hand and
+  run over ssh, not in an agent session; the agent session on a Mac was measured on the 1.6.0 tree.
+- Linux, in an Ubuntu 24.04 container: a clean `--no-embed` install, a re-install and an upgrade from 1.6.0 by
+  `setup.sh` all exit code 0, 20 hook entries wired, `brain-kit.env` and the user's own settings kept; `bash -n`
+  under bash 3.2.57 passes for the 30 shell files. An installed 1.6.0 moved to this release with
+  `scripts/update.sh --to v1.7.0`: exit code 0, `hooks/_platform.sh`, `scripts/install-check.sh` and
+  `docs/WINDOWS.md` arrived, and the install check passed 5 of 5 without `setup.sh` running again.
 
 ## [1.6.0] - 2026-11-11
 
-Expectation memory behind one new switch, `BRAIN_EXPECT`, off by default (issues #18 and #19). There is no new hook to
+Expectation memory, on by default, with one switch to turn it off, `BRAIN_EXPECT=0` (issues #18 and #19). There is no new hook to
 wire: `scripts/update.sh` brings the two changed hooks, the new sourced file `hooks/_expect_remind.sh` and the new
 script, and every hook reads `brain-kit.env` when it runs.
-With the switch unset or `0`, both changed hooks print the same bytes as 1.5.0, also on a vault that already contains
+With `BRAIN_EXPECT=0`, both changed hooks print the same bytes as 1.5.0, also on a vault that already contains
 `@expect` lines. No vault format change.
+
+The first build of 1.6.0, published for a few hours on 11 November 2026, had the feature off by default. The version
+number did not change. A copy installed in those hours has it off: `BRAIN_EXPECT=1` in `brain-kit.env` turns it on.
 
 ### Added
 - The line: `@expect YYYY-MM-DD[ HH:MM] <what I expect> · measure: <how it will show> · written: YYYY-MM-DD`, a
   prediction written next to the work before its outcome is known. It is closed on the same line as
   `@expect✓ held: <what happened>`, `@expect✗ missed: <what happened>` or `@expect✓ void: <why it no longer applies>`.
-- `hooks/due-inject.sh`: with `BRAIN_EXPECT=1`, open `@expect` lines in the focus file and in your own decision records
+- `hooks/due-inject.sh`: open `@expect` lines in the focus file and in your own decision records
   appear in the DUE block on the schedule of `@due` lines (overdue, today, tomorrow, the coming week once a day), marked
   `EXPECTATION - write the outcome:`, and the header then says how to close one. Closed lines are not shown, and
   neither is a marker inside fenced code or an inline code span, which is a format example. Backticks pair from the
   left, the same rule `scripts/brain_expect.py` uses, so a real line written between two code spans is shown and
   counted alike. `@due` lines print as before.
-- `hooks/postwrite-check.sh`: with `BRAIN_EXPECT=1`, when the text a Write or Edit just put into a decision record, a
+- `hooks/postwrite-check.sh`: when the text a Write or Edit just put into a decision record, a
   knowledge note, a hub note (`moc/`) or a focus file holds prediction wording and no `@expect` marker, one fixed
   reminder sentence follows as `additionalContext`, with the file name and at most four of the words it found. The
   words are a setting, `BRAIN_EXPECT_RX` (extended regex, case ignored; default
@@ -121,6 +206,12 @@ the instance name, the same process walk the prompt hooks do (160 ms measured in
 Known limit: `scripts/brain_expect.py` reads `BRAIN_ROOT` and `BRAIN_DIR` from the environment only. If your vault
 path is set only in `brain-kit.env`, the hooks see that vault and the counter counts the default one, without a
 warning; run it as `BRAIN_DIR=<your vault> python3 scripts/brain_expect.py` until the next release.
+
+Changed after the release, version number unchanged (11 November 2026): the example decision record in `vault-seed/`
+now ends with a RELATED section and one link. Without it, the first Edit of that note made `postwrite-check.sh` report
+the kit's own example as an orphan; this showed up in a real session on a Mac. The seed is copied into a new vault
+only, so an existing vault keeps its copy: add a link to that note yourself, or delete the note once you have real
+records.
 
 ## [1.5.0] - 2026-10-15
 

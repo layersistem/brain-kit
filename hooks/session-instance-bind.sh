@@ -28,9 +28,11 @@ IN=$(cat 2>/dev/null || true)
 # only an exported value reached this hook, and a map written into the env file was never consulted.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 py() { printf '%s' "$IN" | python3 -c "import sys,json;print(json.load(sys.stdin).get('$1',''))" 2>/dev/null; }
 SID=$(py session_id); CWD=$(py cwd); TP=$(py transcript_path); EV=$(py hook_event_name)
 [ -n "$CWD" ] || CWD="${CLAUDE_PROJECT_DIR:-$PWD}"
+CWD=$(brain_fp "$CWD"); TP=$(brain_fp "$TP")
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/_instance.sh"
 mkdir -p "$STATE_DIR"
@@ -84,7 +86,7 @@ if [ -z "$INST" ]; then
   d="$CWD"
   while [ "$d" != "/" ] && [ -n "$d" ]; do
     [ -f "$d/.brain-instance" ] && { INST=$(head -1 "$d/.brain-instance" | tr -cd 'a-zA-Z0-9_-'); SRC=folder; break; }
-    d=$(dirname "$d")
+    _up=$(dirname "$d"); [ "$_up" = "$d" ] && break; d=$_up
   done
 fi
 [ -n "$INST" ] || exit 0

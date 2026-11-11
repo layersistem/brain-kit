@@ -22,6 +22,7 @@
 [ $# -ge 1 ] || { echo 'usage: brain-search "<query; 6+ words give better hits>" [k]' >&2; exit 2; }
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 [ -f "$CFG/brain-kit.env" ] && { set -a; . "$CFG/brain-kit.env"; set +a; }
+[ -f "${BRAIN_ROOT:-$HOME/brain}/hooks/_platform.sh" ] && . "${BRAIN_ROOT:-$HOME/brain}/hooks/_platform.sh"   # Windows: python3, jq, path forms
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 HOOK="$BRAIN_ROOT/hooks/_auto_retrieve.sh"
 [ -f "$HOOK" ] || { echo "brain-search: $HOOK not found (is brain-kit installed at $BRAIN_ROOT?)" >&2; exit 1; }

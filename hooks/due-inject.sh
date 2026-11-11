@@ -10,7 +10,7 @@
 # on that line - the hook stops seeing it. Silent when nothing is due. Companion of time-inject.sh:
 # the clock says what time it is, this says what that time means for you.
 # Config: BRAIN_ROOT/BRAIN_DIR/BRAIN_INSTANCE as in _focus_inject.sh; day-state in <config>/brain-kit-state.
-# BRAIN_EXPECT=1 (issue #18, off by default): `@expect YYYY-MM-DD[ HH:MM] text` lines - a prediction written before the
+# BRAIN_EXPECT (issue #18; on by default, `0` turns it off): `@expect YYYY-MM-DD[ HH:MM] text` lines - a prediction written before the
 # outcome is known - come back on the same schedule, marked as an expectation whose outcome is to be written. Closed
 # lines (`@expect✓ held:`, `@expect✗ missed:`, `@expect✓ void:`) are not seen, like `@due✓`, and neither is an
 # expectation inside fenced code or inline backticks: that is a format example, and scripts/brain_expect.py skips the
@@ -20,6 +20,7 @@
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+. "$(dirname "$0")/_platform.sh" 2>/dev/null   # Windows: python3, jq, path forms; does nothing elsewhere
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
 VAULT="${BRAIN_DIR:-$BRAIN_ROOT/vault}"
 INPUT=$(cat)
@@ -28,7 +29,7 @@ if [ -z "$I" ]; then
   _d="$SESSION_ROOT"
   while [ "$_d" != "/" ] && [ -n "$_d" ]; do
     if [ -f "$_d/.brain-instance" ]; then I=$(head -1 "$_d/.brain-instance" | tr -d '[:space:]'); break; fi
-    _d=$(dirname "$_d")
+    _up=$(dirname "$_d"); [ "$_up" = "$_d" ] && break; _d=$_up
   done
 fi
 [ -z "$I" ] && [ -f "$VAULT/.brain-instance" ] && I=$(head -1 "$VAULT/.brain-instance" | tr -d '[:space:]')
@@ -41,7 +42,7 @@ DAYS=(Sun Mon Tue Wed Thu Fri Sat)
 epoch() { date -j -f %F "$1" +%s 2>/dev/null || date -d "$1" +%s; }
 ST="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit-state"; mkdir -p "$ST"; DAYF="$ST/due_day_$I"
 FIRST=0; [ "$(cat "$DAYF" 2>/dev/null)" = "$TODAY" ] || FIRST=1
-EXP=0; [ "${BRAIN_EXPECT:-0}" = 1 ] && EXP=1
+EXP=0; [ "${BRAIN_EXPECT:-1}" = 1 ] && EXP=1
 PATS=(-e '@due [0-9]'); PATLS=(-e '@due [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}')   # one -e per pattern: GNU and BSD grep agree
 [ "$EXP" = 1 ] && { PATS+=(-e '@expect [0-9]'); PATLS+=(-e '@expect [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}'); }
 FILES=("$VAULT/focus/_FOCUS_$I.txt")
@@ -63,7 +64,7 @@ EXPAWK='function conv(s,   o, p) {
 { n = split($0, f, "`"); o = ""
   for (i = 1; i <= n; i++) o = o (i > 1 ? "`" : "") ((i % 2 || i == n) ? conv(f[i]) : f[i])
   print o }'
-FENCED="|"   # file:line inside fenced code, BRAIN_EXPECT=1 only
+FENCED="|"   # file:line inside fenced code, only with expectation memory on
 [ "$EXP" = 1 ] && for f in "${FILES[@]}"; do
   [ -f "$f" ] && FENCED="$FENCED$(awk '/^[[:space:]]*```/{f=!f;next} f{printf "%s:%d|", FILENAME, FNR}' "$f" 2>/dev/null)"
 done

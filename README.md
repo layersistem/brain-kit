@@ -21,6 +21,28 @@ all, and the semantic layer runs BGE-M3 on your CPU.
 
 ## Requirements
 
+- **On a Mac, install Python 3.10 or newer first.** macOS ships Python 3.9, and `setup.sh` stops at once with a
+  message when it finds nothing newer: get it from [python.org](https://www.python.org/downloads/macos/) or, with
+  Homebrew, `brew install python@3.12`. Tested on a real Mac (macOS 27.2, Apple silicon, 11 November 2026): with
+  Homebrew Python the default `./setup.sh` finished in 78 s, embedding model included (5.5 GB on disk), and in a
+  real Claude Code session every hook ran without an error. The 1.7.0 tree was run there again without the model
+  download: install in 2 s, `scripts/install-check.sh` five of five, all 20 hook entries exit code 0 on payloads
+  written by hand.
+- **On Windows, follow [`docs/WINDOWS.md`](docs/WINDOWS.md).** The kit installs natively in Git Bash (Git for
+  Windows), the shell Claude Code runs its hooks in; WSL is not needed. It needs Git for Windows, Python 3.10 or
+  newer, jq and, for the full install, the Microsoft Visual C++ runtime, each one `winget install` away. That page
+  is written so that a model can do the whole install by reading it: every step has a check, the healthy output
+  and the fix. Tested on a clean Windows 11 machine with 4 GB of memory (11 November 2026): `./setup.sh
+  --yes-defaults` finished with no manual step in 24 minutes (10 of them downloads, 14 the first load of the
+  embedding model), and with tool payloads that spell the path the Windows way the write hooks reported and
+  indexed every test note. The commands of that page were then run as written, from CMD, on a fresh clone:
+  `--no-embed` install and `scripts/install-check.sh`, five of five checks, 70 seconds in all. In a real Claude
+  Code session on that machine (2.1.318) every hook answered with exit code 0 and an empty stderr: prompt, Read,
+  Write, manual compaction and the prompt after it. The write got the orphan report and the index line, the
+  compaction left its snapshot and the pointer to it. Three parts are not available on Windows: self-compact (it
+  needs tmux), the session-bound instance identity that lets two named sessions share one folder, and a service
+  recipe for the dense recall daemon. Recall, the index, the write hooks, the compaction snapshot and expectation
+  memory work as on a Mac.
 - Python >= 3.10 with its `venv` module (on Debian and Ubuntu that is the separate `python3-venv`
   package: `sudo apt install python3-venv`), `jq`, and bash - the hooks and scripts are bash scripts;
   macOS's own `/bin/bash` 3.2 is enough. **macOS ships Python 3.9, which is too old:** install 3.10 or newer
@@ -28,7 +50,7 @@ all, and the semantic layer runs BGE-M3 on your CPU.
   if you use Homebrew, `brew install python@3.12`; `jq` comes from `brew install jq` or the
   [jq download page](https://jqlang.github.io/jq/download/). Measured on a stock Mac (no Homebrew): the installer
   stops at the Python check within 0.2 s and writes nothing; with a 3.12 interpreter first on PATH the same tree
-  installs cleanly in 1.3 s. macOS and Linux tested; on Windows the kit runs inside WSL (the Linux path), not natively.
+  installs cleanly in 1.3 s. macOS, Linux and Windows (Git Bash) tested.
 - **BGE-M3 (`BAAI/bge-m3`) is required for the full kit.** `setup.sh` installs
   `sentence-transformers` + `torch` into `<BRAIN_ROOT>/.venv` and the first embed run downloads
   the model (once, from Hugging Face; offline afterwards). It powers the embed hook, the
@@ -54,6 +76,10 @@ git clone https://github.com/layersistem/brain-kit && cd brain-kit
 ./setup.sh                       # or: ./setup.sh --no-embed   (BM25 only, no model download)
 BRAIN_ROOT=~/brain python3 ~/brain/scripts/brain_bm25.py "example decision" 3
 ```
+
+On Windows run these in Git Bash and use `python` where a line says `python3`; the full walk-through is
+[`docs/WINDOWS.md`](docs/WINDOWS.md). On any system, `bash ~/brain/scripts/install-check.sh` then tells you in five
+lines whether the hooks do their work: it writes a test note, hands the hooks a real payload and removes the note.
 
 Restart your agent session afterwards so the hooks load. `--minimal` wires 16 of the 20 hook entries:
 everything except the vault hygiene check (`postwrite-check.sh`), the observation stream
@@ -93,7 +119,9 @@ second makes the agent compact its own session at the hard threshold: it writes 
 the context hook's hard line into a "self-compact now" order (`docs/self-compact.md`). The project is
 `--project=DIR`, else `CLAUDE_PROJECT_DIR`, else the directory you run from. For CI and scripts:
 `--context-window=<N|auto>`, `--self-compact=<session|no>`, `--caveman=<yes|no>`, `--yes-defaults` (every
-question takes its default, no prompt). `scripts/update.sh` never changes any of these choices.
+question takes its default, no prompt). `scripts/update.sh` never changes any of these choices. On Windows a
+yes to the self-compact question, or `--self-compact=<session>`, installs nothing: Git Bash has no tmux, and the
+installer says so in one line.
 
 Running `setup.sh` again (an upgrade, or a changed answer) takes its defaults from the existing
 `<agent-config-dir>/brain-kit.env` and merges into it: the lines it owns are updated in place, every line
@@ -117,7 +145,8 @@ To keep recall, the focus line and the write hooks quiet in some directories, li
 Two things install on their own when the machine can carry them. The **index sweeper** timer
 (`scripts/systemd/brain-index-sweep.*`, every 2 minutes) embeds what the write hook only chunked; on macOS
 the installer loads a launchd agent that does the same (`~/Library/LaunchAgents/local.brain-kit.index-sweep.plist`),
-without either it prints the cron line instead, and `--no-timers` skips the step. The **desk
+on Windows it creates a Task Scheduler entry named `brain-kit index sweep` that runs without a window;
+without any of them it prints the cron line instead, and `--no-timers` skips the step. The **desk
 ledger** (`scripts/desk_ledger.py`, hourly) exports your repos' issues and PRs into the vault so closed work
 is found by name; it is installed only when `gh` is on PATH and you list repos (the prompt, or
 `--desk-repos="owner/a owner/b"`), otherwise it is skipped without a word.
@@ -140,7 +169,7 @@ is found by name; it is installed only when `gh` is on PATH and you list repos (
                                                      minutes since your last prompt
       +--> [UserPromptSubmit] due-inject.sh --------> @due lines whose day has come (overdue, today,
                                                      tomorrow) + once a day the coming week; with
-                                                     BRAIN_EXPECT=1 also open @expect lines
+                                                     also open @expect lines (BRAIN_EXPECT=0: off)
       +--> [UserPromptSubmit] context-inject.sh ----> how full the context is, delta since last prompt,
                                                      warning at 50% of the window, hard order at 65%
                                                      (self-compact when installed; Claude Code only)
@@ -154,7 +183,7 @@ is found by name; it is installed only when `gh` is on PATH and you list repos (
       |                                                 '-- vectors: scripts/brain_index_sweep.sh, in the
       |                                                     background (hook-started + a 2-minute timer)
       +--> [PostToolUse] postwrite-check.sh ----------> ghost-link + orphan-note + empty-note check (the file just written)
-                                                        (BRAIN_EXPECT=1: a reminder when the text holds prediction wording and no @expect)
+                                                        (a reminder when the text holds prediction wording and no @expect; BRAIN_EXPECT=0: off)
   you mutate anything (write, edit, state-changing shell)
       +--> [PostToolUse] observe-mutations.sh --------> _drafts/observations_<instance>_<day>.md
                                                        (append-only trail, secrets masked, kept out
@@ -259,7 +288,7 @@ daily use, adding one part each time a specific kind of forgetting hurt.
 | Attention / cue-driven recall | association cortex | `_auto_retrieve.sh` -> `brain_recall.py` (BM25, optionally fused with a warm BGE-M3 daemon) | the note you would have thought of, injected before you ask |
 | Sense of time | suprachiasmatic nucleus + hippocampal time cells | `time-inject.sh` | the model has no clock: without it "yesterday", "an hour ago" and "how long was I away over that compaction" are guesses. Injected, not instructed - a "work out the time" instruction produces a guess |
 | Prospective memory (time-based) | rostral prefrontal cortex | `@due YYYY-MM-DD[ HH:MM] text` lines in your focus or your own decision records, surfaced by `due-inject.sh` | "what did I promise to do on Monday at 11:30" - overdue, today and tomorrow on every prompt; the coming week once a day, on the first prompt, the way a person scans the week over the first coffee and then lets the far horizon go blurry |
-| Expectation and surprise | orbitofrontal cortex + the midbrain dopamine prediction-error signal | with `BRAIN_EXPECT=1`, `@expect YYYY-MM-DD <what I expect> · measure: <how it will show> · written: YYYY-MM-DD` lines next to the work, surfaced by `due-inject.sh` on their day and closed on the same line as held, missed or void; `postwrite-check.sh` reminds a write that reads like a prediction and carries none, `scripts/brain_expect.py` counts them | "did I see that coming": the rest of the vault records what happened, and this records what was expected before it was known. A surprise leaves a trace, and how often "works" or "passed" turned out true can be counted instead of remembered |
+| Expectation and surprise | orbitofrontal cortex + the midbrain dopamine prediction-error signal | `@expect YYYY-MM-DD <what I expect> · measure: <how it will show> · written: YYYY-MM-DD` lines next to the work, surfaced by `due-inject.sh` on their day and closed on the same line as held, missed or void; `postwrite-check.sh` reminds a write that reads like a prediction and carries none, `scripts/brain_expect.py` counts them | "did I see that coming": the rest of the vault records what happened, and this records what was expected before it was known. A surprise leaves a trace, and how often "works" or "passed" turned out true can be counted instead of remembered |
 | Ongoing-task memory | frontal lobe | `focus/` file, injected verbatim | "what was I in the middle of" |
 | Interoception | insula (the body's own state: fatigue, fullness) | `context-inject.sh` - context tokens, % of window, delta per prompt, warning at 50% and a hard order at 65% | "how full am I, how fast am I filling, is the blackout near" - so the handoff note is written before compaction, not reconstructed after. With `scripts/self-compact.sh` installed the hard order is "compact yourself": the agent writes the note and starts the script, which sends `/compact` from outside and types the continuation line (`docs/self-compact.md`). Claude Code only: it reads the transcript's `usage` block; the number matches the app's Context window panel to the token |
 | Re-orientation after a blackout | waking up: reticular activating system | `sessionstart-compact-pointer.sh` + the handoff note it points at | "where am I, what was I doing" after a compaction, without a search |
@@ -286,7 +315,7 @@ anything; it gives a frozen model a memory it can read.
 | every prompt | `_auto_retrieve.sh` (renderer: `scripts/brain_recall_print.py` - the hook itself holds no Python, so a quoting slip can never block every session's prompts again) | top-k matching notes with a confidence tag each (STRONG/FAIR) and a count in the header; with `BRAIN_WIKI_DIR` set, docs hits in a SOURCE block with a `code:` bridge line and notes under RECORD (the source for decisions and history; not opened = no "nothing written" verdict); STRONG notes carry the "what" line + excerpt, FAIR notes only title + address (low confidence gets less room); on a real question (>= 6 words) with no match, one line saying that no match is not the same as no record, with the `brain-search` command to run by name - not silence; a note saying the dense engine did not answer this turn, if none of the results came from it. Nothing at all on a prompt of three words or fewer (`BRAIN_RECALL_MIN_WORDS`). With `BRAIN_RECALL_REPEAT_FILTER=1` (off by default since 1.2.0) a note already shown since the last compaction is dropped when it is FAIR and unrelated to the prompt's words, or is a handover note nobody has opened. With `BRAIN_VERDICT=1` a handover note that is FAIR and unrelated to the prompt is dropped on its first showing too |
 | every prompt | `beliefs_recall.py` (called from `_auto_retrieve.sh`) | active beliefs tied to whatever notes recall just surfaced, plus a pointer to anything on the same topic that has since evolved; silent until you opt into the belief layer (`docs/BELIEFS.md`) |
 | every prompt | `time-inject.sh` | a clock: local date+weekday+time, session age, minutes since the last prompt |
-| every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise. With `BRAIN_EXPECT=1` open `@expect` lines come back on the same schedule, marked `EXPECTATION - write the outcome:`, and the header says how to close one; closed lines and examples inside code are not shown |
+| every prompt | `due-inject.sh` | what is due: `@due YYYY-MM-DD[ HH:MM] text` lines from your focus + your own decision records - overdue (days late), today (NOW once the hour passes), tomorrow; on the first prompt of the day also the coming week (2-7 days); silent otherwise. Open `@expect` lines come back on the same schedule, marked `EXPECTATION - write the outcome:`, and the header says how to close one; closed lines and examples inside code are not shown |
 | every prompt | `salience-inject.sh` | only when your prompt carries a correction signal: one line - "tag this turn's record `weight: lesson`"; a hard "run a pattern analysis" line when several corrections land inside 90 minutes (a burst, not the day's total - `BRAIN_SALIENCE_BURST` / `_WINDOW`); negated phrases ("nothing wrong") do not count. With `BRAIN_VERDICT=1` a VERDICT block follows: the time of the corrected prompt, the notes recall showed and the notes the model opened in the last three turns that had any (names only, read from the local transcript, at most 3,000 characters), and the ledger row to add, with its four verdicts. The hook never writes the ledger |
 | with the result of a decision record write | `decision-recall.sh` (body: `scripts/brain_decision_recall.py`) | only for a Write or Edit to `<vault>/decision/*.md`: A TOPIC, up to four notes closest to the file name and the first 300 characters being written (the record itself left out), and B OBJECTION, up to four notes from `research/` or `digs/` in the same ranking. When no research note ranks, a second query adds lesson words; when that finds nothing either, one line says that no match is not the same as no record. Returned as `additionalContext` with no permission decision, so the write goes through your usual permission flow. Section "Decision-time recall" below |
 | before a Write or Edit | `vault-write-guard.sh` | nothing, unless private mode's `brain-write.off` exists: then a write inside the vault is denied, with the flag's path as the reason (section "Recall hygiene and private mode") |
@@ -294,7 +323,7 @@ anything; it gives a frozen model a memory it can read.
 | every prompt | `context-inject.sh` | context ~Nk (P% of window), delta since last prompt; WARNING past 50% ("compact at the next clean boundary, prepare the handoff note"), HARD past 65% ("self-compact now" when `scripts/self-compact.sh` is installed, else "write the handoff note, let it compact"). On the first turn after a compaction: one line saying there is no measurement yet, and no order - the only number available then is the pre-compaction one. `BRAIN_CTX_WINDOW` / `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, `BRAIN_CTX_WARN`, `BRAIN_CTX_HARD`, `<project>/.claude/ctx-thresholds`. **Claude Code only** - needs the hook's `transcript_path`; silent elsewhere |
 | after a note write | `brain-embed-after-write.sh` | one line confirming the index update (or that it failed) plus "vectors: background sweeper" when a chunk was left for `scripts/brain_index_sweep.sh` to embed. The hook itself no longer loads the model (it cost 14 s per edit on the tool path); dense recall sees the note about 15 s later, BM25 at once. It waits at most 3 s for the index lock; past that it starts the sweeper and says the write was deferred |
 | after a note is read | `recall-usage-count.sh` | nothing - it counts. Opening a vault or memory note adds one to `<vault>/.index/recall_counts.json`, which BM25 reads as a small capped boost, so what gets *read* rises and what merely gets shown does not |
-| after a note write | `postwrite-check.sh` | only when the note you just wrote links to a missing note, has no links at all (an orphan; `BRAIN_ORPHAN_EXEMPT` dirs are fine), or is empty - reported, never deleted. Code blocks and backticks are not scanned; `[[note#heading]]` and `[[folder/note]]` resolve to the note; hidden folders are skipped; the vault-wide ghost count is shown as background only. With `BRAIN_EXPECT=1`, when the text just written to a decision record, a knowledge note, a hub note (`moc/`) or a focus file holds prediction wording (`BRAIN_EXPECT_RX`) and no `@expect` marker, one reminder sentence follows, at most once per instance in 15 minutes: as `additionalContext` on a clean write, appended to the reason when the same write is blocked for (a)-(c); it never turns a clean write into a block |
+| after a note write | `postwrite-check.sh` | only when the note you just wrote links to a missing note, has no links at all (an orphan; `BRAIN_ORPHAN_EXEMPT` dirs are fine), or is empty - reported, never deleted. Code blocks and backticks are not scanned; `[[note#heading]]` and `[[folder/note]]` resolve to the note; hidden folders are skipped; the vault-wide ghost count is shown as background only. When the text just written to a decision record, a knowledge note, a hub note (`moc/`) or a focus file holds prediction wording (`BRAIN_EXPECT_RX`) and no `@expect` marker, one reminder sentence follows, at most once per instance in 15 minutes: as `additionalContext` on a clean write, appended to the reason when the same write is blocked for (a)-(c); it never turns a clean write into a block |
 | before compaction | `precompact-snapshot.sh` | nothing - it writes a file |
 | at session start (startup, resume, compact, clear) and first on every prompt | `session-instance-bind.sh` | one line, only when the identity changes: which instance this session is bound to (on a prompt it is a silent self-check unless the binding was lost) |
 | after compaction | `sessionstart-compact-pointer.sh` | addresses: the handoff note and the snapshot, plus the memory and CLAUDE.md files changed in the last 60 minutes (after a compaction Claude Code can load an older copy of them). With self-compact installed it does not ask to confirm before continuing |
@@ -370,7 +399,8 @@ recall_hint: "client throttling removed from sync - decision language (2026-10-0
 
 Then check it the way a decision would find it: `brain-search "<a decision this note should object to>"`. A note edited
 inside an agent session is re-indexed by the write hook; after a bulk edit outside one, run
-`"$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" update`. On the author's vault 91 research and dig records were backfilled this way on 2026-10-09.
+`"$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" update` (on Windows the interpreter is
+`"$BRAIN_ROOT/.venv/Scripts/python.exe"`). On the author's vault 91 research and dig records were backfilled this way on 2026-10-09.
 For the decision query of the October incident, the record behind it went from outside the top 40 results to 8th
 overall and to the first line of the objection view.
 
@@ -444,14 +474,14 @@ spends its budget twice. Check the first compaction after adding the section by 
 ## Configuration
 
 Everything is environment variables; `setup.sh` writes the few that matter into
-`<agent-config-dir>/brain-kit.env`, which every hook sources; `scripts/brain_expect.py`, `scripts/brain_verdict.py`
-and `scripts/desk_ledger.py` read it too when you run them yourself, the way the shell would, without executing it. A
+`<agent-config-dir>/brain-kit.env`, which every hook sources. `scripts/brain_expect.py`, `scripts/brain_verdict.py`
+and `scripts/desk_ledger.py` read the same file when you run them yourself (in `CLAUDE_CONFIG_DIR`, else `~/.claude`),
+by the shell's rules and without running anything, so a counter started by hand counts the vault the hooks use. A
 variable exported before a hook or script starts wins over the lines `setup.sh` writes (`NAME="${NAME:-value}"`). A
 plain `NAME=value` line you add below them overrides an exported value in the hooks, while the three scripts keep the
-exported value (issue #24). The scripts and the hooks also differ on a line that runs a command or `$(...)` (a hook
-runs it, the scripts skip it), on CRLF line ends (a hook keeps the CR in the value), on `~` inside double quotes (a
-hook keeps it as text) and on shell syntax the scripts do not read: `$'...'`, `+=`, a line continuation, a quote over
-several lines, a function, a here-document, an array, and operators other than `-`, `=` and `+`.
+exported one (issue #24). A value the shell would compute (`$(...)`, backticks, `$'...'`, a `${...}` operator other
+than `-`, `=` and `+`) is computed by the hooks; the scripts do not apply that assignment and say so in one line on
+stderr. The header of `scripts/brain_env.py` lists the remaining differences.
 
 | Variable | Default | What it does |
 |---|---|---|
@@ -470,7 +500,7 @@ several lines, a function, a here-document, an array, and operators other than `
 | `BRAIN_ORPHAN_EXEMPT` / `BRAIN_WRITING_RULE` | `_drafts _archive refs focus`, empty | dirs where linkless files are fine by design; an optional rule name quoted in the orphan message |
 | `BRAIN_SALIENCE_RX` / `_BURST` / `_WINDOW` / `_NEG_RX` | built-in, `3`, `5400`, built-in | the correction markers (extended regex, lower-case; English built in); hard warning after N corrections inside the window (seconds); negation phrases that cancel a match |
 | `BRAIN_VERDICT` / `BRAIN_VERDICT_LEDGER` | `0` / `<vault>/knowledge/verdict-ledger.md` | `1` turns on the verdict ledger. On a correction `salience-inject.sh` prints the VERDICT block; the ledger is a markdown table (`time`, `signal`, `prompt` in at most twelve words, `in context`, `verdict`, `note`) that the model or you fill in, one row per correction, verdict `in-view`, `no-record`, `not-surfaced` or `not-a-correction`; a row you disagree with gets a new verdict, it is not deleted. `scripts/brain_verdict.py report` derives two counters per note and keeps them apart: rule load (`in-view`) and misses (`not-surfaced`). Rule load ranks the shelf candidates: at most seven notes, a name and one sentence each, written by hand into a `RULES:` line of the focus file (one enters, one leaves; no hook writes the focus file). Misses feed BM25 on both paths: a query sharing one content word with a `not-surfaced` row's prompt multiplies that note's score by 1.075, two or more words by 1.15; no other note loses score, and because the relevance gate reads the top note, a query that found nothing can now return the boosted note. The recall renderer also drops a FAIR handover note unrelated to the prompt on its first showing. No model call anywhere. Unset or `0`: every touched script and hook gives the same output as 1.2.3 |
-| `BRAIN_EXPECT` | `0` | `1` turns on expectation memory (issues #18 and #19). A line `@expect YYYY-MM-DD[ HH:MM] <what you expect> · measure: <how it will show> · written: YYYY-MM-DD` in the focus file or one of your own decision records comes back in the DUE block on its day; close it on the same line as `@expect✓ held: ...`, `@expect✗ missed: ...` or `@expect✓ void: ...`. When the text just written to a decision record, a knowledge note, a hub note (`moc/`) or a focus file holds prediction wording (`BRAIN_EXPECT_RX`) and no `@expect` marker, one reminder sentence follows the write: never a block, at most once per instance in 15 minutes, and a write that carries `@expect` restarts that period (state in `<agent-config-dir>/brain-kit-state/expect-reminder/`); `full` profile only because it lives in `postwrite-check.sh`. The check is defined once in `hooks/_expect_remind.sh`, so a script of your own can call it after its own write (`docs/DISCIPLINE.md` §11). `scripts/brain_expect.py` counts open, held, missed and void lines and the hit rate held / (held + missed), void in neither; `--open` and `--closed` list them, missed first. A marker inside fenced code or an inline code span is a format example and is neither shown nor counted; backticks pair from the left, so a real line written between two code spans is shown and counted. Unset or any value but `1`: `due-inject.sh` and `postwrite-check.sh` print the same bytes as 1.5.0, also on a vault that already holds `@expect` lines |
+| `BRAIN_EXPECT` | `1` | expectation memory (issues #18 and #19), on by default; `0` turns it off. A line `@expect YYYY-MM-DD[ HH:MM] <what you expect> · measure: <how it will show> · written: YYYY-MM-DD` in the focus file or one of your own decision records comes back in the DUE block on its day; close it on the same line as `@expect✓ held: ...`, `@expect✗ missed: ...` or `@expect✓ void: ...`. When the text just written to a decision record, a knowledge note, a hub note (`moc/`) or a focus file holds prediction wording (`BRAIN_EXPECT_RX`) and no `@expect` marker, one reminder sentence follows the write: never a block, at most once per instance in 15 minutes, and a write that carries `@expect` restarts that period (state in `<agent-config-dir>/brain-kit-state/expect-reminder/`); `full` profile only because it lives in `postwrite-check.sh`. The check is defined once in `hooks/_expect_remind.sh`, so a script of your own can call it after its own write (`docs/DISCIPLINE.md` §11). `scripts/brain_expect.py` counts open, held, missed and void lines and the hit rate held / (held + missed), void in neither; `--open` and `--closed` list them, missed first. A marker inside fenced code or an inline code span is a format example and is neither shown nor counted; backticks pair from the left, so a real line written between two code spans is shown and counted. With `0` (any value but `1`): `due-inject.sh` and `postwrite-check.sh` print the same bytes as 1.5.0, also on a vault that already holds `@expect` lines |
 | `BRAIN_EXPECT_RX` | `expect\|estimate\|predict\|likely\|probably\|should hold\|to watch` | the words that make a write read like a prediction for the `BRAIN_EXPECT` reminder: an extended regex, case ignored, matched as whole words (`grep -w`), so "expected", "unexpected" and "unlikely" do not count; write `expect(ed)?` to take one of them in. Text inside fenced code, inline backticks and double quotes is not scanned. Set it to the language your records are written in; a broad pattern (any future tense) reminds on most writes and stops being read |
 | `BRAIN_RECALL_K` | `5` | how many notes recall injects |
 | `BRAIN_RECALL_MIN_WORDS` / `BRAIN_RECALL_FORCE` | `4` / `0` | prompts shorter than N words get no recall block at all ("go on", "yes do it": measured 88 such blocks, none of their notes ever opened); `BRAIN_RECALL_FORCE=1` exempts a deliberate manual lookup |
