@@ -29,7 +29,7 @@ else in the vault. Each belief is a fixed four-line block:
 - **status** - `active` (currently believed true) · `expected` (a stated prediction, not yet
   checked) · `confirmed` · `falsified` · `superseded` (something newer replaced it - see
   `superseded_by`) · `pending` (open, unresolved).
-  A prediction can also live next to the work instead of in the ledger: with `BRAIN_EXPECT=1` an `@expect` line in
+  A prediction can also live next to the work instead of in the ledger: an `@expect` line in
   the focus file or a decision record comes back on its day and is closed on the spot (DISCIPLINE.md §11). That
   matters because an `expected` entry here is far from the work and nothing brings it back; on the author's vault
   12 entries were still `expected` on 10 November 2026, the newest written on 1 September. An expectation closed as

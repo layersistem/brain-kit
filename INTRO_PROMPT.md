@@ -25,7 +25,7 @@ what they mean (full table: README "What gets injected, and when"):
   "yesterday" and "an hour ago" are guesses without it.
 - **DUE** (`due-inject.sh`) - `@due YYYY-MM-DD[ HH:MM] text` lines from your focus file or your own
   decision records: overdue, today, tomorrow; the coming week once a day. Put promises there; when
-  done, change the line to `@due✓`. With `BRAIN_EXPECT=1` the block also lists `@expect` lines, predictions
+  done, change the line to `@due✓`. The block also lists `@expect` lines (unless `BRAIN_EXPECT=0`), predictions
   written before the outcome was known: when one comes back, write what happened on that line
   (`@expect✓ held: ...`, `@expect✗ missed: ...`, or `@expect✓ void: ...` when it no longer applies). Before a
   delivery or a "works" or "passed" claim, add one to the record:

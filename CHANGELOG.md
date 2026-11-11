@@ -7,23 +7,26 @@ this file.
 
 ## [1.6.0] - 2026-11-11
 
-Expectation memory behind one new switch, `BRAIN_EXPECT`, off by default (issues #18 and #19). There is no new hook to
+Expectation memory, on by default, with one switch to turn it off, `BRAIN_EXPECT=0` (issues #18 and #19). There is no new hook to
 wire: `scripts/update.sh` brings the two changed hooks, the new sourced file `hooks/_expect_remind.sh` and the new
 script, and every hook reads `brain-kit.env` when it runs.
-With the switch unset or `0`, both changed hooks print the same bytes as 1.5.0, also on a vault that already contains
+With `BRAIN_EXPECT=0`, both changed hooks print the same bytes as 1.5.0, also on a vault that already contains
 `@expect` lines. No vault format change.
+
+The first build of 1.6.0, published for a few hours on 11 November 2026, had the feature off by default. The version
+number did not change. A copy installed in those hours has it off: `BRAIN_EXPECT=1` in `brain-kit.env` turns it on.
 
 ### Added
 - The line: `@expect YYYY-MM-DD[ HH:MM] <what I expect> · measure: <how it will show> · written: YYYY-MM-DD`, a
   prediction written next to the work before its outcome is known. It is closed on the same line as
   `@expect✓ held: <what happened>`, `@expect✗ missed: <what happened>` or `@expect✓ void: <why it no longer applies>`.
-- `hooks/due-inject.sh`: with `BRAIN_EXPECT=1`, open `@expect` lines in the focus file and in your own decision records
+- `hooks/due-inject.sh`: open `@expect` lines in the focus file and in your own decision records
   appear in the DUE block on the schedule of `@due` lines (overdue, today, tomorrow, the coming week once a day), marked
   `EXPECTATION - write the outcome:`, and the header then says how to close one. Closed lines are not shown, and
   neither is a marker inside fenced code or an inline code span, which is a format example. Backticks pair from the
   left, the same rule `scripts/brain_expect.py` uses, so a real line written between two code spans is shown and
   counted alike. `@due` lines print as before.
-- `hooks/postwrite-check.sh`: with `BRAIN_EXPECT=1`, when the text a Write or Edit just put into a decision record, a
+- `hooks/postwrite-check.sh`: when the text a Write or Edit just put into a decision record, a
   knowledge note, a hub note (`moc/`) or a focus file holds prediction wording and no `@expect` marker, one fixed
   reminder sentence follows as `additionalContext`, with the file name and at most four of the words it found. The
   words are a setting, `BRAIN_EXPECT_RX` (extended regex, case ignored; default
