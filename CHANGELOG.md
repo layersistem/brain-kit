@@ -8,9 +8,9 @@ this file.
 ## [Unreleased]
 
 The write check no longer stalls on slow storage (issue #17). Nothing to wire: `scripts/update.sh` brings the changed
-hook. On a fast disk `postwrite-check.sh` prints the same bytes as 1.6.0, with `BRAIN_EXPECT` off and on. A write with nothing to report no longer
-pays for the vault-wide count, so it gets faster as the vault grows (median 118 ms to 71 ms at 3,000 notes); a write
-that does get a report pays for the time limit instead, about 18 ms more at 40 notes and 47 ms at 3,000.
+hook. On a fast disk `postwrite-check.sh` prints the same bytes as 1.6.0, with `BRAIN_EXPECT` off and on. A write with
+nothing to report no longer pays for the vault-wide count, so it gets faster as the vault grows (median 108 ms to 65 ms at
+3,000 notes); a write that does get a report pays for the time limit instead, about 16 ms more at 40 notes and 44 ms at 3,000.
 
 ### Fixed
 - `hooks/postwrite-check.sh` read the whole vault twice on every Write or Edit of a note, once for the list of note
@@ -20,11 +20,12 @@ that does get a report pays for the time limit instead, about 18 ms more at 40 n
   the count is made only when the hook has something else to report (it is printed only then), and the name list only
   when the written note has links or the count needs it. Both passes share one budget, `BRAIN_POSTWRITE_BUDGET`
   (seconds of real elapsed time, default 5, `0` for no limit; read in base 10 with at most five digits, anything else
-  counts as 5), so a report waits at most that long. When it runs out, the pass is stopped, the ghost-link check or
-  the count is skipped for that write, and one line says so as `additionalContext`, or appended to the block when
-  there is one; the passes are then not tried again on that machine for an hour (`brain-kit-state/postwrite-slow`),
-  so the line is not repeated on every write. With `BRAIN_EXPECT=1` the expectation reminder comes after that line,
-  in the same block or the same `additionalContext`.
+  counts as 5), so a report waits at most that long. When it runs out, the running pass is stopped at once with its
+  children, wherever the hook is at that moment, and a hook that is itself killed stops its pass as well. The
+  ghost-link check or the count is then skipped for that write, and one line says so as `additionalContext`, or
+  appended to the block when there is one; the passes are then not tried again on that machine for an hour
+  (`brain-kit-state/postwrite-slow`), so the line is not repeated on every write. With `BRAIN_EXPECT=1` the
+  expectation reminder comes after that line, in the same block or the same `additionalContext`.
 
 ## [1.6.0] - 2026-11-11
 
