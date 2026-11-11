@@ -25,7 +25,9 @@ all, and the semantic layer runs BGE-M3 on your CPU.
   message when it finds nothing newer: get it from [python.org](https://www.python.org/downloads/macos/) or, with
   Homebrew, `brew install python@3.12`. Tested on a real Mac (macOS 27.2, Apple silicon, 11 November 2026): with
   Homebrew Python the default `./setup.sh` finished in 78 s, embedding model included (5.5 GB on disk), and in a
-  real Claude Code session every hook ran without an error.
+  real Claude Code session every hook ran without an error. The 1.7.0 tree was run there again without the model
+  download: install in 2 s, `scripts/install-check.sh` five of five, all 20 hook entries exit code 0 on payloads
+  written by hand.
 - **On Windows, follow [`docs/WINDOWS.md`](docs/WINDOWS.md).** The kit installs natively in Git Bash (Git for
   Windows), the shell Claude Code runs its hooks in; WSL is not needed. It needs Git for Windows, Python 3.10 or
   newer, jq and, for the full install, the Microsoft Visual C++ runtime, each one `winget install` away. That page
@@ -37,7 +39,10 @@ all, and the semantic layer runs BGE-M3 on your CPU.
   `--no-embed` install and `scripts/install-check.sh`, five of five checks, 70 seconds in all. In a real Claude
   Code session on that machine (2.1.318) every hook answered with exit code 0 and an empty stderr: prompt, Read,
   Write, manual compaction and the prompt after it. The write got the orphan report and the index line, the
-  compaction left its snapshot and the pointer to it.
+  compaction left its snapshot and the pointer to it. Three parts are not available on Windows: self-compact (it
+  needs tmux), the session-bound instance identity that lets two named sessions share one folder, and a service
+  recipe for the dense recall daemon. Recall, the index, the write hooks, the compaction snapshot and expectation
+  memory work as on a Mac.
 - Python >= 3.10 with its `venv` module (on Debian and Ubuntu that is the separate `python3-venv`
   package: `sudo apt install python3-venv`), `jq`, and bash - the hooks and scripts are bash scripts;
   macOS's own `/bin/bash` 3.2 is enough. **macOS ships Python 3.9, which is too old:** install 3.10 or newer
@@ -114,7 +119,9 @@ second makes the agent compact its own session at the hard threshold: it writes 
 the context hook's hard line into a "self-compact now" order (`docs/self-compact.md`). The project is
 `--project=DIR`, else `CLAUDE_PROJECT_DIR`, else the directory you run from. For CI and scripts:
 `--context-window=<N|auto>`, `--self-compact=<session|no>`, `--caveman=<yes|no>`, `--yes-defaults` (every
-question takes its default, no prompt). `scripts/update.sh` never changes any of these choices.
+question takes its default, no prompt). `scripts/update.sh` never changes any of these choices. On Windows a
+yes to the self-compact question, or `--self-compact=<session>`, installs nothing: Git Bash has no tmux, and the
+installer says so in one line.
 
 Running `setup.sh` again (an upgrade, or a changed answer) takes its defaults from the existing
 `<agent-config-dir>/brain-kit.env` and merges into it: the lines it owns are updated in place, every line
@@ -392,7 +399,8 @@ recall_hint: "client throttling removed from sync - decision language (2026-10-0
 
 Then check it the way a decision would find it: `brain-search "<a decision this note should object to>"`. A note edited
 inside an agent session is re-indexed by the write hook; after a bulk edit outside one, run
-`"$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" update`. On the author's vault 91 research and dig records were backfilled this way on 2026-10-09.
+`"$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" update` (on Windows the interpreter is
+`"$BRAIN_ROOT/.venv/Scripts/python.exe"`). On the author's vault 91 research and dig records were backfilled this way on 2026-10-09.
 For the decision query of the October incident, the record behind it went from outside the top 40 results to 8th
 overall and to the first line of the objection view.
 

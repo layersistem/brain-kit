@@ -181,6 +181,8 @@ Do not rewrite note bodies. This is a memory install, not a documentation refact
 
 ```bash
 BRAIN_ROOT="${BRAIN_ROOT:-$HOME/brain}"
+# On Windows the kit's interpreter is "$BRAIN_ROOT/.venv/Scripts/python.exe": use it in place of .venv/bin/python
+# and of python3 in the three lines below.
 "$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_index.py" build --embed   # drop --embed if --no-embed
 BRAIN_INDEX=sqlite python3 "$BRAIN_ROOT/scripts/brain_bm25.py" "<a phrase you know is in the notes>" 5
 "$BRAIN_ROOT/.venv/bin/python" "$BRAIN_ROOT/scripts/brain_search.py" "<the same idea, other words>" -k 5

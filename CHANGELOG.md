@@ -5,10 +5,12 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
-## [Unreleased]
+## [1.7.0] - 2026-11-11
 
 Windows support: the kit installs and works natively on Windows 10 and 11 in Git Bash (issue #27). Until now the
 README sent Windows users to WSL. Nothing changes on macOS or Linux; `scripts/update.sh` brings the changed hooks.
+There is no new hook to wire. The pages that still described the kit as it was before Windows support were brought
+in line with it (issue #28).
 
 ### Added
 - `docs/WINDOWS.md`: the install on Windows step by step, written for the model that does it. Prerequisites with
@@ -76,9 +78,20 @@ README sent Windows users to WSL. Nothing changes on macOS or Linux; `scripts/up
   Read. A manual compaction wrote the snapshot and printed the pointer to it; the prompt after it ran its 11 hooks
   clean. Claude Code hands hooks `C:\Users\...` in `file_path`, `cwd` and `transcript_path`, `C:/Users/...` in
   `CLAUDE_PROJECT_DIR`, and names the project's memory folder `C--Users-<name>-<project>`.
-- The same session started from a shell that carries `MSYS_NO_PATHCONV=1`: before the fix below the compaction
+- The same session started from a shell that carries `MSYS_NO_PATHCONV=1`: before that fix the compaction
   snapshot was not written (Python got `/c/Users/...`); after it, prompt, compaction and the prompt after it ran
   clean and the snapshot was there.
+- The release tree on a real Mac (macOS 27.2.1, Apple silicon, bash 3.2.57, Homebrew Python, jq 1.7.1), because
+  every hook now sources `hooks/_platform.sh`: `./setup.sh --no-embed --no-timers --yes-defaults` exit code 0 in
+  2 s, `scripts/install-check.sh` 5 of 5, and each of the 20 wired hook entries run once with a payload of its
+  event (prompt, Write of a decision record, compaction, session start, end of turn): exit code 0 and an empty
+  stderr 20 times, the snapshot written and the pointer to it printed. These payloads were written by hand and
+  run over ssh, not in an agent session; the agent session on a Mac was measured on the 1.6.0 tree.
+- Linux, in an Ubuntu 24.04 container: a clean `--no-embed` install, a re-install and an upgrade from 1.6.0 by
+  `setup.sh` all exit code 0, 20 hook entries wired, `brain-kit.env` and the user's own settings kept; `bash -n`
+  under bash 3.2.57 passes for the 30 shell files. An installed 1.6.0 moved to this release with
+  `scripts/update.sh --to v1.7.0`: exit code 0, `hooks/_platform.sh`, `scripts/install-check.sh` and
+  `docs/WINDOWS.md` arrived, and the install check passed 5 of 5 without `setup.sh` running again.
 
 ## [1.6.0] - 2026-11-11
 

@@ -89,6 +89,9 @@ WantedBy=default.target
 systemctl --user daemon-reload && systemctl --user enable --now brain-searchd
 ```
 
+Windows: there is no service recipe yet. The daemon has not been set up or measured as a Windows service. Recall
+works without it: keyword recall on every prompt, and the vectors in the index for `brain_search.py`.
+
 ## Why cosine only
 
 A cross-encoder reranker (`bge-reranker-v2-m3`) was measured on the same set: MRR 0.86 at 7.5 s per

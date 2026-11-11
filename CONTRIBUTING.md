@@ -25,7 +25,7 @@ Open an issue before a large pull request. The kit is opinionated in a few place
 ## Pull requests
 
 - One topic per pull request. A fix and a refactor go in two.
-- Shell scripts run on the stock bash 3.2 of macOS and on Linux. Check syntax with `bash -n` under bash 3.2 if you have it, and avoid features newer than 3.2 (associative arrays, `${var,,}`, `mapfile`).
+- Shell scripts run on the stock bash 3.2 of macOS, on Linux and in Git Bash on Windows. A hook sources `hooks/_platform.sh` right after `brain-kit.env` and compares file paths through `brain_fp`, never as raw text: on Windows a tool call spells a path `C:\Users\...` while the vault path reads `/c/Users/...`, and a hook that compares the two as text exits 0 and does nothing. `bash scripts/install-check.sh` on an install shows whether the write hooks still do their work. Check syntax with `bash -n` under bash 3.2 if you have it, and avoid features newer than 3.2 (associative arrays, `${var,,}`, `mapfile`).
 - Python code runs on the version stated under Requirements in `README.md`, standard library only unless the file already imports something else.
 - Hooks print nothing on the happy path and exit 0 on every failure they can survive. A hook that blocks the session on a missing optional dependency will not be merged.
 - Anything that adds text to the model's context needs a sentence in the pull request saying where the text comes from and how it is bounded. Text from a network, a remote tag or another user is filtered before it reaches the context.

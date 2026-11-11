@@ -60,6 +60,21 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
+### Coming from 1.6.0
+
+This release makes the kit install and work natively on Windows (Git Bash). On macOS and Linux nothing changes in what
+the hooks print.
+
+1. **Nothing to wire.** The updater has already copied the changed hooks, the new sourced file `hooks/_platform.sh`
+   (every hook reads it; outside Windows it returns at once), `scripts/install-check.sh` and `docs/WINDOWS.md`.
+   `setup.sh` does not need to run again on macOS or Linux.
+2. **Check the result with real input:** `bash "$BRAIN_ROOT/scripts/install-check.sh"`. It writes a test note, hands
+   the hooks a payload, expects the orphan report, the index line and a recall hit, and removes the note. Five lines
+   starting with `PASS` and exit code 0 mean the hooks do their work; a `FAIL` line names what was expected.
+3. **On Windows** there is no earlier native install to upgrade: before this release the kit ran only inside WSL, and
+   a copy inside WSL is a Linux install that updates like one. To move to a native install, follow `docs/WINDOWS.md`
+   from the start and point `BRAIN_DIR` at the notes you already have.
+
 ### Coming from 1.5.0
 
 This release adds expectation memory and one switch for it, `BRAIN_EXPECT`, and no hook. It is on by default; with
