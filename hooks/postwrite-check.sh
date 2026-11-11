@@ -73,7 +73,8 @@ fi
 # wall clock's second boundaries, so a 1 s budget counted with it could end at once. Told to stop (TERM), the watchdog
 # stops its own sleep; no pkill on that path, since pkill reads every process on the machine (about 0.1 s with 850).
 # The USR1 trap stops the running pass itself, wherever the hook is when the signal comes (not only inside `wait`), and
-# the exit trap does the same, so a hook that is itself killed (TERM) leaves no pass behind.
+# the exit trap does the same, so a hook that is itself killed (TERM) leaves no pass behind. The pass is frozen (STOP)
+# before its children are stopped, so it cannot start a new child between the two signals.
 _tmpdir() {
   [ -n "$TMPD" ] || [ "$BUDGET" -eq 0 ] && return 0
   TMPD=$(mktemp -d "${TMPDIR:-/tmp}/postwrite.XXXXXX" 2>/dev/null) || return 0
@@ -83,7 +84,7 @@ _tmpdir() {
   WD=$!
 }
 _unwatch() { [ -n "$WD" ] && { kill "$WD"; wait "$WD"; } 2>/dev/null; WD=""; }
-_stop_pass() { [ -n "$PASS" ] && { pkill -P "$PASS"; kill "$PASS"; } 2>/dev/null; PASS=""; }
+_stop_pass() { [ -n "$PASS" ] && { kill -STOP "$PASS"; pkill -P "$PASS"; kill -KILL "$PASS"; } 2>/dev/null; PASS=""; }
 # _bounded IN CMD...: CMD's stdout into OUT, stdin from the file IN; 1 when the budget ran out first. The USR1 trap stops
 # the pass together with its children, which also ends the wait. `expired` is read once more after the fork: the trap
 # may have run before PASS was set, and then nothing was stopped yet. Without a budget (or a temp dir) CMD simply runs,
