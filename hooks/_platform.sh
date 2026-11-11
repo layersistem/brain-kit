@@ -30,6 +30,11 @@ brain_fp() {   # C:\a\b or C:/a/b -> /c/a/b ; anything else unchanged. No proces
     *) printf '%s' "$1" ;;
   esac
 }
+# The hooks hand Git Bash paths (/c/Users/...) to a native Python and rely on Git Bash translating them when it starts
+# the program. A shell that carries MSYS_NO_PATHCONV=1 (people set it for docker or kubectl) passes that on to the
+# agent and so to every hook, and Python then gets /c/Users/... and finds nothing: measured, the compaction snapshot
+# was not written. The switches are dropped for the hook's own children only; the user's shell is not touched.
+unset MSYS_NO_PATHCONV MSYS2_ARG_CONV_EXCL MSYS2_ENV_CONV_EXCL
 _bk_root="${BRAIN_ROOT:-$HOME/brain}"
 case ":$PATH:" in *":$_bk_root/winbin:"*) ;; *) PATH="$_bk_root/winbin:$_bk_root/.venv/Scripts:$PATH" ;; esac
 PYTHONUTF8=1; export PATH PYTHONUTF8

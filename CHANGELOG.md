@@ -48,6 +48,9 @@ README sent Windows users to WSL. Nothing changes on macOS or Linux; `scripts/up
   not open it; the path is an argument now.
 - The operating-rules block that `setup.sh` appends to `CLAUDE.md` names the vault as `C:/Users/...` on Windows,
   a form the agent's file tools open.
+- The hooks rely on Git Bash translating `/c/Users/...` for a native Python. A shell that sets
+  `MSYS_NO_PATHCONV=1` (common with docker and kubectl) hands that switch to the agent and so to every hook, and
+  the translation stops. `hooks/_platform.sh` drops the switch for the hook's own children.
 
 ### Not on Windows
 - Self-compact (it needs tmux) and the session-bound instance identity (it reads the process list in a way Git
@@ -67,7 +70,15 @@ README sent Windows users to WSL. Nothing changes on macOS or Linux; `scripts/up
 - The commands of `docs/WINDOWS.md` run as written from CMD on a fresh clone (Git's `core.autocrlf=true`, files
   checked out with LF): prerequisite checks, `./setup.sh --yes-defaults --no-embed` exit code 0, install check
   5 of 5, 70 s in all.
-- Not measured: a real Claude Code session on Windows.
+- A real Claude Code session on that machine (2.1.318, headless, hook events included in the output): a prompt, a
+  Read and a Write of a decision record gave 18 hook answers, all exit code 0 with an empty stderr; the write was
+  followed by the decision-time recall, the index line and the orphan report, and the usage counter counted the
+  Read. A manual compaction wrote the snapshot and printed the pointer to it; the prompt after it ran its 11 hooks
+  clean. Claude Code hands hooks `C:\Users\...` in `file_path`, `cwd` and `transcript_path`, `C:/Users/...` in
+  `CLAUDE_PROJECT_DIR`, and names the project's memory folder `C--Users-<name>-<project>`.
+- The same session started from a shell that carries `MSYS_NO_PATHCONV=1`: before the fix below the compaction
+  snapshot was not written (Python got `/c/Users/...`); after it, prompt, compaction and the prompt after it ran
+  clean and the snapshot was there.
 
 ## [1.6.0] - 2026-11-11
 

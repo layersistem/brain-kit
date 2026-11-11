@@ -267,8 +267,9 @@ same on Windows, except `--self-compact`.
 - **The Windows layer.** `setup.sh` adds three small things that exist only on Windows: a `python3.exe` beside
   the kit's interpreter, a `sitecustomize.py` in that environment that makes Python end lines with LF, and
   `brain\winbin\jq`, a wrapper that makes jq do the same. `hooks/_platform.sh` puts them in front of the hooks'
-  PATH and converts `C:\...` paths to the form Git Bash compares. Nothing outside the kit's folders changes; the
-  user's own Python and jq behave as before.
+  PATH and converts `C:\...` paths to the form Git Bash compares. It also drops `MSYS_NO_PATHCONV` for the hooks'
+  own children, so a shell that sets that switch does not stop the hooks from finding the vault. Nothing outside
+  the kit's folders changes; the user's own Python, jq and shell settings behave as before.
 - **Vectors for notes written outside the agent** come from a Task Scheduler entry named
   `brain-kit index sweep` (every 2 minutes, no window). Notes the agent writes are indexed by the write hook
   at once. `./setup.sh --no-timers` leaves the task out.
