@@ -474,7 +474,14 @@ spends its budget twice. Check the first compaction after adding the section by 
 ## Configuration
 
 Everything is environment variables; `setup.sh` writes the few that matter into
-`<agent-config-dir>/brain-kit.env`, which every hook sources. An exported variable always wins.
+`<agent-config-dir>/brain-kit.env`, which every hook sources. `scripts/brain_expect.py`, `scripts/brain_verdict.py`
+and `scripts/desk_ledger.py` read the same file when you run them yourself (in `CLAUDE_CONFIG_DIR`, else `~/.claude`),
+by the shell's rules and without running anything, so a counter started by hand counts the vault the hooks use. A
+variable exported before a hook or script starts wins over the lines `setup.sh` writes (`NAME="${NAME:-value}"`). A
+plain `NAME=value` line you add below them overrides an exported value in the hooks, while the three scripts keep the
+exported one (issue #24). A value the shell would compute (`$(...)`, backticks, `$'...'`, a `${...}` operator other
+than `-`, `=` and `+`) is computed by the hooks; the scripts do not apply that assignment and say so in one line on
+stderr. The header of `scripts/brain_env.py` lists the remaining differences.
 
 | Variable | Default | What it does |
 |---|---|---|

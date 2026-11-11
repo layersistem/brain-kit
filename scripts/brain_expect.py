@@ -20,8 +20,13 @@ Scope is the one due-inject.sh scans: focus/_FOCUS_<instance>.txt and the decisi
 `instance: <instance>`. Instance: --instance, else BRAIN_INSTANCE, else the nearest .brain-instance above the project
 dir (CLAUDE_PROJECT_DIR or the current dir), else <vault>/.brain-instance, else `main`. Nothing here writes the vault
 or the belief ledger; a missed expectation is a candidate `falsified` entry there (docs/BELIEFS.md), written by you.
-Standard library only. Env: BRAIN_ROOT . BRAIN_DIR . BRAIN_INSTANCE"""
+Standard library only. Env: BRAIN_ROOT . BRAIN_DIR . BRAIN_INSTANCE, also read from <agent-config-dir>/brain-kit.env as
+the hooks do (an exported value wins), so the counter and the DUE block read the same vault (issue #22)."""
 import argparse, datetime, glob, os, re, sys
+
+import brain_env
+
+brain_env.load()
 
 BRAIN_ROOT = os.path.expanduser(os.environ.get("BRAIN_ROOT", "~/brain"))
 VAULT = os.path.expanduser(os.environ.get("BRAIN_DIR") or os.path.join(BRAIN_ROOT, "vault"))
@@ -105,6 +110,9 @@ def main():
     ap.add_argument("--closed", action="store_true", help="list every closed line, missed first")
     a = ap.parse_args()
     inst = instance(a.instance)
+    if not os.path.isdir(VAULT):   # a mistyped or unexpanded path would otherwise print a believable "open 0"
+        print(f"brain_expect: no vault at {VAULT} (BRAIN_DIR, else BRAIN_ROOT/vault; environment, then brain-kit.env);"
+              " every count below is 0", file=sys.stderr)
     today = datetime.date.today().isoformat()
     rows = []
     for p in files(inst):

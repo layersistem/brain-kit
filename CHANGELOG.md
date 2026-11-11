@@ -5,6 +5,50 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [1.7.1] - 2026-11-11
+
+The expectation counter and the verdict ledger read the vault the hooks read (issue #22). Nothing to wire and no hook
+changes: `scripts/update.sh` brings the changed scripts and the new `scripts/brain_env.py`.
+
+### Fixed
+- `scripts/brain_expect.py` and `scripts/brain_verdict.py` took `BRAIN_ROOT` and `BRAIN_DIR` from the environment
+  only. The hooks source `<agent-config-dir>/brain-kit.env` on every run; a script started from a shell does not. With
+  the vault path set only in that file, which is where `setup.sh` and `INTRO_PROMPT.md` put it, the counter fell back
+  to `~/brain/vault` and printed that vault's numbers without a warning: "open 0" while the DUE block showed an open
+  line. Both scripts, and `scripts/desk_ledger.py`, which has read the file since 1.2.0, now share one reader,
+  `scripts/brain_env.py`. It reads the file by the shell's rules and runs nothing: a later line overrides an earlier
+  one, `NAME="${NAME:-value}"` keeps a value that is already set and not empty, quoting and `$NAME` follow the shell,
+  and a line that would run a command is skipped. A variable exported non-empty before the script starts wins.
+- A value the shell would compute (`$(...)`, backticks, `$'...'`, a `${...}` operator other than `-`, `=`, `+`) is
+  not applied by the reader: the name keeps the value it had, and one line on stderr names the variable and the line
+  number, never the value. `brain_verdict.py moment`, the one call a hook makes, does not read the file at all,
+  because the hook has already sourced it; the hook's output is the same as in 1.7.0.
+- `scripts/desk_ledger.py` read the file with a smaller parser: the first of two assignments won, and a comment after
+  a value became part of it. It uses the shared reader now.
+- `scripts/brain_expect.py` prints one line on stderr when the vault it resolved does not exist, so a mistyped path no
+  longer gives a believable "open 0".
+- On Windows the reader turns a path stored in Git Bash's form (`/c/Users/me/brain`) into `c:/Users/me/brain`, the
+  step the shell does for a hook when it starts Python.
+
+### Changed
+- README "Configuration" and the header `setup.sh` writes into a new `brain-kit.env` say which lines an exported
+  variable wins over, and name the three scripts that read the file themselves.
+
+### Measured
+- Two installs side by side on Linux, 1.7.0 and this tree, vault path only in `brain-kit.env` in the form `setup.sh`
+  writes, one open `@expect` line due tomorrow: the DUE hook shows the line in both; the counter says "open 0" in
+  1.7.0 and "open 1" here.
+- Thirteen one-line forms of the file through the reader, nothing in the environment: five plain and quoted forms
+  give the value the shell gives; six computed forms (`$(true)`, `"$(cat ...)"`, backticks, `${NAME%/}`, `$''`, an
+  unquoted `$(echo a b)`) leave the name unset with one stderr line each; a default that is not taken and a temporary
+  assignment in front of a command behave as in the shell. The reader before this fix made the unrun text the vault
+  path in five of the six.
+- `BRAIN_DIR=$(true)` in the file, sourced by a shell first: the counter and `brain_verdict.py report` print the same
+  stdout as 1.7.0. `hooks/salience-inject.sh` with `BRAIN_VERDICT=1` on a correcting prompt: output identical to
+  1.7.0, exit code 0, empty stderr, and the ledger path it names is the vault's.
+- Not measured on a Windows machine. The path conversion was checked against the function on Linux only; the hooks,
+  which are what was measured on Windows for 1.7.0, are unchanged.
+
 ## [1.7.0] - 2026-11-11
 
 Windows support: the kit installs and works natively on Windows 10 and 11 in Git Bash (issue #27). Until now the

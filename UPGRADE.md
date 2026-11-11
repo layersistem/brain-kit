@@ -60,6 +60,14 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
+### Coming from 1.7.0
+
+Nothing to wire and no restart: the updater has already copied the changed scripts and the new
+`scripts/brain_env.py`; no hook changed. If you told the user to run `BRAIN_DIR=<vault> python3
+scripts/brain_expect.py` (the 1.6.0 workaround), the plain command now gives the same numbers. If a script prints a
+line that starts with `brain_env:`, a line of `brain-kit.env` sets a variable with a command substitution: write the
+value out in that line.
+
 ### Coming from 1.6.0
 
 This release makes the kit install and work natively on Windows (Git Bash). On macOS and Linux nothing changes in what
