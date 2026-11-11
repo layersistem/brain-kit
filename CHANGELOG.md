@@ -48,10 +48,12 @@ mixed quoting, the escaping `setup.sh` writes, a backslash, two assignments on o
 of a command, `export NAME` alone, `${NAME:+}`, `${NAME:=}`) times four environments (none, `BRAIN_DIR` exported,
 exported empty, `BRAIN_ROOT` exported): the reader gives what `set -a; . brain-kit.env` gives in 106 cases, and in the
 other 30, where a plain line meets an exported value of the same name, it keeps the exported one; command
-substitutions stay text and run nothing. End to end, with six vaults and twenty-one files: each script run by hand
-prints what the 1.6.0 script prints when a hook has loaded the file, under a hook prints what 1.6.0 printed, and
-`desk_ledger.py` resolves the root, vault and instance a hook would give it: 150 of 150 checks. Seventeen deliberate
-faults each turn one of the two runs red; the first review head (`164f4b2`) fails 25 of the 150.
+substitutions stay text and run nothing. End to end, with seven vaults and twenty-five files (four of them with a
+Latin-1 byte, a stray byte, a NUL, and a vault path that is not UTF-8): each of four calls run by hand prints what the
+1.6.0 script prints when a hook has loaded the file, under a hook prints what 1.6.0 printed, exits 0 without a
+traceback, and `desk_ledger.py` resolves the root, vault and instance a hook would give it: 229 of 229 checks.
+Nineteen deliberate faults each turn one of the two runs red; the first review head (`164f4b2`) fails 67 of the 229,
+the second (`966b272`) fails 36, all on the files with those bytes.
 
 ## [1.6.0] - 2026-11-11
 
