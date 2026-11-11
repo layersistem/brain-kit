@@ -7,15 +7,20 @@ to ~/brain/vault and printed the default vault's numbers without a warning (issu
 os.environ before the script builds its paths, the way the shell reads it, and never executes it:
 
 - A variable that is set and not empty before load() starts wins over every line of the file, so a value exported on
-  the command line decides. This is the one difference from the hooks, which source the file: there a plain
-  `NAME=value` line overrides an exported value (issue #24). The lines setup.sh writes, `NAME="${NAME:-value}"`, keep
-  the exported value in both.
+  the command line decides. The hooks, which source the file, differ here: a plain `NAME=value` line overrides an
+  exported value there (issue #24). The lines setup.sh writes, `NAME="${NAME:-value}"`, keep the exported value in both.
 - Otherwise the file is read top to bottom and a later line overrides an earlier one. `${NAME:-word}` keeps the value
   NAME has at that line (from the environment or an earlier line) when it is not empty, `${NAME-word}` when it is set.
 - Quoting as in the shell: single quotes literal, double quotes expand $NAME and ${NAME} and drop the backslash before
   \\ " $ `; an unquoted # that starts a word begins a comment. Several assignments on one line, `;` between statements
   and an `export` in front are read. A line that would run a command (a word that is not an assignment, which also
   makes the assignments in front of it temporary) is skipped; $(...) and backticks are kept as text, never run.
+- Measured against bash 3.2 and 5.2, the scripts and the hooks also differ on a line that runs a command or $(...)
+  (the hook runs it), on CRLF line ends (the hook keeps the CR in the value), on ~ inside double quotes (the hook keeps
+  it as text, the scripts' paths expand it), and on shell syntax this reader does not take: $'...', $"...", +=, a
+  backslash at the end of a line, a quote over several lines, a function, a here-document, an array, a redirection,
+  ${#NAME}, $$, operators other than - = + (with or without :), and a quote left open or a syntax error, where bash
+  stops reading. A lone CR or a form feed ends a line here.
 
 desk_ledger.py has read brain-kit.env since 1.2.0; its reader moved here (issue #22) and now follows these rules too.
 Env: CLAUDE_CONFIG_DIR (~/.claude)"""
@@ -128,11 +133,12 @@ def _statements(line):
 
 def load():
     """Read <CLAUDE_CONFIG_DIR>/brain-kit.env into os.environ by the rules above. A missing or unreadable file changes
-    nothing."""
+    nothing. Bytes that are not UTF-8 reach os.environ as they are in the file, as the shell passes them on
+    (surrogateescape), and a NUL byte is dropped, as bash 5 drops it."""
     path = os.path.join(os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR", "~/.claude")), "brain-kit.env")
     try:
-        with open(path, encoding="utf-8") as fh:
-            lines = fh.read().splitlines()
+        with open(path, encoding="utf-8", errors="surrogateescape") as fh:
+            lines = fh.read().replace("\0", "").splitlines()
     except OSError:
         return
     kept = {k for k, v in os.environ.items() if v}

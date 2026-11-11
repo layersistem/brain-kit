@@ -9,7 +9,8 @@ this file.
 
 The expectation counter and the verdict ledger read the vault the hooks read (issue #22). Nothing to wire:
 `scripts/update.sh` brings the changed scripts and the new `scripts/brain_env.py`. When the environment already
-carries the settings, as it does when a hook starts a script, every output is the same as 1.6.0.
+carries the settings, as it does when a hook starts a script, every output is the same as 1.6.0, apart from the new
+stderr line for a vault path that does not exist.
 
 ### Fixed
 - `scripts/brain_expect.py` and `scripts/brain_verdict.py` took `BRAIN_ROOT` and `BRAIN_DIR` from the environment
@@ -20,8 +21,12 @@ carries the settings, as it does when a hook starts a script, every output is th
   `scripts/brain_env.py`. It reads the file the way the shell does and never executes it: a later line overrides an
   earlier one, `NAME="${NAME:-value}"` (the form `setup.sh` writes) keeps a value that is already set and not empty,
   quoting and `$NAME` expansion follow the shell, a `#` comment after a value is dropped, and a line that would run a
-  command is skipped. A variable exported non-empty before the script starts wins over every line; that is the one
-  difference from the hooks, where a plain `NAME=value` line overrides it (issue #24). `brain_verdict.py` reads the
+  command is skipped. A variable exported non-empty before the script starts wins over every line, while in the hooks
+  a plain `NAME=value` line overrides it (issue #24). The other measured differences from the hooks: a line with a
+  command or `$(...)`, which a hook runs; CRLF line ends, whose CR a hook keeps in the value; `~` inside double quotes,
+  which a hook keeps as text; and rare shell syntax the reader does not take (README "Configuration" lists it). Bytes
+  that are not UTF-8 are passed on as the shell passes them, so a stray byte no longer stops the scripts (it stopped
+  `desk_ledger.py` since 1.2.0). `brain_verdict.py` reads the
   file only when it runs as a script: `brain_bm25.py` imports it for the verdict boost, and that import leaves the
   caller's environment alone. The 1.6.0 known limit and its workaround no longer apply.
 - `scripts/desk_ledger.py` read the same file with a smaller parser: the first of two assignments won, and a comment

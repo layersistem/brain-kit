@@ -448,7 +448,10 @@ Everything is environment variables; `setup.sh` writes the few that matter into
 and `scripts/desk_ledger.py` read it too when you run them yourself, the way the shell would, without executing it. A
 variable exported before a hook or script starts wins over the lines `setup.sh` writes (`NAME="${NAME:-value}"`). A
 plain `NAME=value` line you add below them overrides an exported value in the hooks, while the three scripts keep the
-exported value (issue #24).
+exported value (issue #24). The scripts and the hooks also differ on a line that runs a command or `$(...)` (a hook
+runs it, the scripts skip it), on CRLF line ends (a hook keeps the CR in the value), on `~` inside double quotes (a
+hook keeps it as text) and on shell syntax the scripts do not read: `$'...'`, `+=`, a line continuation, a quote over
+several lines, a function, a here-document, an array, and operators other than `-`, `=` and `+`.
 
 | Variable | Default | What it does |
 |---|---|---|
