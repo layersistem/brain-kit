@@ -16,7 +16,7 @@ brain-kit installs natively on Windows. It does not need WSL, Docker or administ
 | What gets installed | Git for Windows, Python 3.10 or newer, jq, the Microsoft Visual C++ runtime, then the kit itself. |
 | Where the kit lands | `C:\Users\<name>\brain` (scripts, hooks, the note vault, a Python environment) and `C:\Users\<name>\.claude` (hook wiring, settings, skills). |
 | Disk | Full install: about 6 GB (Python environment 1.1 GB, embedding model 4.3 GB, pip's download cache). `--no-embed`: under 100 MB. |
-| Memory | **8 GB or more: full install. 4 GB or less: `--no-embed`.** The full install loads a 2.3 GB embedding model when it builds the index and again, in the background, after notes are written. Measured on a 4 GB Windows 11 machine: the full install completes, but while the model loads the machine pages heavily and stops answering for minutes at a time. Keyword recall, the focus line, the hygiene check and consolidation do not need the model. |
+| Memory | The full install loads a 2.3 GB embedding model when it builds the index and again, in the background, after notes are written; budget about 3 GB of free memory for it. Measured on a 4 GB Windows 11 machine: the full install completes, the first load of the model took 14 minutes and a later load 100 seconds. With 4 GB or less, `--no-embed` is the lighter choice: keyword recall, the focus line, the hygiene check and consolidation do not need the model. |
 | Time | Prerequisites: about 5 minutes. Full install: 15 to 30 minutes on a first run (measured: 24 minutes on a 4 GB Windows 11 machine, 10 of them downloads and 14 the first load of the model). `--no-embed`: under a minute. |
 
 Two rules that prevent most failures:
@@ -154,7 +154,7 @@ Choose one:
   & "C:\Program Files\Git\bin\bash.exe" -lc "cd ~/brain-kit && ./setup.sh --yes-defaults 2>&1 | tee ~/brain-kit-setup.log; echo EXIT=`${PIPESTATUS[0]}"
   ```
 
-- **Keyword recall only**, for a machine with 4 GB of memory or less, or little disk. Ask the machine first:
+- **Keyword recall only**, for a machine with little memory (4 GB or less) or little disk. Ask the machine first:
   `powershell -NoProfile -Command "[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB)"`
   prints the memory in GB.
 
