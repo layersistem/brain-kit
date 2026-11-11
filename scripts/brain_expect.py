@@ -110,6 +110,9 @@ def main():
     ap.add_argument("--closed", action="store_true", help="list every closed line, missed first")
     a = ap.parse_args()
     inst = instance(a.instance)
+    if not os.path.isdir(VAULT):   # a mistyped or unexpanded path would otherwise print a believable "open 0"
+        print(f"brain_expect: no vault at {VAULT} (BRAIN_DIR, else BRAIN_ROOT/vault; environment, then brain-kit.env);"
+              " every count below is 0", file=sys.stderr)
     today = datetime.date.today().isoformat()
     rows = []
     for p in files(inst):

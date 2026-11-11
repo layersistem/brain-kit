@@ -197,7 +197,7 @@ NEWL=$(printf '%s="${%s:-%s}"\n' \
   BRAIN_PROFILE BRAIN_PROFILE "$PROFILE")
 SRC=/dev/null
 [ -f "$ENVF" ] && { cp -p "$ENVF" "$ENVF.bak.$(date +%s)"; SRC="$ENVF"; }
-{ [ "$SRC" = /dev/null ] && echo "# written by brain-kit setup.sh - every hook sources this. An exported variable still wins; lines you add are kept on re-runs."
+{ [ "$SRC" = /dev/null ] && echo "# written by brain-kit setup.sh - every hook sources this. An exported variable wins over the NAME=\"\${NAME:-...}\" lines setup.sh writes, not over a plain NAME=value line you add (issue #24); lines you add are kept on re-runs."
   awk 'NR == FNR { n = $0; sub(/=.*/, "", n); line[n] = $0; order[++k] = n; next }
     { s = $0; sub(/^[ \t]*/, "", s); sub(/^export[ \t]+/, "", s); n = s
       if (sub(/=.*/, "", n) && (n in line)) { if (!(n in done)) { print line[n]; done[n] = 1 }; next }

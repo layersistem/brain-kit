@@ -64,7 +64,8 @@ those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run w
 
 Nothing to wire and no restart: the updater has already copied the changed scripts and the new
 `scripts/brain_env.py`. If you told the user to run `BRAIN_DIR=<vault> python3 scripts/brain_expect.py` (the 1.6.0
-workaround), the plain command now gives the same numbers.
+workaround), the plain command now gives the same numbers. `scripts/desk_ledger.py` reads the file by the same rules:
+if `brain-kit.env` assigns a name twice, the later line now counts, as it does for the hooks.
 
 ### Coming from 1.5.0
 

@@ -50,7 +50,8 @@ import brain_env
 # 1.2.0: the settings in <config>/brain-kit.env (BRAIN_ROOT, BRAIN_DIR, and whatever you added). The hooks source that
 # file; this script runs from a timer with no shell to do it, so a custom root or vault was invisible here and the
 # ledger was written to ~/brain/vault. The reader now lives in brain_env.py (issue #22), shared with the other
-# scripts; a variable that is already in the environment wins, as before.
+# scripts and read by the shell's rules (a later line overrides an earlier one, a comment after a value is dropped); a
+# variable that is set and not empty in the environment still wins.
 brain_env.load()
 BRAIN_ROOT = os.path.expanduser(os.environ.get("BRAIN_ROOT", "~/brain"))
 VAULT = os.path.abspath(os.path.expanduser(os.environ.get("BRAIN_DIR") or os.path.join(BRAIN_ROOT, "vault")))

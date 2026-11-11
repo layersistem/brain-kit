@@ -8,34 +8,45 @@ this file.
 ## [Unreleased]
 
 The expectation counter and the verdict ledger read the vault the hooks read (issue #22). Nothing to wire:
-`scripts/update.sh` brings the changed scripts and the new `scripts/brain_env.py`. When the environment already carries
-the settings, as it does when a hook starts a script, every output is the same as 1.6.0.
+`scripts/update.sh` brings the changed scripts and the new `scripts/brain_env.py`. When the environment already
+carries the settings, as it does when a hook starts a script, every output is the same as 1.6.0.
 
 ### Fixed
-- `scripts/brain_expect.py` and `scripts/brain_verdict.py` took `BRAIN_ROOT` and `BRAIN_DIR` from the environment only.
-  The hooks source `<agent-config-dir>/brain-kit.env` on every run; a script started from a shell does not, so with
-  the vault path set only in that file (where `setup.sh` and `INTRO_PROMPT.md` put it) the counter fell back to
+- `scripts/brain_expect.py` and `scripts/brain_verdict.py` took `BRAIN_ROOT` and `BRAIN_DIR` from the environment
+  only. The hooks source `<agent-config-dir>/brain-kit.env` on every run; a script started from a shell does not, so
+  with the vault path set only in that file (where `setup.sh` and `INTRO_PROMPT.md` put it) the counter fell back to
   `~/brain/vault` and printed that vault's numbers without a warning, for example "open 0" while the DUE block showed
-  an open line. Both scripts now read the file before they build their paths, with the parser `scripts/desk_ledger.py`
-  has used since 1.2.0, moved unchanged into `scripts/brain_env.py` and shared by the three: lines of the form
-  `NAME=value`, `NAME="value"`, `NAME='value'` and `NAME="${NAME:-value}"`, with an optional `export`, are read and
-  nothing in the file is executed; a variable that is already in the environment wins. `brain_verdict.py` reads the
+  an open line. Both scripts, and `scripts/desk_ledger.py`, which has read the file since 1.2.0, now share one reader,
+  `scripts/brain_env.py`. It reads the file the way the shell does and never executes it: a later line overrides an
+  earlier one, `NAME="${NAME:-value}"` (the form `setup.sh` writes) keeps a value that is already set and not empty,
+  quoting and `$NAME` expansion follow the shell, a `#` comment after a value is dropped, and a line that would run a
+  command is skipped. A variable exported non-empty before the script starts wins over every line; that is the one
+  difference from the hooks, where a plain `NAME=value` line overrides it (issue #24). `brain_verdict.py` reads the
   file only when it runs as a script: `brain_bm25.py` imports it for the verdict boost, and that import leaves the
   caller's environment alone. The 1.6.0 known limit and its workaround no longer apply.
+- `scripts/desk_ledger.py` read the same file with a smaller parser: the first of two assignments won, and a comment
+  after a value became part of it. It now uses the shared reader, and an exported variable that is empty no longer
+  hides the file's value.
+- `scripts/brain_expect.py` prints one line on stderr when the vault it resolved does not exist, so a mistyped path no
+  longer gives a believable "open 0".
 
 ### Changed
 - `INTRO_PROMPT.md`: the DUE item says that the `@expect` line before a delivery or a "works" or "passed" claim is
   written with `BRAIN_EXPECT=1`. Read without the switch, the sentence asked for a line that never comes back.
-- README "Configuration" names the three scripts that read `brain-kit.env` themselves.
+- README "Configuration" and the header `setup.sh` writes into a new `brain-kit.env` say which lines an exported
+  variable wins over, and name the three scripts that read the file themselves.
 
-Measured by the author: in a fixture with six vaults and fifteen forms of `brain-kit.env` (the four line forms,
-`$HOME` and `${HOME}` inside double quotes, `$` kept inside single quotes, root only, the instance set in the file,
-the default config dir, comments and noise, an exported value against the setup form and against a plain line, no
-file, command substitutions that must not run), each script run by hand prints what the 1.6.0 script prints when a
-hook has loaded the file, and under a hook prints what 1.6.0 printed; `desk_ledger.py` resolves the same root, vault
-and instance as 1.6.0 for every form: 107 of 107 checks. Twelve deliberate faults (a missing load in each script, the
-file winning over the environment, each parser rule removed) each turn the run red; the 1.6.0 tree fails 37 of the
-107 checks.
+Measured by the author. Against the shell: 34 forms of the file (the four line forms, two assignments of one name in
+each order with the setup form, an empty value followed by `${NAME:-}` and by `${NAME-}`, comments after plain, quoted
+and setup-form values, `#` inside quotes and inside a word, `$HOME` and `${HOME}`, a value built from an earlier line,
+mixed quoting, the escaping `setup.sh` writes, a backslash, two assignments on one line, `;`, an assignment in front
+of a command, `export NAME` alone, `${NAME:+}`, `${NAME:=}`) times four environments (none, `BRAIN_DIR` exported,
+exported empty, `BRAIN_ROOT` exported): the reader gives what `set -a; . brain-kit.env` gives in 106 cases, and in the
+other 30, where a plain line meets an exported value of the same name, it keeps the exported one; command
+substitutions stay text and run nothing. End to end, with six vaults and twenty-one files: each script run by hand
+prints what the 1.6.0 script prints when a hook has loaded the file, under a hook prints what 1.6.0 printed, and
+`desk_ledger.py` resolves the root, vault and instance a hook would give it: 150 of 150 checks. Seventeen deliberate
+faults each turn one of the two runs red; the first review head (`164f4b2`) fails 25 of the 150.
 
 ## [1.6.0] - 2026-11-11
 
