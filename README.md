@@ -33,7 +33,9 @@ all, and the semantic layer runs BGE-M3 on your CPU.
   and the fix. Tested on a clean Windows 11 machine with 4 GB of memory (11 November 2026): `./setup.sh
   --yes-defaults` finished with no manual step in 24 minutes (10 of them downloads, 14 the first load of the
   embedding model), and with tool payloads that spell the path the Windows way the write hooks reported and
-  indexed every test note.
+  indexed every test note. The commands of that page were then run as written, from CMD, on a fresh clone:
+  `--no-embed` install and `scripts/install-check.sh`, five of five checks, 70 seconds in all. A real Claude Code
+  session on Windows has not been measured yet.
 - Python >= 3.10 with its `venv` module (on Debian and Ubuntu that is the separate `python3-venv`
   package: `sudo apt install python3-venv`), `jq`, and bash - the hooks and scripts are bash scripts;
   macOS's own `/bin/bash` 3.2 is enough. **macOS ships Python 3.9, which is too old:** install 3.10 or newer

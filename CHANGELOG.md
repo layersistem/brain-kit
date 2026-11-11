@@ -62,6 +62,12 @@ README sent Windows users to WSL. Nothing changes on macOS or Linux; `scripts/up
   a Windows-form project folder: the hygiene hook reported the linkless note in all three, the index went from 2
   to 5 files, the compaction pointer printed its block, the usage counter counted. Before: 0 of 3 notes indexed
   and no report, with every hook exiting 0.
+- `scripts/install-check.sh` on that install: 5 of 5 in 13 s, and the vector the write left missing was filled by
+  the scheduled sweeper (244 s on that machine).
+- The commands of `docs/WINDOWS.md` run as written from CMD on a fresh clone (Git's `core.autocrlf=true`, files
+  checked out with LF): prerequisite checks, `./setup.sh --yes-defaults --no-embed` exit code 0, install check
+  5 of 5, 70 s in all.
+- Not measured: a real Claude Code session on Windows.
 
 ## [1.6.0] - 2026-11-11
 
