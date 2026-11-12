@@ -5,6 +5,14 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
+## [1.8.0] - Unreleased
+
+### Fixed
+- `hooks/due-inject.sh` read an `@due` marker inside fenced code or inline backticks as a reminder, while it already
+  skipped an `@expect` marker there (1.6.0). A note that quotes the format, `@due 2026-01-01 example`, raised an
+  OVERDUE line on every prompt for good. Both markers are now read by the same rule: a marker inside a code span or a
+  fenced block is a format example, and backticks pair from the left as in `scripts/brain_expect.py` (issue #29).
+
 ## [1.7.1] - 2026-11-11
 
 The expectation counter and the verdict ledger read the vault the hooks read (issue #22). Nothing to wire and no hook

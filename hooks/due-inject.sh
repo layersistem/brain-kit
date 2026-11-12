@@ -12,11 +12,12 @@
 # Config: BRAIN_ROOT/BRAIN_DIR/BRAIN_INSTANCE as in _focus_inject.sh; day-state in <config>/brain-kit-state.
 # BRAIN_EXPECT (issue #18; on by default, `0` turns it off): `@expect YYYY-MM-DD[ HH:MM] text` lines - a prediction written before the
 # outcome is known - come back on the same schedule, marked as an expectation whose outcome is to be written. Closed
-# lines (`@expect✓ held:`, `@expect✗ missed:`, `@expect✓ void:`) are not seen, like `@due✓`, and neither is an
-# expectation inside fenced code or inline backticks: that is a format example, and scripts/brain_expect.py skips the
-# same lines by the same rule (backticks paired from the left). @due lines are read as before. Unset or any other
-# value: the patterns are the 1.5.0 ones and the output is byte-identical, also on a vault that already holds @expect
-# lines.
+# lines (`@expect✓ held:`, `@expect✗ missed:`, `@expect✓ void:`) are not seen, like `@due✓`. Unset or any other value:
+# the @expect pattern is not read at all, also on a vault that already holds @expect lines.
+# A marker inside fenced code or inline backticks is a format example, not a reminder - for both markers (1.8.0, issue
+# #29; until 1.7.1 only @expect was read that way, and a note quoting `@due 2026-01-01 example` raised an OVERDUE line
+# on every prompt for good). Backticks pair from the left, the way scripts/brain_expect.py reads them: on a line split
+# at backticks the even fields are code, except a last field after an unclosed backtick.
 ENV_FILE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/brain-kit.env"
 SESSION_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
@@ -49,35 +50,34 @@ FILES=("$VAULT/focus/_FOCUS_$I.txt")
 while IFS= read -r f; do
   [ -n "$f" ] && head -8 "$f" | grep -q "^instance: *$I *$" && FILES+=("$f")
 done < <(grep -l "${PATS[@]}" "$VAULT"/decision/*.md 2>/dev/null)
-# @expect -> @due rewrite, only where the marker is not inside an inline code span. Spans pair the backticks from the
-# left, the way scripts/brain_expect.py reads them: on a line split at backticks the even fields are code, except a
-# last field after an unclosed backtick. The text itself is kept, code included.
-EXPAWK='function conv(s,   o, p) {
+# One pass over each matching line, outside inline code spans only: an @expect marker (expectation memory on) is
+# rewritten into the @due shape with its instruction, and a newline is put in front of every @due marker, so the loop
+# below sees one item per line (a line-based parse only saw the last of several). Inside a code span nothing is
+# touched: the marker stays ordinary text of the item before it, or of no item at all. Spans pair the backticks from
+# the left: on a line split at backticks the even fields are code, except a last field after an unclosed backtick.
+MARKAWK='function conv(s,   o, p) {
   o = ""
-  while ((p = match(s, /@expect [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/))) {
+  if (ex) while ((p = match(s, /@expect [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/))) {
     o = o substr(s, 1, p - 1) "@due " substr(s, p + 8, 10); s = substr(s, p + RLENGTH)
     if (match(s, /^ [0-9][0-9]:[0-9][0-9]/)) { o = o substr(s, 1, 6); s = substr(s, 7) }
     o = o " EXPECTATION - write the outcome:"
   }
-  return o s
+  s = o s; gsub(/@due [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/, "\n&", s)
+  return s
 }
 { n = split($0, f, "`"); o = ""
   for (i = 1; i <= n; i++) o = o (i > 1 ? "`" : "") ((i % 2 || i == n) ? conv(f[i]) : f[i])
   print o }'
-FENCED="|"   # file:line inside fenced code, only with expectation memory on
-[ "$EXP" = 1 ] && for f in "${FILES[@]}"; do
+FENCED="|"   # file:line inside fenced code: format examples, skipped for both markers
+for f in "${FILES[@]}"; do
   [ -f "$f" ] && FENCED="$FENCED$(awk '/^[[:space:]]*```/{f=!f;next} f{printf "%s:%d|", FILENAME, FNR}' "$f" 2>/dev/null)"
 done
 
 OUT=$(grep -Hn "${PATLS[@]}" "${FILES[@]}" 2>/dev/null | while IFS= read -r line; do
   loc=${line%%:*}; rest=${line#*:}; ln=${rest%%:*}; body=${rest#*:}; loc=${loc#$VAULT/}
-  # an expectation is rewritten into the @due shape, so the parse below handles both; its text says what to do
   # ([[ ]] and not `case`: bash 3.2 cannot parse a case pattern's `)` inside this $( ... ))
-  if [ "$EXP" = 1 ] && [[ "$FENCED" != *"|$VAULT/$loc:$ln|"* ]]; then
-    body=$(printf '%s\n' "$body" | awk "$EXPAWK")
-  fi
-  # several @due on one line -> one entry each (a line-based parse only saw the last one)
-  printf '%s\n' "$body" | awk '{gsub(/@due [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/,"\n&"); print}' | grep '^@due ' | while IFS= read -r item; do
+  [[ "$FENCED" == *"|$VAULT/$loc:$ln|"* ]] && continue
+  printf '%s\n' "$body" | awk -v ex="$EXP" "$MARKAWK" | grep '^@due ' | while IFS= read -r item; do
   d=${item:5:10}; tail=${item:15}
   hm=$(printf '%s' "$tail" | sed -n 's/^ \([0-9][0-9]:[0-9][0-9]\).*/\1/p')
   txt=$(printf '%s' "$tail" | sed 's/^ \([0-9][0-9]:[0-9][0-9]\)\{0,1\} *//' | cut -c1-140)
