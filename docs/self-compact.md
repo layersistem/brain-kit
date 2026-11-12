@@ -54,7 +54,8 @@ skips step 2, waits for the boundary and sends the continuation line.
 ## What the model is told
 
 `context-inject.sh` changes its hard-threshold line when self-compact is installed (the script is
-present and executable under `$BRAIN_ROOT/scripts/` and `BRAIN_SELF_COMPACT` is not `0`):
+present and executable under `$BRAIN_ROOT/scripts/` and `BRAIN_SELF_COMPACT=1` in `brain-kit.env`; a missing line
+counts as `0` since 1.8.0, as this page always said):
 
 > HARD: past 130k - hard threshold reached, self-compact now: write the handover note + focus summary,
 > then launch self-compact as the LAST command of the turn (<brain-root>/docs/self-compact.md), then call

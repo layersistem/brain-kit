@@ -34,7 +34,8 @@
 # the previous-context file so the next delta starts clean.
 #
 # At the hard threshold the order depends on whether self-compact is installed (scripts/self-compact.sh
-# present and executable, and BRAIN_SELF_COMPACT not 0): with it, the agent compacts itself - handover note,
+# present and executable, and BRAIN_SELF_COMPACT=1 in brain-kit.env, which is what setup.sh writes on a yes; a missing
+# line counts as 0 since 1.8.0, as the README always said): with it, the agent compacts itself - handover note,
 # focus summary, then the script as the LAST command of the turn (docs/self-compact.md); without it, the
 # older "write the handoff note and let it compact" line.
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
@@ -114,7 +115,7 @@ LINE="CONTEXT ~$((CTX/1000))k (${PCT}% of $((W/1000))k)"
 [ -n "$D" ] && LINE="$LINE - since last prompt ${D:+$( [ "$D" -ge 0 ] && printf '+' )}${D}k"
 SC="$BRAIN_ROOT/scripts/self-compact.sh"
 if [ "$CTX" -ge "$HARD" ] 2>/dev/null; then
-  if [ "${BRAIN_SELF_COMPACT:-1}" != "0" ] && [ -x "$SC" ]; then
+  if [ "${BRAIN_SELF_COMPACT:-0}" = "1" ] && [ -x "$SC" ]; then
     LINE="$LINE  HARD: past $((HARD/1000))k - hard threshold reached, self-compact now: write the handover note + focus summary, then launch self-compact as the LAST command of the turn ($BRAIN_ROOT/docs/self-compact.md), then call no other tool and end the turn"
   else
     LINE="$LINE  HARD: past $((HARD/1000))k - stop at the next clean boundary, write the handoff note, let it compact"

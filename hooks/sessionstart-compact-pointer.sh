@@ -45,7 +45,7 @@ if [ -f "$INSTANCE_SH" ]; then
 fi
 [ -z "$HUB" ] && HUB=$(ls -t "$VAULT"/decision/DR-*handoff*.md "$VAULT"/decision/DR-*compact-hub*.md 2>/dev/null | head -1)
 echo "AFTER COMPACTION ($I): re-read the skills this session was using - compaction drops their"
-if [ "${BRAIN_SELF_COMPACT:-1}" != "0" ] && [ -x "$BRAIN_ROOT/scripts/self-compact.sh" ]; then
+if [ "${BRAIN_SELF_COMPACT:-0}" = "1" ] && [ -x "$BRAIN_ROOT/scripts/self-compact.sh" ]; then   # on only when brain-kit.env says 1 (1.8.0; a missing line was read as 1 before)
   echo "bodies. Then carry on from the next step in the handoff record and the focus file."
 else
   echo "bodies. Then summarise where things stand in one message and confirm before continuing."

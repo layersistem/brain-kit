@@ -12,6 +12,11 @@ this file.
   skipped an `@expect` marker there (1.6.0). A note that quotes the format, `@due 2026-01-01 example`, raised an
   OVERDUE line on every prompt for good. Both markers are now read by the same rule: a marker inside a code span or a
   fenced block is a format example, and backticks pair from the left as in `scripts/brain_expect.py` (issue #29).
+- `hooks/context-inject.sh` and `hooks/sessionstart-compact-pointer.sh` read a missing `BRAIN_SELF_COMPACT` line as
+  `1`, while README and `docs/self-compact.md` say the default is off and `setup.sh` writes `0` on a no. On an install
+  whose `brain-kit.env` has no such line, an executable `scripts/self-compact.sh` was enough to get the "self-compact
+  now" order and the pointer's "carry on" line. One truth now: self-compact is on only when the file says `1` and the
+  script is executable, which is what `setup.sh` writes on a yes.
 
 ## [1.7.1] - 2026-11-11
 
