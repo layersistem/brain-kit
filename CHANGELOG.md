@@ -5,7 +5,16 @@ release is a git tag (`v1.0.0`) - the tag is what the update check reads, and `V
 install is what it compares against. Every tag also has a GitHub Release that carries the same section as
 this file.
 
-## [1.8.0] - Unreleased
+## [1.8.0] - 2026-11-12
+
+The mechanisms the kit already carried now run by default (issue #29): the verdict ledger, the freshness line and the
+hygiene filter are on, and the caveman question is answered yes. New: a status block for the page a prompt names.
+Fixed: one truth for self-compact, and `@due` markers inside code examples are no longer reminders. The principle
+behind the defaults: a mechanism that comes with the install runs; what stays off is what needs something the machine
+may not have (tmux, `gh`, the embedding model) or what measured worse (the RRF recency bonus, the repeat filter).
+No new hook to wire: `scripts/update.sh` brings the changed hooks and scripts, and one more `./setup.sh` seeds the
+verdict ledger and installs caveman (`UPGRADE.md`, "Coming from 1.7.1"). The four defaults go back with `0` in
+`brain-kit.env`; the two fixes have no switch.
 
 ### Added
 - The status block, in `scripts/brain_recall_print.py`. When the prompt names a page of the vault - an instance hub
@@ -54,6 +63,29 @@ this file.
   run without `--caveman=`. An explicit `n` or `--caveman=no` keeps it out, and a copy from an earlier install is
   still never removed. Compressed replies are the largest saving on a token budget (about 65-75% fewer output
   tokens), and the skill touches no memory feature; 1.2.0 to 1.7.1 defaulted to no.
+
+### Measured
+- A real Mac (macOS 27.2.1, Homebrew Python 3.14, 12 November 2026), the release tree copied over and installed into
+  an empty home with `--yes-defaults --no-embed --no-timers`: exit code 0 in 1 s, 20 hook entries, the caveman skill
+  and the seeded verdict ledger in place, `scripts/install-check.sh` five of five. Every one of the 20 hook entries
+  then ran on a payload written by hand with exit code 0 and empty stderr; the recall hook printed the status block
+  of the named map dated by its newest line, the salience hook printed the VERDICT block and named the ledger, and
+  the compaction pointer printed its "confirm before continuing" line, since the install said no to self-compact.
+  The temporary home was removed afterwards; nothing of the Mac's own install was touched.
+- Linux, two `--no-embed --yes-defaults` installs into empty roots: without a flag the caveman skill is installed,
+  with `--caveman=no` it is not; both exit 0 with 20 hook entries and the seeded ledger.
+- `hooks/due-inject.sh` on a focus file with eleven lines, three of them code examples: 1.7.1 printed nine items,
+  this tree prints the six real ones, with `BRAIN_EXPECT=1` and `0` alike.
+- The renderer on a knowledge note verified 42 days ago with basis `read from code`: the STALE form with the
+  variable unset, the 1.7.1 line with `0`. On a strong hit whose excerpt holds a zero-width character: the excerpt
+  without it with the variable unset, with it with `0`.
+- `hooks/salience-inject.sh` on a correcting prompt: VERDICT block and ledger name with the variable unset, the
+  SALIENCE line alone with `0`; `brain_bm25.py` with no ledger in the vault answers as before; `brain_verdict.py
+  report` on the seed file reads it as a ledger with no rows.
+- The two self-compact hooks with the script executable and the line absent, `0` and `1`: the older wording for
+  absent and `0`, the self-compact order for `1`.
+- Not measured on Windows: no machine was available on the day. The hooks that changed are the ones measured there
+  for 1.7.0, and no path or shell behaviour changed in them; a Windows run is added to the next release's notes.
 
 ## [1.7.1] - 2026-11-11
 

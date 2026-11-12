@@ -27,7 +27,8 @@ all, and the semantic layer runs BGE-M3 on your CPU.
   Homebrew Python the default `./setup.sh` finished in 78 s, embedding model included (5.5 GB on disk), and in a
   real Claude Code session every hook ran without an error. The 1.7.0 tree was run there again without the model
   download: install in 2 s, `scripts/install-check.sh` five of five, all 20 hook entries exit code 0 on payloads
-  written by hand.
+  written by hand. The 1.8.0 tree was run there the same way on 12 November 2026 (`--no-embed`): install in 1 s,
+  five of five, all 20 hook entries exit code 0 with empty stderr.
 - **On Windows, follow [`docs/WINDOWS.md`](docs/WINDOWS.md).** The kit installs natively in Git Bash (Git for
   Windows), the shell Claude Code runs its hooks in; WSL is not needed. It needs Git for Windows, Python 3.10 or
   newer, jq and, for the full install, the Microsoft Visual C++ runtime, each one `winget install` away. That page

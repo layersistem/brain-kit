@@ -60,6 +60,25 @@ stays, and the previous file is kept as `brain-kit.env.bak.<epoch>`. From 1.2.3 
 those lines (`BRAIN_PROFILE`): a `--minimal` install stays minimal on a re-run without the flag, and
 `--full` switches it back. A re-run never removes a hook entry that is already wired.
 
+### Coming from 1.7.1
+
+No new hook, so the updater alone brings the code. Re-run `setup.sh` for two things only: it seeds
+`knowledge/verdict-ledger.md` into the vault when the file is not there (`cp -n`; nothing of yours is touched), and
+it installs the caveman skill, whose question now defaults to yes (`--caveman=no` keeps it out). Tell the user what
+changed behaviour; each switch lives in `brain-kit.env`:
+
+- the verdict ledger is on: a correction brings a VERDICT block and asks for one row in
+  `knowledge/verdict-ledger.md` (`BRAIN_VERDICT=0` turns it off);
+- a knowledge note's recall line says when it was last verified, STALE past 30 days unless measured
+  (`BRAIN_RECALL_FRESHNESS=0`);
+- what recall prints is filtered for zero-width characters and quoted harness tags (`BRAIN_RECALL_NEUTRALIZE=0`);
+- a prompt that names a `moc/MOC-<Name>.md` or `<name>-instance-hub.md` page gets that page's `## Status` section
+  above recall (`BRAIN_STATUS_BLOCK=0`);
+- an `@due` marker inside fenced code or inline backticks is no longer a reminder, as `@expect` already was;
+- self-compact is on only when `brain-kit.env` says `BRAIN_SELF_COMPACT=1`. An install without that line and with
+  the script executable loses the "self-compact now" order until the line is added; that state was never the
+  documented one, and `setup.sh` has written the line since 1.2.0.
+
 ### Coming from 1.7.0
 
 Nothing to wire and no restart: the updater has already copied the changed scripts and the new
