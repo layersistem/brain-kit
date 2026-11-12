@@ -11,8 +11,9 @@ stdin: the JSON list produced by brain_recall.py. stdout: the text block. Everyt
   BRAIN_RECALL_REPEAT_FILTER  0 (default since 1.2.0): every hit is printed every time; 1 turns the repeat filter on
   BRAIN_VERDICT  1 adds the handover diet below (scripts/brain_verdict.py; off by default)
   BRAIN_RECALL_NEUTRALIZE  1 prints the block through scripts/brain_neutralize.py (off by default; issue #14)
-  BRAIN_RECALL_FRESHNESS   1 adds "verified N days ago, basis: X" to a vault knowledge note's line, STALE past
-                           BRAIN_STALE_DAYS (30) unless the basis is measured (off by default; issue #14)
+  BRAIN_RECALL_FRESHNESS   adds "verified N days ago, basis: X" to a vault knowledge note's line, STALE past
+                           BRAIN_STALE_DAYS (30) unless the basis is measured (on by default since 1.8.0, issue #29;
+                           0 turns it off; issue #14)
   BRAIN_RECALL_FLOOR       1 prints a docs hit below the floor as its title line only (off by default; issue #14)
 
 Why a separate file (7 Sep 2026): this used to live inside the hook as a single-quoted `python3 -c '...'` block.
@@ -134,7 +135,7 @@ def _sweep_seen():
 
 
 def freshness(x, vault):
-    """Issue #14, BRAIN_RECALL_FRESHNESS=1: how fresh a vault knowledge note is, read from its own front matter
+    """Issue #14 (on by default since 1.8.0): how fresh a vault knowledge note is, read from its own front matter
     (`last_verified:`, `basis:` - the fields the ranking already ages by). Display only: the tier and the header
     counts stay as they are, because a STRONG line counted as FAIR would make the header describe another list.
     Nothing for other notes, for a note without last_verified, or on any read error."""
@@ -286,7 +287,7 @@ def main():
         print("  SOURCE (shared docs): no match - if this is a how-does-it-work question, find the doc and open the code.")
     if rest:
         print("  RECORD (notes/memory/decisions - the SOURCE for decisions and history: no 'nothing written / not recorded' verdict before these are opened; for how the system behaves, verify against the code):")
-    fresh = os.environ.get("BRAIN_RECALL_FRESHNESS") == "1"
+    fresh = os.environ.get("BRAIN_RECALL_FRESHNESS", "1") != "0"   # on unless turned off (1.8.0)
     for x in rest:
         t = tier(x)
         h = (x.get("heading") or "").strip()

@@ -413,8 +413,8 @@ query ran), so you can check whether the objection view ever finds anything on y
 ## Recall hygiene and private mode
 
 Recall puts note text in front of the model on every prompt, so what a note quotes reaches the context too. Four
-environment switches and two flag files control that path. All are off by default, and with all of them off every
-touched hook and script prints the same bytes as 1.4.1.
+environment switches and two flag files control that path. The freshness line is on by default since 1.8.0; the rest
+are off, and with all of them off every touched hook and script prints the same bytes as 1.4.1.
 
 - **`BRAIN_RECALL_NEUTRALIZE=1`** filters what the recall renderer and decision-time recall print
   (`scripts/brain_neutralize.py`). Zero-width characters (U+200B, U+200C, U+200D, U+2060, U+FEFF) are removed, and a
@@ -422,7 +422,7 @@ touched hook and script prints the same bytes as 1.4.1.
   `[tag: system-reminder]`. A note that quotes a transcript then cannot put a live-looking tag into the context. Only
   the printed copy changes; the vault is never edited. On the author's vault, 1 note held a harness tag and 2 held
   zero-width characters (counted on 15 October 2026, about 2,300 notes).
-- **`BRAIN_RECALL_FRESHNESS=1`** adds the front matter dates to the line of a vault knowledge note:
+- **`BRAIN_RECALL_FRESHNESS`** (on by default since 1.8.0; `0` turns it off) adds the front matter dates to the line of a vault knowledge note:
   `verified 12 days ago, basis: read from code`. Past `BRAIN_STALE_DAYS` (default 30), unless the basis is
   `measured`, the line reads `STALE: verified 75 days ago, basis: read from code - re-check it before a verdict
   leans on it`. Notes without `last_verified:` print as before. The tier and the header counts do not change.
@@ -507,7 +507,7 @@ stderr. The header of `scripts/brain_env.py` lists the remaining differences.
 | `BRAIN_RECALL_REPEAT_FILTER` | `0` | `1` turns on the repeat filter: within a session, drop a note already shown since the last compaction when it is only FAIR and shares no word with the prompt, or when it is a handover-style note (hub, handoff, closing, compact) that has never been opened. First showing is never filtered, shared docs are never filtered, a fully filtered turn prints nothing rather than claiming no match, and a call without a session id (`brain-search`) is never filtered. Off by default since 1.2.0: the 1.1.x filter did not know about compaction and dropped notes the model no longer had in context |
 | `BRAIN_DECISION_RECALL` / `BRAIN_DECISION_OBJECTION_DIRS` / `BRAIN_DECISION_WIDEN` | `1` / `research digs` / built-in English lesson words | decision-time recall: `0` turns it off (so does the file `<agent-config-dir>/brain-decision-recall.disabled`, which needs no restart); the folders whose notes make up the objection view, space separated, empty for no objection view; the words the second query adds when the first finds no research note |
 | `BRAIN_RECALL_NEUTRALIZE` | `0` | `1` removes zero-width characters and rewrites harness tags (`<system-reminder>` as `[tag: system-reminder]`) in what prompt recall and decision-time recall print; the vault is not edited (section "Recall hygiene and private mode") |
-| `BRAIN_RECALL_FRESHNESS` / `BRAIN_STALE_DAYS` | `0` / `30` | `1` adds `verified N days ago, basis: X` to the line of a vault knowledge note that has `last_verified:`, and STALE past the day limit unless the basis is `measured`; display only |
+| `BRAIN_RECALL_FRESHNESS` / `BRAIN_STALE_DAYS` | `1` / `30` | adds `verified N days ago, basis: X` to the line of a vault knowledge note that has `last_verified:`, and STALE past the day limit unless the basis is `measured`; display only, the tier and the header counts do not change; `0` turns it off (off by default until 1.7.1) |
 | `BRAIN_RECALL_FLOOR` | `0` | `1` prints a docs hit added by the docs pull, or scored under `BRAIN_DENSE_MIN` by the dense engine, as its title line only |
 | `BRAIN_SHOW_SESSION` | `0` | `1` adds `session <first 8 characters of the session id>` to the clock line, the value of a record's `origin_session:` |
 | `brain-recall.off` / `brain-write.off` (files) | absent | private mode, in `<project>/.claude/` or the agent config dir, no restart: prompt and decision-time recall read no note (one visible line per prompt instead; other injectors unaffected), or no Write/Edit inside the vault |

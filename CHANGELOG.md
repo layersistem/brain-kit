@@ -18,6 +18,12 @@ this file.
   now" order and the pointer's "carry on" line. One truth now: self-compact is on only when the file says `1` and the
   script is executable, which is what `setup.sh` writes on a yes.
 
+### Changed
+- `BRAIN_RECALL_FRESHNESS` is on by default. The line of a vault knowledge note that has `last_verified:` ends in
+  `verified N days ago, basis: X`, and in STALE past `BRAIN_STALE_DAYS` (30) unless the basis is `measured`, so a
+  note nobody has checked for months is read with that in view instead of as current fact. It changes that line and
+  nothing else: the tier and the header counts stay, a note without `last_verified:` prints as before. `0` turns it off.
+
 ## [1.7.1] - 2026-11-11
 
 The expectation counter and the verdict ledger read the vault the hooks read (issue #22). Nothing to wire and no hook
