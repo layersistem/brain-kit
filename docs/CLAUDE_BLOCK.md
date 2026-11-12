@@ -9,4 +9,6 @@
 - Never delete a replaced decision: set `status: superseded` and `superseded_by:` instead.
 - The vault holds decisions and lessons. Plans belong in your task list, not here.
 - Keep `<vault>/focus/_FOCUS_<instance>.txt` current - it is injected verbatim every prompt.
+- A page named `<vault>/moc/MOC-<Name>.md` or `<vault>/<name>-instance-hub.md` carries a `## Status` section:
+  one dated line per delivery. It is printed whenever a prompt names the page.
 <!-- /brain-kit-operating-rules -->

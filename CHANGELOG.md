@@ -8,6 +8,18 @@ this file.
 ## [1.8.0] - Unreleased
 
 ### Added
+- The status block, in `scripts/brain_recall_print.py`. When the prompt names a page of the vault - an instance hub
+  `<name>-instance-hub.md` at the vault root, or `moc/MOC-<Name>.md` - that page's `## Status` section (`## Durum`
+  is read too) is printed above the recall block: at most two pages (`BRAIN_STATUS_PAGES`) and 1,200 characters each
+  (`BRAIN_STATUS_CHARS`), with the date of the newest dated line in the section, quoted lines left out. "Where were
+  we on X" is then answered from the page's current state instead of five excerpts; a page without the section is
+  named with a one-line hint to add one. A name matches as a whole word, an apostrophe suffix or a Turkish case
+  ending allowed ("Nova's", "Nova'yı"), never inside another word; a name under four characters never matches. It
+  runs where recall runs, so a prompt of three words or fewer and private mode print nothing. `BRAIN_STATUS_BLOCK=0`
+  or the file `<agent-config-dir>/brain-status.disabled` turns it off, no restart. The author's install has run the
+  same block since 4 October 2026; the one difference is the date: the block showed the file's modification time,
+  this one shows the newest date written in the section. `INTRO_PROMPT.md` and the operating-rules block say what
+  the section is for.
 - `vault-seed/knowledge/verdict-ledger.md`: the verdict ledger with its table header, copied into the vault by
   `setup.sh` when it is not there, so the first row the VERDICT block asks for has a file to land in.
 

@@ -164,11 +164,85 @@ def freshness(x, vault):
         return ""
 
 
+# ---- Status block (1.8.0, issue #29). When the prompt names a page of the vault - an instance hub
+# `<name>-instance-hub.md` at the vault root, or `moc/MOC-<Name>.md` - that page's "## Status" section ("## Durum" is
+# read too) is printed above the recall block, at most BRAIN_STATUS_PAGES pages and BRAIN_STATUS_CHARS characters
+# each, with the date of the newest dated line in the section. "Where were we on X" is then answered from the page's
+# current state, not from five excerpts. A name matches as a whole word, with an apostrophe suffix or a Turkish case
+# ending allowed ("Nova's", "Nova'yı", "Novanın"); a name under four characters never matches. Quoted lines (">") in
+# the section are left out: the budget goes to the status lines. Off with BRAIN_STATUS_BLOCK=0 or the file
+# <agent-config-dir>/brain-status.disabled, no restart. Any error prints nothing: recall must never break a session.
+_STATUS_RX = re.compile(r"(?ms)^## (?:Status|Durum)\b[^\n]*\n(.*?)(?=^## |\Z)")
+_DATE_RX = re.compile(r"\b(20\d\d-\d\d-\d\d)\b")
+_TR_LOW = str.maketrans("İIÇĞÖŞÜ", "iıçğöşü")
+_SUFFIX = ("nın|nin|nun|nün|ın|in|un|ün|yı|yi|yu|yü|ı|i|u|ü|ya|ye|a|e|da|de|ta|te|dan|den|tan|ten|yla|yle|la|le|lar|ler|"
+           "ları|leri|daki|deki")
+
+
+def _status_pages(vault):
+    out = []
+    try:
+        for p in sorted(os.listdir(vault)):
+            if p.endswith("-instance-hub.md"):
+                out.append((p[:-len("-instance-hub.md")], os.path.join(vault, p)))
+        mocd = os.path.join(vault, "moc")
+        if os.path.isdir(mocd):
+            for p in sorted(os.listdir(mocd)):
+                if p.startswith("MOC-") and p.endswith(".md"):
+                    out.append((p[4:-3], os.path.join(mocd, p)))
+    except OSError:
+        pass
+    return out
+
+
+def status_block(prompt, vault):
+    cfg = os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude"))
+    if not prompt or os.environ.get("BRAIN_STATUS_BLOCK", "1") == "0" or os.path.exists(os.path.join(cfg, "brain-status.disabled")):
+        return ""
+    try:
+        pages, chars = int(os.environ.get("BRAIN_STATUS_PAGES", "") or 2), int(os.environ.get("BRAIN_STATUS_CHARS", "") or 1200)
+    except ValueError:
+        pages, chars = 2, 1200
+    low = " " + prompt.translate(_TR_LOW).lower() + " "
+    lines, n = [], 0
+    for name, path in _status_pages(vault):
+        a = name.translate(_TR_LOW).lower()
+        if len(a) < 4 or not re.search(r"(?<![a-z0-9çğıöşü])" + re.escape(a) + r"(?:['’][a-zçğıöşü]{1,5}|(?:" + _SUFFIX + r"))?(?![a-z0-9çğıöşü])", low):
+            continue
+        try:
+            with open(path, encoding="utf-8", errors="ignore") as fh:
+                txt = fh.read()
+        except OSError:
+            continue
+        m = _STATUS_RX.search(txt)
+        body = " ".join(" ".join(l for l in m.group(1).split("\n") if not l.lstrip().startswith(">")).split())[:chars] if m else ""
+        dated = max(_DATE_RX.findall(m.group(1)), default="") if m else ""
+        head = "STATUS PAGE \"%s\" (named in the prompt; answer from the whole page, the recall notes below are extra): %s" % (name, path)
+        if body:
+            head += " - status dated %s" % dated if dated else " - status undated"
+        else:
+            head += " - no '## Status' section: add one (one dated line per delivery: what closed, what is open, which record), and Read the page"
+        lines.append(head)
+        if body:
+            lines.append("   Status: " + body)
+        n += 1
+        if n >= pages:
+            break
+    return "\n".join(lines)
+
+
 def main():
     try:
         r = json.load(sys.stdin)
     except Exception:
         r = []
+    try:  # status block first, recall or no recall; any error prints nothing
+        sb = status_block(os.environ.get("RECALL_PROMPT_TEXT", ""),
+                          os.environ.get("BRAIN_DIR") or os.path.join(os.environ.get("BRAIN_ROOT", os.path.expanduser("~/brain")), "vault"))
+        if sb:
+            print(sb)
+    except Exception:
+        pass
     if not r:
         if int(os.environ.get("RECALL_PROMPT_WORDS", "0") or 0) >= 6:
             # 1.2.0: this line used to say "treat this as NOT KNOWN". No match for the sentence is not the absence of a
