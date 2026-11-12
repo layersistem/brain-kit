@@ -3,7 +3,7 @@
 
 The kit's other importance signals say how a note was written (`weight:`) or how often it was opened (the usage
 boost); none says whether it helped. A correction is the outcome signal, and hooks/salience-inject.sh already notices
-it. With BRAIN_VERDICT=1 the hook calls `moment` here, which lists the notes recall showed and the notes the model
+it. The hook calls `moment` here (on by default since 1.8.0; BRAIN_VERDICT=0 turns it off), which lists the notes recall showed and the notes the model
 opened in the last turns, and asks for one row in a ledger note. Measured on the author's install over one week
 (29 September to 5 October 2026): of 44 rows, 31 said the right note was already in context and the mistake happened
 anyway, 2 that a note existed and recall did not show it, 0 that no note existed, 11 that the word was no correction.

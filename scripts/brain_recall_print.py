@@ -9,7 +9,7 @@ stdin: the JSON list produced by brain_recall.py. stdout: the text block. Everyt
   RECALL_TRANSCRIPT    this session's transcript path, from the hook payload - a compact there resets that list
   BRAIN_ROOT, BRAIN_DIR, BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS, BRAIN_MEMORY2, BRAIN_DENSE_MIN as in the hook
   BRAIN_RECALL_REPEAT_FILTER  0 (default since 1.2.0): every hit is printed every time; 1 turns the repeat filter on
-  BRAIN_VERDICT  1 adds the handover diet below (scripts/brain_verdict.py; off by default)
+  BRAIN_VERDICT  0 turns off the handover diet below (scripts/brain_verdict.py; on by default since 1.8.0)
   BRAIN_RECALL_NEUTRALIZE  prints the block through scripts/brain_neutralize.py (on by default since 1.8.0, issue #29;
                            0 turns it off; issue #14)
   BRAIN_RECALL_FRESHNESS   adds "verified N days ago, basis: X" to a vault knowledge note's line, STALE past
@@ -222,10 +222,11 @@ def main():
             return handover(nm) and not c
 
         rest = [x for x in rest if not _drop(x)]
-    # Diet (issue #8), only with BRAIN_VERDICT=1: a handover-style note that is FAIR and shares no word with the prompt is
-    # dropped on its first showing too, not only from the second on. Applied to the 23 September pairs on the author's
-    # install it cut 96 lines and lost none of the 95 notes that were opened. Stateless; shared docs are never touched.
-    if os.environ.get("BRAIN_VERDICT") == "1":
+    # Diet (issue #8; on by default since 1.8.0, BRAIN_VERDICT=0 turns it off): a handover-style note that is FAIR and
+    # shares no word with the prompt is dropped on its first showing too, not only from the second on. Applied to the
+    # 23 September pairs on the author's install it cut 96 lines and lost none of the 95 notes that were opened.
+    # Stateless; shared docs are never touched.
+    if os.environ.get("BRAIN_VERDICT", "1") != "0":
         vt = toks(os.environ.get("RECALL_PROMPT_TEXT", ""))
         rest = [x for x in rest if not (handover(x.get("note", "")) and fair_unrelated(tier(x), x.get("note", ""), vt))]
     if not docs and not rest:

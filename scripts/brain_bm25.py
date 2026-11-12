@@ -8,7 +8,8 @@ Env: BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . BRAIN_MEMORY . BRAIN_MEMO
      BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS (+ _SCOPE_RX / _SCOPE_RXS, brain_wiki.py) . BRAIN_STOPWORDS (extra stopwords, comma/space separated) .
      BRAIN_INDEX=sqlite - route through brain_index_search.py's SQLite/FTS5 build instead of
      re-scanning every file on disk (same formula, same output shape; see brain_index.py) .
-     BRAIN_VERDICT=1 - the capped verdict boost fed from the verdict ledger (brain_verdict.py)."""
+     BRAIN_VERDICT=0 turns off the capped verdict boost fed from the verdict ledger (brain_verdict.py; on by default
+     since 1.8.0)."""
 import os, sys, re, math, pathlib, datetime
 from collections import Counter
 from brain_stem import stem                               # Turkish-aware suffix stripper
@@ -50,14 +51,14 @@ STOP = {"the", "a", "an", "and", "or", "of", "to", "in", "is", "are", "was", "we
 _SWF = BRAIN_ROOT / ".brain-stopwords"      # per-install extra stopwords; env adds on top
 STOP |= {w for w in re.split(r"[,\s]+", ((_SWF.read_text() if _SWF.exists() else "") + " " +
          os.environ.get("BRAIN_STOPWORDS", "")).translate(_TR).lower()) if w}
-# Verdict boost (issue #8), only with BRAIN_VERDICT=1. A `not-surfaced` row in the verdict ledger (scripts/brain_verdict.py)
+# Verdict boost (issue #8; on by default since 1.8.0, BRAIN_VERDICT=0 turns it off). A `not-surfaced` row in the verdict ledger (scripts/brain_verdict.py)
 # says a note existed and recall did not show it; the content words of that row's prompt summary are tied to the note.
 # A later query sharing one of them multiplies the note's score by 1.075, two or more by 1.15 - the usage boost's
 # ceiling. It only raises: no other note loses score, and `in-view` rows never enter ranking (the note was found and
-# not followed; that is the rule shelf's case). Unset or 0: _VERDICT stays empty and no score is touched.
+# not followed; that is the rule shelf's case). 0, or no ledger yet: _VERDICT stays empty and no score is touched.
 VERDICT_W = 0.15
 _VERDICT = {}
-if os.environ.get("BRAIN_VERDICT") == "1":
+if os.environ.get("BRAIN_VERDICT", "1") != "0":
     try:
         import brain_verdict as _bv
         _VERDICT = {n: {stem(t) for t in re.findall(r"[a-z0-9]+", s.translate(_TR).lower()) if t not in STOP}

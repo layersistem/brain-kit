@@ -7,6 +7,10 @@ this file.
 
 ## [1.8.0] - Unreleased
 
+### Added
+- `vault-seed/knowledge/verdict-ledger.md`: the verdict ledger with its table header, copied into the vault by
+  `setup.sh` when it is not there, so the first row the VERDICT block asks for has a file to land in.
+
 ### Fixed
 - `hooks/due-inject.sh` read an `@due` marker inside fenced code or inline backticks as a reminder, while it already
   skipped an `@expect` marker there (1.6.0). A note that quotes the format, `@due 2026-01-01 example`, raised an
@@ -27,6 +31,13 @@ this file.
   `scripts/brain_neutralize.py`: zero-width characters are removed and a quoted harness tag is printed as
   `[tag: name]`, so a note that quotes a transcript, a mail or a web page cannot put a live-looking tag into the
   context. Only the printed copy changes; the vault is never edited. `0` restores the raw bytes.
+- `BRAIN_VERDICT` is on by default: the verdict ledger (issue #8). On a correction the SALIENCE line is followed by
+  the VERDICT block, with the time of the corrected prompt, the notes recall showed and the notes the model opened,
+  and the one row to add to `knowledge/verdict-ledger.md`. With it come the two things the switch already carried:
+  the recall renderer drops a FAIR handover note unrelated to the prompt on its first showing, and a `not-surfaced`
+  row gives its note the capped BM25 boost. No model call. With the ledger off, a correction is lost in the chat; the
+  author's install has kept one since 5 October 2026. `0` turns all of it off, and the hook and the scripts then
+  print what 1.7.1 printed.
 
 ## [1.7.1] - 2026-11-11
 

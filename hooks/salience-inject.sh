@@ -60,12 +60,13 @@ if [ "$RECENT" -ge "$BURST" ]; then
 else
   echo "SALIENCE: correction signal \"$HIT\" - #$N this session, #$NG today. Give this turn's record \`weight: lesson\` + a \"## Lesson\" (what was wrong, what is right, which gate failed). Understand the cause before fixing."
 fi
-# Verdict moment (issue #8), only with BRAIN_VERDICT=1. The lines above say a turn went wrong; they do not say whether a
-# note was in front of the model when it did. scripts/brain_verdict.py reads this session's transcript (the hook
-# payload carries its path) and prints the notes recall showed and the notes the model opened in the last three turns
-# that had any, plus one ledger row to fill in. Note names only, from the local transcript, capped at 3000 characters.
-# The hook prints; it never writes the ledger. With the variable unset or 0 nothing below runs.
-if [ "${BRAIN_VERDICT:-0}" = "1" ]; then
+# Verdict moment (issue #8; on by default since 1.8.0, issue #29, BRAIN_VERDICT=0 turns it off). The lines above say a
+# turn went wrong; they do not say whether a note was in front of the model when it did. scripts/brain_verdict.py reads
+# this session's transcript (the hook payload carries its path) and prints the notes recall showed and the notes the
+# model opened in the last three turns that had any, plus one ledger row to fill in. Note names only, from the local
+# transcript, capped at 3000 characters. The hook prints; it never writes the ledger. With the variable 0 nothing
+# below runs.
+if [ "${BRAIN_VERDICT:-1}" != "0" ]; then
   TP=$(printf '%s' "$INPUT" | python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("transcript_path","") or "")
 except Exception: print("")' 2>/dev/null)

@@ -79,7 +79,7 @@ def search(query, k=5, k1=1.5, b=0.75):
         uc = bm._USE.get(os.path.basename(rel), 0)
         if uc:
             s *= 1 + 0.15 * min(1.0, math.log1p(uc) / math.log1p(5))
-        if bm._VERDICT:                                   # verdict boost, BRAIN_VERDICT=1 only (see brain_bm25)
+        if bm._VERDICT:                                   # verdict boost, empty with BRAIN_VERDICT=0 or no ledger (see brain_bm25)
             s *= bm.verdict_mult(qset, note)
         if dord and tag != "memory" and hw <= 1.0:
             s *= max(bm.AGE_FLOOR, 1 - bm.AGE_W * (tod - dord) / 372)

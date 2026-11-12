@@ -321,7 +321,7 @@ ID_FILE="$VAULT/.brain-instance"                   # instance name, read by focu
 [ -f "$ID_FILE" ] || printf '%s\n' "$INST" > "$ID_FILE"
 [ -f "$VAULT/focus/_FOCUS_$INST.txt" ] || cp "$KIT/vault-seed/focus/_FOCUS_main.txt" "$VAULT/focus/_FOCUS_$INST.txt"
 cp -n "$KIT"/vault-seed/decision/*.md "$VAULT/decision/" 2>/dev/null || true
-cp -n "$KIT"/vault-seed/knowledge/beliefs.md "$VAULT/knowledge/" 2>/dev/null || true
+cp -n "$KIT"/vault-seed/knowledge/*.md "$VAULT/knowledge/" 2>/dev/null || true   # beliefs.md, verdict-ledger.md (1.8.0); never overwritten
 CM="$CLAUDE_DIR/CLAUDE.md"
 if grep -q "brain-kit-operating-rules" "$CM" 2>/dev/null; then ok "CLAUDE.md block already there"
 else sed "s|<vault>|$(shown "$VAULT")|g" "$KIT/docs/CLAUDE_BLOCK.md" >> "$CM"; ok "operating rules appended to $CM"; fi

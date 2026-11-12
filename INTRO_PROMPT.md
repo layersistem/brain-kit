@@ -61,8 +61,8 @@ what they mean (full table: README "What gets injected, and when"):
   say so. "nothing under research/ matched" is not proof
   that no lesson exists.
 - **SALIENCE** (`salience-inject.sh`) - fires only when the user corrects you; tag this turn's
-  decision record `weight: lesson`. With `BRAIN_VERDICT=1` a VERDICT block follows: add the one ledger
-  row it asks for (which notes were in context, and whether one was in view and not followed).
+  decision record `weight: lesson`. A VERDICT block follows: add the one ledger row it asks for to
+  `<vault>/knowledge/verdict-ledger.md` (which notes were in context, and whether one was in view and not followed).
 - **update notice** (`update-notice.sh`) - at session start, at most once a day: one line if a newer
   release is tagged. It downloads and changes nothing. Applying it is a separate step the user has to
   ask for - `scripts/update.sh`, procedure in [`UPGRADE.md`](UPGRADE.md).
