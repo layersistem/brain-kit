@@ -38,6 +38,10 @@ this file.
   row gives its note the capped BM25 boost. No model call. With the ledger off, a correction is lost in the chat; the
   author's install has kept one since 5 October 2026. `0` turns all of it off, and the hook and the scripts then
   print what 1.7.1 printed.
+- The caveman question defaults to yes: `[Y/n]` in the installer, and yes under `--yes-defaults` or a non-interactive
+  run without `--caveman=`. An explicit `n` or `--caveman=no` keeps it out, and a copy from an earlier install is
+  still never removed. Compressed replies are the largest saving on a token budget (about 65-75% fewer output
+  tokens), and the skill touches no memory feature; 1.2.0 to 1.7.1 defaulted to no.
 
 ## [1.7.1] - 2026-11-11
 

@@ -165,7 +165,8 @@ Choose one:
   (The backtick before `$` is for PowerShell. In CMD or at a Git Bash prompt, write `${PIPESTATUS[0]}`
   without it.)
 
-`--yes-defaults` answers every question with its default, so nothing waits for input. The full install is quiet
+`--yes-defaults` answers every question with its default, so nothing waits for input; since 1.8.0 that includes the
+caveman skill (compressed replies in every session), so add `--caveman=no` to leave it out. The full install is quiet
 for several minutes during step `(2/8)` (it downloads PyTorch) and again at `building the index` (it downloads
 the 2.3 GB model once and loads it; on a machine with 4 GB of memory that last step alone took 14 minutes, with
 no output and almost no CPU use, while Windows read the new files for the first time). **Silence is not a hang.**

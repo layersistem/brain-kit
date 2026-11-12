@@ -14,10 +14,11 @@
 #                      interactively when the flag is absent; default: no.
 #   --caveman=         "yes" installs the caveman skill (compressed chat replies in EVERY session of EVERY
 #                      project - it is a user-level skill); "no" leaves it out. Asked interactively when the
-#                      flag is absent; default: no. An earlier install's copy is never removed by this script.
+#                      flag is absent; default: yes (1.8.0; no until 1.7.1). An earlier install's copy is never
+#                      removed by this script.
 #   --desk-repos=      "owner/repo ..." installs the hourly desk ledger for those repos (needs gh); absent = skipped
 #   --no-timers        do not install systemd user timers or the macOS launchd agent (print the cron lines instead)
-#   --yes-defaults     no prompts at all: every question takes its default (the opt-ins default to no / auto)
+#   --yes-defaults     no prompts at all: every question takes its default (window auto, self-compact no, caveman yes)
 # Env: BRAIN_ROOT (~/brain) . BRAIN_DIR (<root>/vault) . CLAUDE_CONFIG_DIR (~/.claude) .
 #      BRAIN_INSTANCE (main).  Idempotent: never overwrites notes, settings or existing skills. A re-run takes its
 #      defaults from the existing <config>/brain-kit.env and keeps every line you added to that file.
@@ -112,14 +113,15 @@ if [ "$WIN" = 1 ] && [ "$SELFC" != "no" ] && [ -n "$SELFC" ]; then
   echo "   self-compact needs tmux, which Git Bash on Windows does not have - not installed"; SELFC=no
 fi
 case "$SELFC" in no|NO|n|N|"") SELFC=no ;; *[!A-Za-z0-9_.:-]*) die "--self-compact takes a tmux session name or 'no' (got '$SELFC')" ;; esac
-# caveman (1.2.0): opt-in. Until 1.1.1 it was copied into <config>/skills on every install without a word in
-# any document, and its own text calls itself mandatory in every session - so every project on the machine
-# started answering in compressed prose. It is a style choice and the person installing makes it.
+# caveman: asked, default yes (1.8.0, issue #29). 1.2.0 to 1.7.1 defaulted to no, and until 1.1.1 it was copied into
+# <config>/skills on every install without a word in any document. It is a style choice the person installing makes,
+# in the question or with --caveman=no; the default is yes because compressed replies are the largest saving on a
+# token budget (about 65-75% fewer output tokens) and the skill touches no memory feature.
 if [ -z "$CAVE" ]; then
-  CAVE=no
+  CAVE=yes
   if [ "$ASK" = "1" ]; then
-    read -r -p "Install the caveman skill? The agent then answers in compressed prose (about 65-75% fewer output tokens) in every session of every project - it is a user-level skill. [y/N] " _k || true
-    case "${_k:-}" in y|Y|yes|YES) CAVE=yes ;; esac
+    read -r -p "Install the caveman skill? The agent then answers in compressed prose (about 65-75% fewer output tokens) in every session of every project - it is a user-level skill. [Y/n] " _k || true
+    case "${_k:-}" in n|N|no|NO) CAVE=no ;; esac
   fi
 fi
 case "$CAVE" in yes|YES|y|Y) CAVE=yes ;; no|NO|n|N|"") CAVE=no ;; *) die "--caveman takes 'yes' or 'no' (got '$CAVE')" ;; esac

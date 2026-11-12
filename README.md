@@ -85,7 +85,7 @@ Restart your agent session afterwards so the hooks load. `--minimal` wires 16 of
 everything except the vault hygiene check (`postwrite-check.sh`), the observation stream
 (`observe-mutations.sh`) and the two Stop gates, and it skips the consolidation skill. The choice is
 written to `brain-kit.env` as `BRAIN_PROFILE`, so a later `./setup.sh` keeps it; `--full` switches back. The
-`five-gates` skill installs in both profiles, caveman in either only when you choose it. Then run the dense-recall daemon as a service
+`five-gates` skill installs in both profiles, caveman in either unless you say no. Then run the dense-recall daemon as a service
 (recommended, `docs/DENSE_RECALL.md`) - recall is hybrid the moment it is up, BM25-only until then.
 
 ## Model-first install
@@ -97,16 +97,16 @@ landed in `settings.json`, checks that recall answers a query, and reports back 
 
 ## What the installer asks, and what it installs on its own
 
-Three features are opt-in and `setup.sh` asks before installing them. An empty answer means no (for the
-window: auto, nothing written), and so does a non-interactive run (stdin not a terminal) without the
-matching flag:
+`setup.sh` asks three questions before installing. An empty answer takes the default shown in brackets (the
+window: auto, nothing written; self-compact: no; caveman: yes since 1.8.0), and so does a non-interactive run
+(stdin not a terminal) without the matching flag:
 
 ```
 Context window for the warnings and auto-compact: 'auto' uses the model's own window, a number of tokens
 narrows it (written to the project's .claude/settings.json) [auto]:
 Install self-compact (requires tmux; the agent compacts itself at the hard threshold)? [y/N]
 Install the caveman skill? The agent then answers in compressed prose (about 65-75% fewer output tokens)
-in every session of every project - it is a user-level skill. [y/N]
+in every session of every project - it is a user-level skill. [Y/n]
 ```
 
 The first, when you give a number, writes it into `<project>/.claude/settings.json` (`env`) as
@@ -131,10 +131,11 @@ re-run without `--no-embed`; `BRAIN_EMBED=1 ./setup.sh` switches it to the full 
 
 The third is a writing style, not a memory feature. `skills/caveman` makes the agent drop filler and
 articles in chat while keeping every technical detail exact, and write deliverables (docs, mails, PR
-bodies) as plain full sentences. It installs into `<agent-config-dir>/skills`, so once chosen it applies
-to every project on the machine. Until 1.1.1 the installer copied it in without asking; if you installed
-one of those releases and do not want it, delete `<agent-config-dir>/skills/caveman` - the installer never
-removes a skill.
+bodies) as plain full sentences. It installs into `<agent-config-dir>/skills`, so it applies to every project
+on the machine, and from 1.8.0 the question defaults to yes: compressed replies are the largest saving on a
+token budget, and the skill touches no memory feature. `n`, or `--caveman=no`, keeps it out (1.2.0 to 1.7.1
+defaulted to no; until 1.1.1 the installer copied it in without asking). A copy you do not want goes with
+`rm -r <agent-config-dir>/skills/caveman` - the installer never removes a skill.
 
 **Where things land.** The hooks, the `brain-kit.env` file, the skills and the operating-rules block in
 `<agent-config-dir>/CLAUDE.md` are user-level: they apply to every project you open with that agent, not

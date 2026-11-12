@@ -85,8 +85,8 @@ terminal, so the installer asks nothing and an absent flag takes the default:
    to narrow it -> `--context-window=<N|auto>`.
 2. Self-compact (needs tmux; the agent compacts itself at the hard threshold): a tmux session name,
    or no (the default) -> `--self-compact=<tmux session|no>`.
-3. The caveman skill (compressed chat replies in every session of every project): yes or no (the
-   default) -> `--caveman=<yes|no>`.
+3. The caveman skill (compressed chat replies in every session of every project): yes (the default;
+   it is the largest saving on a token budget) or no -> `--caveman=<yes|no>`.
 
 ```bash
 cd <the brain-kit checkout>
