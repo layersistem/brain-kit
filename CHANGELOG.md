@@ -23,6 +23,10 @@ this file.
   `verified N days ago, basis: X`, and in STALE past `BRAIN_STALE_DAYS` (30) unless the basis is `measured`, so a
   note nobody has checked for months is read with that in view instead of as current fact. It changes that line and
   nothing else: the tier and the header counts stay, a note without `last_verified:` prints as before. `0` turns it off.
+- `BRAIN_RECALL_NEUTRALIZE` is on by default. What prompt recall and decision-time recall print goes through
+  `scripts/brain_neutralize.py`: zero-width characters are removed and a quoted harness tag is printed as
+  `[tag: name]`, so a note that quotes a transcript, a mail or a web page cannot put a live-looking tag into the
+  context. Only the printed copy changes; the vault is never edited. `0` restores the raw bytes.
 
 ## [1.7.1] - 2026-11-11
 

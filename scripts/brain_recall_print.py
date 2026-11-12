@@ -10,7 +10,8 @@ stdin: the JSON list produced by brain_recall.py. stdout: the text block. Everyt
   BRAIN_ROOT, BRAIN_DIR, BRAIN_WIKI_DIR / BRAIN_WIKI_DIRS, BRAIN_MEMORY2, BRAIN_DENSE_MIN as in the hook
   BRAIN_RECALL_REPEAT_FILTER  0 (default since 1.2.0): every hit is printed every time; 1 turns the repeat filter on
   BRAIN_VERDICT  1 adds the handover diet below (scripts/brain_verdict.py; off by default)
-  BRAIN_RECALL_NEUTRALIZE  1 prints the block through scripts/brain_neutralize.py (off by default; issue #14)
+  BRAIN_RECALL_NEUTRALIZE  prints the block through scripts/brain_neutralize.py (on by default since 1.8.0, issue #29;
+                           0 turns it off; issue #14)
   BRAIN_RECALL_FRESHNESS   adds "verified N days ago, basis: X" to a vault knowledge note's line, STALE past
                            BRAIN_STALE_DAYS (30) unless the basis is measured (on by default since 1.8.0, issue #29;
                            0 turns it off; issue #14)
@@ -335,10 +336,11 @@ def main():
 
 
 if __name__ == "__main__":
-    # Issue #14: with BRAIN_RECALL_NEUTRALIZE=1 the whole block, belief lines included, is rendered into a buffer and
-    # printed through scripts/brain_neutralize.py. Off, nothing is buffered or imported and the bytes are 1.4.1's.
+    # Issue #14: the whole block, belief lines included, is rendered into a buffer and printed through
+    # scripts/brain_neutralize.py (on by default since 1.8.0). With BRAIN_RECALL_NEUTRALIZE=0 nothing is buffered or
+    # imported and the bytes are 1.4.1's.
     bn = None
-    if os.environ.get("BRAIN_RECALL_NEUTRALIZE") == "1":
+    if os.environ.get("BRAIN_RECALL_NEUTRALIZE", "1") != "0":
         try:
             sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
             import io

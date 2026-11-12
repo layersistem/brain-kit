@@ -8,7 +8,7 @@ neutralises its own markup in MEMORY.md; this does the same for what the recall 
 print. Only the printed copy changes. The vault is never touched, so a note written by hand or synced in from
 elsewhere is covered too.
 
-On with BRAIN_RECALL_NEUTRALIZE=1 (any other value, or unset, leaves every byte as it was). Two rules:
+On by default since 1.8.0 (issue #29); BRAIN_RECALL_NEUTRALIZE=0 leaves every byte as it was. Two rules:
   - U+200B, U+200C, U+200D, U+2060 and U+FEFF are removed;
   - a harness tag, opening or closing, becomes `[tag: name]` / `[tag: /name]` (HARNESS_TAGS below)."""
 import os
@@ -21,7 +21,7 @@ _TAG = re.compile(r"<(/?)(%s)\b[^<>\n]{0,200}>" % "|".join(HARNESS_TAGS), re.I)
 
 
 def on():
-    return os.environ.get("BRAIN_RECALL_NEUTRALIZE") == "1"
+    return os.environ.get("BRAIN_RECALL_NEUTRALIZE", "1") != "0"
 
 
 def neutralize(text):
