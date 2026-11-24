@@ -52,6 +52,12 @@ time to learn, `routine` for notes you want kept but rarely surfaced.
 The same applies to headings: `CANON`, `LESSON` and `NEVER` in a section title raise that
 section's weight, so do not decorate ordinary headings with them.
 
+One tag the ranking refuses: a note whose name says it summarises (a hub, a handover, a closing
+note, a compact snapshot) never weighs more than `hub`, whatever its front matter says. Such a
+page carries every topic of its period and matches most prompts by breadth; with a `canon` tag on
+top it entered the top 5 for prompts it had nothing to say about (measured 24 Nov 2026: 4 of the
+16 top-5 slots the multiplier moved over 12 prompts). Tag the decisions inside the hub, not the hub.
+
 ## 5. Compaction: hub note plus snapshot
 
 Compaction is lossy and model-written. Two things make it survivable:
