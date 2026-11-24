@@ -66,7 +66,7 @@ def file_rows(text, f, tag):
     frow = (tag, f.stem, be.sha(text), hint, dord, int(sup), w, bm.note_project(text, tokens_all, f.stem), f.stat().st_mtime)
     crows = []
     for i, ((h, b), (_, etext)) in enumerate(zip(bm._sections(text), be.chunk_file(text))):
-        hw = max(w, bm.W_MAP["lesson"]) if bm.MARK.search(h) else w
+        hw = bm.note_w(f.stem, max(w, bm.W_MAP["lesson"]) if bm.MARK.search(h) else w)  # same cap as the file-scan path
         ctx = (f.stem + " " + h + " " + hint + " " + b)[:4000]
         crows.append((i, h, b[:600], " ".join(bm._toks(ctx)), " ".join(set(bm._toks(f.stem + " " + h + " " + hint))), hw, etext))
     return frow, crows

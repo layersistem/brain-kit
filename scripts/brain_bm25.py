@@ -28,6 +28,16 @@ ENT_W, REC_W, SUP_W = 0.5, 0.3, 0.5         # entity boost, recency boost, super
 W_MAP = {"canon": 1.5, "lesson": 1.3, "approval": 1.15, "decision": 1.15, "routine": 0.85, "hub": 0.85}  # frontmatter weight:
 AGE_W, AGE_FLOOR = 0.4, 0.6                 # dated + unweighted notes fade to 0.6 over a year
 MARK = re.compile(r"CANON|LESSON|NEVER|\U0001F534")  # heading markers implying weight: lesson
+# A note that summarises instead of deciding (a hub, a handover, a closing note, a compact snapshot) carries every
+# topic of its period, so it matches most prompts; tagged `weight: canon` it then takes the 1.5 multiplier on top and
+# enters the top 5 for prompts it has nothing to say about. Measured on the author's vault, 24 Nov 2026, 12 prompts:
+# the multiplier changed 16 of 60 top-5 slots, and 4 of those were instance hubs tagged canon, none on topic. The cap:
+# a note with a hub-like name never weighs more than `hub`, whatever its front matter says (the author's install has
+# ranked this way since 9 Sep 2026). The name test is the one brain_recall_print.py uses for the handover diet.
+HUB_RX = re.compile(r"hub|handoff|handover|closing|compact")
+def note_w(stem_, w):
+    """The weight multiplier a note really gets: its front matter's, capped at `hub` for a hub-like name."""
+    return min(w, W_MAP["hub"]) if HUB_RX.search(stem_.translate(_TR).lower()) else w
 USE_W, USE_CAP = 0.15, 5   # usage-reinforcement: notes the model actually opened earn a small, capped,
 # recency-independent boost. hooks/recall-usage-count.sh (PostToolUse on Read) adds a basename to
 # .index/recall_counts.json ({basename: {c, ts}}) each time such a note is read; it is applied here as a
@@ -157,7 +167,7 @@ def _corpus():
                              "text": b[:600], "tok": tok, "hint": hint, "dord": dord, "sup": sup,
                              "name": set(_toks(f.stem + " " + h + " " + hint)),
                              "project": note_project(txt, tok, f.stem),
-                             "w": max(w, W_MAP["lesson"]) if MARK.search(h) else w})
+                             "w": note_w(f.stem, max(w, W_MAP["lesson"]) if MARK.search(h) else w)})
     return docs
 
 def search(query, k=5, k1=1.5, b=0.75):
